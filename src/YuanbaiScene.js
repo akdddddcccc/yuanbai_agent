@@ -770,7 +770,8 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
       model.blocks.forEach((block, index) => {
         const data = block.userData;
         data.impulse *= .91;
-        const idle = Math.sin(t * .56 + data.phase) * .026;
+        const idle = Math.sin(t * .43 + data.phase) * .082
+          + Math.cos(t * .21 + data.phase * 1.7) * .018;
         const outward = (smoothedLevel * .62 + data.impulse * 2.0) * (.78 + (index % 5) * .055);
         const target = data.home.clone().addScaledVector(data.axis, outward);
         target.y += idle;
@@ -845,11 +846,11 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
         child.visible = entityOpacity > .001;
       });
 
-      model.building.rotation.y += ((-.12 + pointer.x * .07) - model.building.rotation.y) * .024;
-      model.building.rotation.x += ((pointer.y * -.018) - model.building.rotation.x) * .024;
-      model.building.position.y += ((buildingHomeY + Math.sin(t * .37) * .035) - model.building.position.y) * .045;
-      camera.position.x += ((cameraHome.x + pointer.x * .28) - camera.position.x) * .018;
-      camera.position.y += ((cameraHome.y - pointer.y * .18) - camera.position.y) * .018;
+      model.building.rotation.y += ((-.12 + pointer.x * .17) - model.building.rotation.y) * .032;
+      model.building.rotation.x += ((pointer.y * -.058) - model.building.rotation.x) * .032;
+      model.building.position.y += ((buildingHomeY + Math.sin(t * .31) * .062) - model.building.position.y) * .045;
+      camera.position.x += ((cameraHome.x + pointer.x * .62) - camera.position.x) * .024;
+      camera.position.y += ((cameraHome.y - pointer.y * .38) - camera.position.y) * .024;
       camera.lookAt(lookAt);
       renderer.render(scene, camera);
     };

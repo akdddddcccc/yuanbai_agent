@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Microphone } from "@phosphor-icons/react";
+import { CursorLightTrail } from "./CursorLightTrail";
 import { KnowledgePanel } from "./KnowledgePanel";
 import { YuanbaiScene } from "./YuanbaiScene";
 
@@ -363,6 +364,7 @@ export function App() {
 
   return (
     <main className={`experience phase-${phase}`}>
+      <CursorLightTrail />
       <header className="brand">YUANBAI / 元白</header>
       <a className="back-to-portal" href={import.meta.env.BASE_URL}>
         <ArrowLeft size={14} weight="bold" />

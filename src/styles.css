@@ -46,6 +46,20 @@ button { font: inherit; }
     var(--color-bg);
 }
 
+.cursor-light-trail {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  width: 100vw;
+  height: 100dvh;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+@media (max-width: 820px), (hover: none), (pointer: coarse) {
+  .cursor-light-trail { display: none; }
+}
+
 /* 叠在最上层的细颗粒，用来削弱纯数字渲染感。删除本段即可获得更干净的画面。 */
 .experience::before {
   content: "";
