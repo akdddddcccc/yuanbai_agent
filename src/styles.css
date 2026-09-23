@@ -1,7 +1,15 @@
 :root {
+  /* 视觉主题入口：先改这组变量，可以整体换色和调整左右版式。 */
+  --color-bg: #180506;
+  --color-text: #f2e7dc;
+  --color-muted: #cbb9aa;
+  --color-accent: #ef8c58;
+  --color-control: rgba(57, 14, 13, .88);
+  --copy-left: clamp(42px, 7vw, 108px);
+  --scene-start: 38%;
   font-family: Inter, "Noto Sans SC", "Microsoft YaHei", sans-serif;
-  color: #f2e7dc;
-  background: #180506;
+  color: var(--color-text);
+  background: var(--color-bg);
   font-synthesis: none;
 }
 
@@ -24,9 +32,10 @@ button { font: inherit; }
   min-height: 100dvh;
   overflow: hidden;
   isolation: isolate;
-  background: #180506;
+  background: var(--color-bg);
 }
 
+/* 叠在最上层的细颗粒，用来削弱纯数字渲染感。删除本段即可获得更干净的画面。 */
 .experience::before {
   content: "";
   position: absolute;
@@ -43,7 +52,7 @@ button { font: inherit; }
   top: 34px;
   left: 42px;
   z-index: 6;
-  color: #cbb9aa;
+  color: var(--color-muted);
   font-size: 11px;
   font-weight: 650;
   letter-spacing: .25em;
@@ -52,7 +61,7 @@ button { font: inherit; }
 .copy-panel {
   position: fixed;
   top: 50%;
-  left: clamp(42px, 7vw, 108px);
+  left: var(--copy-left);
   z-index: 6;
   width: min(34vw, 460px);
   transform: translateY(-54%);
@@ -72,7 +81,7 @@ button { font: inherit; }
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #ef8c58;
+  background: var(--color-accent);
   box-shadow: 0 0 15px rgba(255, 127, 71, .7);
 }
 
@@ -114,7 +123,7 @@ h1 {
 
 .scene-panel {
   position: fixed;
-  inset: 0 0 0 38%;
+  inset: 0 0 0 var(--scene-start);
   z-index: 1;
 }
 
@@ -133,7 +142,7 @@ h1 {
 
 .hold-button {
   position: fixed;
-  left: clamp(42px, 7vw, 108px);
+  left: var(--copy-left);
   bottom: 76px;
   z-index: 8;
   display: grid;
@@ -147,7 +156,7 @@ h1 {
   border: 1px solid rgba(230, 164, 119, .22);
   border-radius: 36px;
   outline: none;
-  background: rgba(57, 14, 13, .88);
+  background: var(--color-control);
   box-shadow: 0 18px 50px rgba(0, 0, 0, .26);
   cursor: pointer;
   touch-action: none;
@@ -212,6 +221,7 @@ footer {
 @keyframes idleWave { 0%, 100% { transform: scaleY(.35); } 50% { transform: scaleY(.8); } }
 @keyframes pulse { from { opacity: .45; transform: scale(.8); } to { opacity: 1; transform: scale(1.25); } }
 
+/* 手机布局入口：如果嵌入作品集后显得拥挤，优先调整这里。 */
 @media (max-width: 820px) {
   .brand { top: 24px; left: 24px; }
   .copy-panel { top: 24%; left: 24px; width: calc(100vw - 48px); transform: none; }

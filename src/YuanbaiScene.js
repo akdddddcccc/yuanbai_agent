@@ -2,6 +2,8 @@ import { createElement, useEffect, useRef } from "react";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 
+// 每行依次是 [x, y, z, 宽, 高, 深, z轴旋转]。
+// 想改楼体轮廓时优先改这里；增加一行就是增加一个红砖体块。
 const BLOCKS = [
   [-2.55, 2.9, 0.15, 2.7, 1.05, 1.5, -0.06],
   [2.35, 3.15, -0.05, 2.15, 1.1, 1.45, 0.04],
@@ -20,6 +22,7 @@ const BLOCKS = [
   [3.35, -3.75, .2, 1.3, .85, 1.1, 0.08],
 ];
 
+// Three.js 材质色板。页面 UI 色板在 styles.css 的 :root 中，两处可分别调整。
 const palette = {
   brick: new THREE.Color("#a44735"),
   brickDark: new THREE.Color("#70271f"),
@@ -52,6 +55,7 @@ function addWindow(group, position, scale, windowMaterials) {
 }
 
 function makeBuilding(scene) {
+  // building 是完整实体楼；以后替换 GLB 时，可以保留返回值中的交互接口。
   const building = new THREE.Group();
   building.rotation.set(-.045, -.16, -.02);
   building.position.set(.3, -.05, 0);
@@ -64,6 +68,7 @@ function makeBuilding(scene) {
   const windowMaterials = [];
   const blocks = [];
 
+  // 中央浅色混凝土核心筒。
   const core = new THREE.Mesh(new RoundedBoxGeometry(2.1, 8.8, 2, 4, .12), concrete);
   core.position.set(.05, .35, 0);
   core.castShadow = true;
@@ -107,6 +112,7 @@ function makeBuilding(scene) {
     blocks.push(group);
   });
 
+  // 楼梯独立成组，动画里只做极小幅度摆动，避免说话时跟着体块剧烈爆开。
   const stairRoot = new THREE.Group();
   stairRoot.position.z = 1.18;
   building.add(stairRoot);
@@ -133,6 +139,7 @@ function makeBuilding(scene) {
   }
   windowMaterials.push(...stairGlow);
 
+  // 等待阶段的白色 GLSL 粒子云。count 控制密度，也最影响低端设备性能。
   const particleGeometry = new THREE.BufferGeometry();
   const count = 7600;
   const positions = new Float32Array(count * 3);
@@ -188,6 +195,7 @@ function makeBuilding(scene) {
 
 export function YuanbaiScene({ phase, level }) {
   const mountRef = useRef(null);
+  // 动画循环只创建一次；React 状态通过 ref 注入，避免每次说话都重建 WebGL 场景。
   const stateRef = useRef({ phase, level });
   stateRef.current = { phase, level };
 
@@ -266,10 +274,12 @@ export function YuanbaiScene({ phase, level }) {
       const t = (now - startedAt) / 1000;
       const { phase: currentPhase, level: rawLevel } = stateRef.current;
       const voiceLevel = currentPhase === "speaking" ? rawLevel : 0;
+      // 上升快、下降慢，让灯光对重音灵敏，同时在停顿后留下自然余辉。
       smoothedLevel += (voiceLevel - smoothedLevel) * (voiceLevel > smoothedLevel ? .24 : .075);
       afterglow = Math.max(smoothedLevel, afterglow * .974);
 
       const onset = voiceLevel - previousLevel;
+      // onset 是相邻帧音量突增。阈值越低，楼体越容易触发“爆炸式”外推。
       if (currentPhase === "speaking" && onset > .085 && voiceLevel > .15) {
         model.blocks.forEach((block, index) => {
           block.userData.impulse += onset * (1.1 + (index % 4) * .12);
@@ -281,6 +291,7 @@ export function YuanbaiScene({ phase, level }) {
         const data = block.userData;
         data.impulse *= .91;
         const idle = Math.sin(t * .58 + data.phase) * .055;
+        // .52 控制持续发声位移，1.8 控制重音瞬间的爆发距离。
         const outward = (smoothedLevel * .52 + data.impulse * 1.8) * (0.72 + (index % 5) * .06);
         const target = data.home.clone().addScaledVector(data.axis, outward);
         target.y += idle;
@@ -291,12 +302,14 @@ export function YuanbaiScene({ phase, level }) {
 
       model.stairRoot.position.y = Math.sin(t * .45) * .012;
       model.stairRoot.rotation.z = Math.sin(t * .3) * .0025;
+      // 8.2 是实时语调亮度，2.1 是停顿后的余辉强度。
       const lightPulse = .12 + smoothedLevel * 8.2 + afterglow * 2.1;
       model.windowMaterials.forEach((material, index) => {
         const uneven = .72 + Math.sin(t * 4.1 + index * 1.63) * .18;
         material.emissiveIntensity = lightPulse * uneven;
       });
 
+      // thinking 阶段让实体楼淡出、粒子云淡入；.055 控制溶解速度。
       const thinking = currentPhase === "thinking" ? 1 : 0;
       particleOpacity += (thinking - particleOpacity) * .055;
       model.particleMaterial.uniforms.uTime.value = t;

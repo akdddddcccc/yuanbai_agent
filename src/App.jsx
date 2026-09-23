@@ -10,6 +10,7 @@ const PHASE_COPY = {
 };
 
 const INTRO = "我会记得发生在这里的事，也会像一个熟悉校园的老朋友那样和你聊天。";
+// 本地 Python 服务使用 /api/chat；发布到共享域名的 /yuanbai/ 后自动切换到 EdgeOne 函数。
 const API_CHAT_URL = import.meta.env.VITE_YUANBAI_API_URL || (
   globalThis.location?.pathname?.startsWith("/yuanbai/") ? "/api/yuanbai/chat" : "/api/chat"
 );
@@ -34,7 +35,9 @@ function preferredMimeType() {
 }
 
 export function App() {
+  // 四个阶段同时控制文字、按钮、楼体动画：idle → listening → thinking → speaking。
   const [phase, setPhase] = useState("idle");
+  // level 是实时声音能量（0~1），会传给 Three.js，驱动灯光和体块爆发。
   const [level, setLevel] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [answer, setAnswer] = useState("");
@@ -84,6 +87,7 @@ export function App() {
       const sample = (value - 128) / 128;
       energy += sample * sample;
     }
+    // 7.5 是声音可视化灵敏度；调高后，小声说话也会产生更明显的灯光和位移。
     setLevel(Math.min(1, Math.max(0, Math.sqrt(energy / data.length) * 7.5)));
     animationRef.current = requestAnimationFrame(meter);
   }, []);
@@ -148,6 +152,7 @@ export function App() {
     try {
       if (blob.size < 800) throw new Error("录音太短了，请多说一点。 ");
       const audioBase64 = await blobToBase64(blob);
+      // 浏览器只上传录音和最近四轮对话。API 密钥始终留在服务端函数中。
       const response = await fetch(API_CHAT_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -170,6 +175,8 @@ export function App() {
         { role: "assistant", content: result.answer || "" },
       ].filter((message) => message.content).slice(-8);
 
+      // 公网函数返回 base64，生成同源 Blob 后 WebAudio 才能稳定读取音量。
+      // 本地 Python 仍可返回 audio_url，两种方式共用同一套前端。
       if (result.audio_base64) {
         const binary = atob(result.audio_base64);
         const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
@@ -200,6 +207,7 @@ export function App() {
         throw new Error("当前浏览器不能录音，请使用最新版 Chrome 或 Edge。");
       }
       responseRef.current?.pause();
+      // 这里可调整录音约束；回声消除和降噪适合展厅、教室等有外放的环境。
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
       });
