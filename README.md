@@ -12,3 +12,7 @@ npm run dev
 ```
 
 本地默认请求 `/api/chat`，Vite 会将它转发到已部署的 `/api/yuanbai/chat`；部署到 `/yuanbai/` 后前端直接请求云端函数。API 密钥只配置在托管平台的服务端环境变量中，不应提交到此仓库。
+
+## 三人协作
+
+游戏、工作台与语料、语音交互的目录边界和分支流程见 [TEAM_WORKFLOW.md](TEAM_WORKFLOW.md)。每个人在自己的分支开发，通过 Pull Request 合并到 `main`。
