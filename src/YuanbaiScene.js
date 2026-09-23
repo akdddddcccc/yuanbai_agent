@@ -745,6 +745,7 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
     let afterglow = .06;
     let smoothedLevel = 0;
     let previousLevel = 0;
+    let entityOpacity = 1;
     let particleOpacity = 0;
     let particleFormation = 0;
     let wasThinking = false;
@@ -800,15 +801,38 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
       const projectionScale = 1 + speechGlow * .1 + Math.sin(t * .82) * .008;
       projection.scale.set(projectionScale, projectionScale, 1);
 
-      const thinking = currentPhase === "thinking" ? 1 : 0;
+      const thinking = currentPhase === "thinking";
       if (thinking && !wasThinking) {
         thinkingStartedAt = t;
+        entityOpacity = 1;
+        particleOpacity = 0;
         particleFormation = 0;
       }
-      if (thinking) particleFormation = 1 - Math.exp(-(t - thinkingStartedAt) * 1.65);
-      else particleFormation = 0;
-      wasThinking = Boolean(thinking);
-      particleOpacity += (thinking - particleOpacity) * .055;
+      if (thinking) {
+        const transitionTime = t - thinkingStartedAt;
+        const dissolveProgress = THREE.MathUtils.clamp(transitionTime / .26, 0, 1);
+        const easedDissolve = dissolveProgress * dissolveProgress * (3 - 2 * dissolveProgress);
+        entityOpacity = 1 - easedDissolve;
+
+        // 先让实体彻底隐形，再启动粒子；两种表现不会同时叠在同一空间里。
+        if (dissolveProgress >= 1) {
+          particleOpacity += (1 - particleOpacity) * .075;
+          particleFormation = 1 - Math.exp(-(transitionTime - .26) * 1.65);
+        } else {
+          particleOpacity = 0;
+          particleFormation = 0;
+        }
+      } else {
+        particleOpacity += (0 - particleOpacity) * .095;
+        particleFormation += (0 - particleFormation) * .08;
+        if (particleOpacity < .008) {
+          particleOpacity = 0;
+          entityOpacity += (1 - entityOpacity) * .12;
+        } else {
+          entityOpacity = 0;
+        }
+      }
+      wasThinking = thinking;
       model.particleMaterial.uniforms.uTime.value = t;
       model.particleMaterial.uniforms.uOpacity.value = particleOpacity;
       model.particleMaterial.uniforms.uFormation.value = particleFormation;
@@ -816,8 +840,9 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
       model.particles.rotation.y = Math.sin(t * .19) * .055 * (1 - particleFormation);
       model.building.traverse((child) => {
         if (!child.material || child === model.particles) return;
-        child.material.opacity = 1 - particleOpacity * .94;
-        child.material.transparent = particleOpacity > .01;
+        child.material.opacity = entityOpacity;
+        child.material.transparent = entityOpacity < .999;
+        child.visible = entityOpacity > .001;
       });
 
       model.building.rotation.y += ((-.12 + pointer.x * .07) - model.building.rotation.y) * .024;
