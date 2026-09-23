@@ -28,11 +28,12 @@ export const YUANBAI_MASSES = [
 // 连接点来自 Rhino 中 5 个 Extrusion 的起止位置。
 // 网页里改成带踏步、平台和栏杆的稳定连接体，发声时不参与爆炸运动。
 export const YUANBAI_CONNECTIONS = [
-  { id: "south-link", from: [0, 2.75, 3.0], to: [-1.13, 1.5, 3.25], width: .42 },
-  { id: "north-link", from: [.38, 1.79, -3.05], to: [.04, 1.06, -3.48], width: .34 },
-  { id: "west-link", from: [-3.03, 2.47, 0], to: [-3.47, 2.03, 0], width: .34 },
-  { id: "roof-link", from: [.84, .97, -4.22], to: [1.45, .78, -3.87], width: .3 },
-  { id: "east-link", from: [3.22, 2.19, -.19], to: [3.66, 1.72, .07], width: .34 },
+  // anchor 指定唯一跟随体块。连接体只继承这一栋楼的位移，不同时受两端楼体拉扯。
+  { id: "south-link", anchor: "south-core", from: [0, 2.75, 3.0], to: [-1.13, 1.5, 3.25], width: .42 },
+  { id: "north-link", anchor: "north-tower", from: [.38, 1.79, -3.05], to: [.04, 1.06, -3.48], width: .34 },
+  { id: "west-link", anchor: "west-core", from: [-3.03, 2.47, 0], to: [-3.47, 2.03, 0], width: .34 },
+  { id: "roof-link", anchor: "north-core", from: [.84, .97, -4.22], to: [1.45, .78, -3.87], width: .3 },
+  { id: "east-link", anchor: "court-tower", from: [3.22, 2.19, -.19], to: [3.66, 1.72, .07], width: .34 },
 ];
 
 export const YUANBAI_COURTYARD = {

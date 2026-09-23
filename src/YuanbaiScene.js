@@ -330,6 +330,7 @@ function cylinderBetween(start, end, radius, material) {
 function addStairConnection(stairRoot, connection, materials) {
   const root = new THREE.Group();
   root.name = `YB_stair_${connection.id}`;
+  root.userData.anchorId = connection.anchor;
   const start = new THREE.Vector3(...connection.from);
   const end = new THREE.Vector3(...connection.to);
   const horizontal = new THREE.Vector3(end.x - start.x, 0, end.z - start.z);
@@ -366,6 +367,7 @@ function addStairConnection(stairRoot, connection, materials) {
     root.add(stringer);
   });
   stairRoot.add(root);
+  return root;
 }
 
 function makeParticleRandom(seed = 41729) {
@@ -587,6 +589,7 @@ function makeBuilding(scene) {
 
   const windowMaterials = [];
   const blocks = [];
+  const blocksById = new Map();
 
   YUANBAI_MASSES.forEach((mass, index) => {
     const group = new THREE.Group();
@@ -634,16 +637,23 @@ function makeBuilding(scene) {
 
     building.add(group);
     blocks.push(group);
+    blocksById.set(mass.id, group);
   });
 
   const stairRoot = new THREE.Group();
   stairRoot.name = "YB_stable_stairs_and_bridges";
-  YUANBAI_CONNECTIONS.forEach((connection) => addStairConnection(stairRoot, connection, materials));
+  const stairs = YUANBAI_CONNECTIONS.map((connection) => {
+    const stair = addStairConnection(stairRoot, connection, materials);
+    const anchorBlock = blocksById.get(connection.anchor);
+    stair.userData.anchorBlock = anchorBlock;
+    stair.userData.anchorHome = anchorBlock?.userData.home.clone();
+    return stair;
+  });
   building.add(stairRoot);
   addCourtyard(building, materials);
   const { particles, particleMaterial } = makeStructureParticleCloud(building);
 
-  return { building, blocks, stairRoot, windowMaterials, particles, particleMaterial };
+  return { building, blocks, stairRoot, stairs, windowMaterials, particles, particleMaterial };
 }
 
 export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
@@ -769,8 +779,11 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
         block.rotation.y += (data.baseRotation + smoothedLevel * data.axis.x * .025 - block.rotation.y) * .07;
       });
 
-      model.stairRoot.position.y = Math.sin(t * .42) * .006;
-      model.stairRoot.rotation.z = Math.sin(t * .28) * .0015;
+      model.stairs.forEach((stair) => {
+        const { anchorBlock, anchorHome } = stair.userData;
+        if (!anchorBlock || !anchorHome) return;
+        stair.position.copy(anchorBlock.position).sub(anchorHome);
+      });
       const lightPulse = .035 + smoothedLevel * 8.4 + afterglow * 1.8;
       model.windowMaterials.forEach((material, index) => {
         const uneven = .72 + Math.sin(t * 4.0 + index * 1.47) * .18;
