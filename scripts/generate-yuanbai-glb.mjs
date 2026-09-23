@@ -28,11 +28,11 @@ globalThis.FileReader = class FileReader {
 };
 
 const materials = {
-  brick: new THREE.MeshStandardMaterial({ name: "YB_Red_Brick", color: 0x963f31, roughness: .95 }),
-  brickDark: new THREE.MeshStandardMaterial({ name: "YB_Dark_Brick", color: 0x67251f, roughness: .97 }),
-  concrete: new THREE.MeshStandardMaterial({ name: "YB_Board_Form_Concrete", color: 0xaaa49b, roughness: .98 }),
-  concreteLight: new THREE.MeshStandardMaterial({ name: "YB_Exposed_Concrete", color: 0xd0c9bd, roughness: .96 }),
-  metal: new THREE.MeshStandardMaterial({ name: "YB_Dark_Metal", color: 0x322d2a, roughness: .72, metalness: .22 }),
+  brick: new THREE.MeshStandardMaterial({ name: "YB_Warm_Terracotta_Brick", color: 0xad594a, roughness: .95 }),
+  brickDark: new THREE.MeshStandardMaterial({ name: "YB_Dark_Terracotta_Brick", color: 0x7f3d36, roughness: .97 }),
+  concrete: new THREE.MeshStandardMaterial({ name: "YB_Board_Form_Concrete", color: 0xa7a59f, roughness: .98 }),
+  concreteLight: new THREE.MeshStandardMaterial({ name: "YB_Exposed_Concrete", color: 0xc7c1b8, roughness: .96 }),
+  metal: new THREE.MeshStandardMaterial({ name: "YB_Rough_Steel", color: 0x33383a, roughness: .82, metalness: .3 }),
   window: new THREE.MeshStandardMaterial({
     name: "YB_Warm_Window",
     color: 0x1c1512,
@@ -40,7 +40,10 @@ const materials = {
     emissiveIntensity: .5,
     roughness: .4,
   }),
-  grass: new THREE.MeshStandardMaterial({ name: "YB_Grass", color: 0x596344, roughness: 1 }),
+  weatheredMetal: new THREE.MeshStandardMaterial({ name: "YB_Subtle_Rust_Metal", color: 0x594a43, roughness: .87, metalness: .14 }),
+  roofPaver: new THREE.MeshStandardMaterial({ name: "YB_Terracotta_Roof_Paver", color: 0xc87f69, roughness: .92 }),
+  roofGlass: new THREE.MeshStandardMaterial({ name: "YB_Roof_Glass", color: 0x91a5a5, roughness: .28, metalness: .08 }),
+  grass: new THREE.MeshStandardMaterial({ name: "YB_Green_Roof", color: 0x537048, roughness: 1 }),
   soil: new THREE.MeshStandardMaterial({ name: "YB_Soil", color: 0x342822, roughness: 1 }),
 };
 
@@ -97,6 +100,14 @@ YUANBAI_MASSES.forEach((mass, index) => {
     cap.name = "exposed_concrete_roof_cap";
     cap.position.y = height;
     group.add(cap);
+    const westGarden = new THREE.Mesh(new THREE.BoxGeometry(1.55, .045, 2.65), materials.grass);
+    westGarden.name = "green_roof_west_wing";
+    westGarden.position.set(-1.86, height + .095, -.05);
+    group.add(westGarden);
+    const southGarden = new THREE.Mesh(new THREE.BoxGeometry(2.25, .045, 1.25), materials.grass);
+    southGarden.name = "green_roof_south_wing";
+    southGarden.position.set(1.48, height + .095, .82);
+    group.add(southGarden);
   } else {
     const rows = Math.max(1, Math.min(4, Math.floor((height - .28) / .58)));
     for (let row = 0; row < rows; row += 1) {
@@ -109,10 +120,44 @@ YUANBAI_MASSES.forEach((mass, index) => {
     roof.name = "exposed_concrete_roof_cap";
     roof.position.y = height + .045;
     group.add(roof);
+    if (height < 3.1) {
+      const roofDeck = new THREE.Mesh(new THREE.BoxGeometry(width * .82, .035, depth * .8), materials.roofPaver);
+      roofDeck.name = "terracotta_roof_deck";
+      roofDeck.position.y = height + .108;
+      group.add(roofDeck);
+      const gardenWidth = width * (index % 2 ? .38 : .62);
+      const garden = new THREE.Mesh(new THREE.BoxGeometry(gardenWidth, .038, depth * .64), materials.grass);
+      garden.name = "green_roof_strip";
+      garden.position.set((width * .72 - gardenWidth) * (index % 2 ? -.25 : .2), height + .135, 0);
+      group.add(garden);
+    }
     const fin = new THREE.Mesh(new THREE.BoxGeometry(.12, height * .78, .16), materials.concreteLight);
     fin.name = "brutalist_vertical_fin";
     fin.position.set(width * .28 * (index % 2 ? 1 : -1), height * .48, depth / 2 + .1);
     group.add(fin);
+    if (index % 4 === 2 && height > 1.35) {
+      const braceStartA = new THREE.Vector3(-width * .38, .22, depth / 2 + .115);
+      const braceEndA = new THREE.Vector3(width * .38, Math.min(height - .18, 1.65), depth / 2 + .115);
+      const braceStartB = new THREE.Vector3(width * .38, .22, depth / 2 + .12);
+      const braceEndB = new THREE.Vector3(-width * .38, Math.min(height - .18, 1.65), depth / 2 + .12);
+      const braceA = cylinderBetween(braceStartA, braceEndA, .028, materials.metal);
+      const braceB = cylinderBetween(braceStartB, braceEndB, .028, materials.metal);
+      braceA.name = "exposed_steel_brace_a";
+      braceB.name = "exposed_steel_brace_b";
+      group.add(braceA, braceB);
+    }
+    if (mass.finish === "concrete" && index % 2 === 1) {
+      const rustJoint = new THREE.Mesh(new THREE.BoxGeometry(.035, height * .34, .012), materials.weatheredMetal);
+      rustJoint.name = "subtle_rust_runoff";
+      rustJoint.position.set(width * .27, height * .7, depth / 2 + .047);
+      group.add(rustJoint);
+    }
+    if (mass.id === "central-tower") {
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(width * .58, .07, depth * .58), materials.roofGlass);
+      glass.name = "central_glass_roof";
+      glass.position.y = height + .19;
+      group.add(glass);
+    }
   }
   scene.add(group);
 });
@@ -143,6 +188,13 @@ YUANBAI_CONNECTIONS.forEach((connection) => {
     railStart.y += .28;
     railEnd.y += .28;
     root.add(cylinderBetween(railStart, railEnd, .018, materials.metal));
+    const stringerStart = start.clone().addScaledVector(side, direction * .78);
+    const stringerEnd = end.clone().addScaledVector(side, direction * .78);
+    stringerStart.y -= .1;
+    stringerEnd.y -= .1;
+    const stringer = cylinderBetween(stringerStart, stringerEnd, .032, materials.metal);
+    stringer.name = "rough_steel_stair_stringer";
+    root.add(stringer);
   });
   stairs.add(root);
 });

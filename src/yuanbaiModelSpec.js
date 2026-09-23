@@ -5,11 +5,11 @@ export const YUANBAI_MASSES = [
   { id: "north-court", position: [2.26, 0, -4.02], size: [1.5, .75, 1.5], rotation: .262, finish: "concrete" },
   { id: "north-core", position: [0.01, 0, -4.27], size: [1.5, 1.0, 1.5], rotation: 0, finish: "brickDark" },
   { id: "north-tower", position: [.22, 0, -2.13], size: [1.5, 2.25, 1.5], rotation: -.524, finish: "brick" },
-  { id: "east-tower", position: [4.19, 0, -1.85], size: [1.5, 1.75, 1.5], rotation: .436, finish: "brickDark" },
+  { id: "east-tower", position: [4.19, 0, -1.85], size: [1.5, 1.75, 1.5], rotation: .436, finish: "concrete" },
   { id: "east-middle", position: [4.38, 0, .05], size: [1.5, 1.75, 1.5], rotation: 0, finish: "concrete" },
   { id: "court-tower", position: [2.25, 0, -.03], size: [1.5, 2.5, 1.5], rotation: .436, finish: "brick" },
   { id: "central-tower", position: [0, 0, 0], size: [1.5, 3.5, 1.5], rotation: 0, finish: "concrete" },
-  { id: "south-core", position: [0, 0, 2.25], size: [1.5, 2.75, 1.5], rotation: 0, finish: "brickDark" },
+  { id: "south-core", position: [0, 0, 2.25], size: [1.5, 2.75, 1.5], rotation: 0, finish: "concrete" },
   { id: "west-tower", position: [-4.25, 0, 0], size: [1.5, 2.0, 1.5], rotation: 0, finish: "brick" },
   {
     id: "west-courtyard",

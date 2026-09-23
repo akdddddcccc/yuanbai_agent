@@ -4,13 +4,13 @@ import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.j
 import { YUANBAI_CONNECTIONS, YUANBAI_COURTYARD, YUANBAI_MASSES } from "./yuanbaiModelSpec.js";
 
 const palette = {
-  brick: new THREE.Color("#963f31"),
-  brickDark: new THREE.Color("#67251f"),
-  concrete: new THREE.Color("#aaa49b"),
-  concreteLight: new THREE.Color("#d0c9bd"),
-  metal: new THREE.Color("#322d2a"),
+  brick: new THREE.Color("#f0c1ad"),
+  brickDark: new THREE.Color("#d3a097"),
+  concrete: new THREE.Color("#b8b4ac"),
+  concreteLight: new THREE.Color("#d2cdc3"),
+  metal: new THREE.Color("#33383a"),
   glow: new THREE.Color("#ff9c55"),
-  grass: new THREE.Color("#596344"),
+  grass: new THREE.Color("#537048"),
 };
 
 function seededNoise(seed) {
@@ -25,8 +25,8 @@ function makeSurfaceTexture(type) {
   const ctx = canvas.getContext("2d");
 
   if (type === "brick" || type === "brickDark") {
-    const base = type === "brick" ? "#9b4938" : "#672a23";
-    const mortar = type === "brick" ? "#6e3027" : "#3f1d19";
+    const base = type === "brick" ? "#ad594a" : "#7f3d36";
+    const mortar = type === "brick" ? "#754037" : "#4b2825";
     ctx.fillStyle = mortar;
     ctx.fillRect(0, 0, 256, 256);
     const brickW = 44;
@@ -41,8 +41,11 @@ function makeSurfaceTexture(type) {
         ctx.fillRect(offset + col * brickW + 2, row * brickH + 2, brickW - 4, brickH - 4);
       }
     }
+    // 很轻的雨水色差，避免每面砖墙过于均匀。
+    ctx.fillStyle = "rgba(82,35,27,.045)";
+    [31, 118, 203].forEach((x, index) => ctx.fillRect(x, 0, 8 + index * 3, 256));
   } else {
-    ctx.fillStyle = "#aaa59c";
+    ctx.fillStyle = "#a7a59f";
     ctx.fillRect(0, 0, 256, 256);
     for (let i = 0; i < 3400; i += 1) {
       const value = 120 + Math.floor(seededNoise(i * 3.13) * 95);
@@ -65,6 +68,15 @@ function makeSurfaceTexture(type) {
       ctx.lineTo(x + .5, 256);
       ctx.stroke();
     }
+    // 混凝土模板接缝下的微弱锈水痕，透明度刻意压低。
+    [46, 168, 221].forEach((x, index) => {
+      const gradient = ctx.createLinearGradient(0, 0, 0, 170 + index * 22);
+      gradient.addColorStop(0, "rgba(132,67,43,.11)");
+      gradient.addColorStop(.42, "rgba(139,72,46,.045)");
+      gradient.addColorStop(1, "rgba(139,72,46,0)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x, 0, 4 + index * 2, 190 + index * 22);
+    });
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -86,7 +98,10 @@ function makeMaterials() {
     concrete: new THREE.MeshStandardMaterial({ map: concreteTexture, color: palette.concrete, roughness: .98, metalness: 0 }),
     concreteLight: new THREE.MeshStandardMaterial({ map: concreteTexture, color: palette.concreteLight, roughness: .96, metalness: 0 }),
     concreteDark: new THREE.MeshStandardMaterial({ color: "#6f6a64", roughness: .98, metalness: 0 }),
-    metal: new THREE.MeshStandardMaterial({ color: palette.metal, roughness: .7, metalness: .24 }),
+    metal: new THREE.MeshStandardMaterial({ color: palette.metal, roughness: .82, metalness: .3 }),
+    weatheredMetal: new THREE.MeshStandardMaterial({ color: "#594a43", roughness: .87, metalness: .14 }),
+    roofPaver: new THREE.MeshStandardMaterial({ color: "#c87f69", roughness: .92, metalness: 0 }),
+    roofGlass: new THREE.MeshStandardMaterial({ color: "#91a5a5", emissive: "#57706f", emissiveIntensity: .18, roughness: .28, metalness: .08 }),
     grass: new THREE.MeshStandardMaterial({ color: palette.grass, roughness: 1, metalness: 0 }),
     soil: new THREE.MeshStandardMaterial({ color: "#342822", roughness: 1, metalness: 0 }),
   };
@@ -154,6 +169,9 @@ function addFacadeDetails(group, mass, index, materials, windowMaterials) {
 
   for (let row = 0; row < rowCount; row += 1) {
     const wy = .34 + row * ((height - .58) / Math.max(1, rowCount - 1));
+    const ribbon = new THREE.Mesh(new THREE.BoxGeometry(width * .84, .27, .045), materials.concreteDark);
+    ribbon.position.set(0, wy, frontZ - .006);
+    group.add(ribbon);
     for (let col = 0; col < colCount; col += 1) {
       if ((row * 3 + col + index) % 5 === 0) continue;
       const wx = (col - (colCount - 1) / 2) * Math.min(.43, width / Math.max(2, colCount + .4));
@@ -172,6 +190,17 @@ function addFacadeDetails(group, mass, index, materials, windowMaterials) {
   roof.castShadow = true;
   group.add(roof);
 
+  // 顶视图中的陶土色铺装、绿色屋面和白色压边。
+  if (height < 3.1) {
+    const roofDeck = new THREE.Mesh(new THREE.BoxGeometry(width * .82, .035, depth * .8), materials.roofPaver);
+    roofDeck.position.y = height + .108;
+    group.add(roofDeck);
+    const gardenWidth = width * (index % 2 ? .38 : .62);
+    const garden = new THREE.Mesh(new THREE.BoxGeometry(gardenWidth, .038, depth * .64), materials.grass);
+    garden.position.set((width * .72 - gardenWidth) * (index % 2 ? -.25 : .2), height + .135, 0);
+    group.add(garden);
+  }
+
   const fin = new THREE.Mesh(new THREE.BoxGeometry(.12, height * .78, .16), materials.concreteLight);
   fin.position.set(width * .28 * (index % 2 ? 1 : -1), height * .48, depth / 2 + .1);
   fin.castShadow = true;
@@ -187,11 +216,32 @@ function addFacadeDetails(group, mass, index, materials, windowMaterials) {
     group.add(rail);
   }
 
+  // 少量外露钢斜撑强调粗野主义结构，不把每一面都装饰化。
+  if (index % 4 === 2 && height > 1.35) {
+    const braceStartA = new THREE.Vector3(-width * .38, .22, depth / 2 + .115);
+    const braceEndA = new THREE.Vector3(width * .38, Math.min(height - .18, 1.65), depth / 2 + .115);
+    const braceStartB = new THREE.Vector3(width * .38, .22, depth / 2 + .12);
+    const braceEndB = new THREE.Vector3(-width * .38, Math.min(height - .18, 1.65), depth / 2 + .12);
+    const braceA = cylinderBetween(braceStartA, braceEndA, .028, materials.metal);
+    const braceB = cylinderBetween(braceStartB, braceEndB, .028, materials.metal);
+    braceA.name = "exposed_steel_brace_a";
+    braceB.name = "exposed_steel_brace_b";
+    group.add(braceA, braceB);
+  }
+
   if (mass.finish === "concrete") {
     for (let seam = .42; seam < height - .18; seam += .62) {
       const line = new THREE.Mesh(new THREE.BoxGeometry(width * .88, .018, .018), materials.concreteDark);
       line.position.set(0, seam, depth / 2 + .038);
       group.add(line);
+    }
+    if (index % 2 === 1) {
+      const rustJoint = new THREE.Mesh(new THREE.BoxGeometry(.035, height * .34, .012), materials.weatheredMetal);
+      rustJoint.position.set(width * .27, height * .7, depth / 2 + .047);
+      rustJoint.material = materials.weatheredMetal.clone();
+      rustJoint.material.transparent = true;
+      rustJoint.material.opacity = .22;
+      group.add(rustJoint);
     }
   }
 
@@ -201,9 +251,25 @@ function addFacadeDetails(group, mass, index, materials, windowMaterials) {
     roofCore.castShadow = true;
     group.add(roofCore);
   } else {
-    const vent = new THREE.Mesh(new THREE.CylinderGeometry(.055, .07, .36, 10), materials.metal);
+    const vent = new THREE.Mesh(new THREE.CylinderGeometry(.055, .07, .36, 10), materials.weatheredMetal);
     vent.position.set(width * .22, height + .22, -depth * .12);
     group.add(vent);
+  }
+
+  if (mass.id === "central-tower") {
+    const lantern = new THREE.Group();
+    lantern.position.y = height + .19;
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(width * .58, .07, depth * .58), materials.roofGlass);
+    lantern.add(glass);
+    for (let i = -2; i <= 2; i += 1) {
+      const barX = new THREE.Mesh(new THREE.BoxGeometry(.018, .095, depth * .61), materials.concreteLight);
+      barX.position.x = i * width * .11;
+      lantern.add(barX);
+      const barZ = new THREE.Mesh(new THREE.BoxGeometry(width * .61, .095, .018), materials.concreteLight);
+      barZ.position.z = i * depth * .11;
+      lantern.add(barZ);
+    }
+    group.add(lantern);
   }
 }
 
@@ -272,6 +338,13 @@ function addStairConnection(stairRoot, connection, materials) {
     railStart.y += .28;
     railEnd.y += .28;
     root.add(cylinderBetween(railStart, railEnd, .018, materials.metal));
+    const stringerStart = start.clone().addScaledVector(side, direction * .78);
+    const stringerEnd = end.clone().addScaledVector(side, direction * .78);
+    stringerStart.y -= .1;
+    stringerEnd.y -= .1;
+    const stringer = cylinderBetween(stringerStart, stringerEnd, .032, materials.metal);
+    stringer.name = "rough_steel_stair_stringer";
+    root.add(stringer);
   });
   stairRoot.add(root);
 }
@@ -318,6 +391,15 @@ function makeBuilding(scene) {
       const roof = new THREE.Mesh(footprintGeometry(mass.footprint, .08), materials.concreteLight);
       roof.position.y = mass.size[1];
       group.add(roof);
+      const westGarden = new THREE.Mesh(new THREE.BoxGeometry(1.55, .045, 2.65), materials.grass);
+      westGarden.position.set(-1.86, mass.size[1] + .095, -.05);
+      group.add(westGarden);
+      const southGarden = new THREE.Mesh(new THREE.BoxGeometry(2.25, .045, 1.25), materials.grass);
+      southGarden.position.set(1.48, mass.size[1] + .095, .82);
+      group.add(southGarden);
+      const roofWalk = new THREE.Mesh(new THREE.BoxGeometry(2.45, .025, .48), materials.roofPaver);
+      roofWalk.position.set(.55, mass.size[1] + .112, 1.55);
+      group.add(roofWalk);
     } else {
       addFacadeDetails(group, mass, index, materials, windowMaterials);
     }
