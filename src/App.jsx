@@ -337,6 +337,7 @@ export function App() {
         onPointerCancel={stopListening}
         onContextMenu={(event) => event.preventDefault()}
         disabled={phase === "thinking" || phase === "speaking"}
+        aria-pressed={phase === "listening"}
         aria-label="按住说话，松开发送"
       >
         <span className="mic-disc"><Microphone size={20} weight="fill" /></span>

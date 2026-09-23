@@ -349,6 +349,215 @@ function addStairConnection(stairRoot, connection, materials) {
   stairRoot.add(root);
 }
 
+function makeParticleRandom(seed = 41729) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+
+function makeStructureParticleCloud(building) {
+  const random = makeParticleRandom();
+  const triangles = [];
+  const edgeSegments = [];
+  const structureVertices = new Map();
+  const buildingInverse = new THREE.Matrix4();
+
+  building.updateMatrixWorld(true);
+  buildingInverse.copy(building.matrixWorld).invert();
+
+  // Cloud Form 的核心做法：面负责体量，硬边负责轮廓，端点负责节点辉光。
+  // 这里直接从当前 Three.js 楼体采样，因此修改建筑体块后，粒子形态会自动同步。
+  building.traverse((object) => {
+    if (!object.isMesh || !object.geometry?.attributes?.position) return;
+    const geometry = object.geometry;
+    const positions = geometry.attributes.position;
+    const transform = new THREE.Matrix4().multiplyMatrices(buildingInverse, object.matrixWorld);
+    const index = geometry.index;
+    const triangleCount = index ? index.count / 3 : positions.count / 3;
+
+    for (let triangleIndex = 0; triangleIndex < triangleCount; triangleIndex += 1) {
+      const aIndex = index ? index.getX(triangleIndex * 3) : triangleIndex * 3;
+      const bIndex = index ? index.getX(triangleIndex * 3 + 1) : triangleIndex * 3 + 1;
+      const cIndex = index ? index.getX(triangleIndex * 3 + 2) : triangleIndex * 3 + 2;
+      const a = new THREE.Vector3().fromBufferAttribute(positions, aIndex).applyMatrix4(transform);
+      const b = new THREE.Vector3().fromBufferAttribute(positions, bIndex).applyMatrix4(transform);
+      const c = new THREE.Vector3().fromBufferAttribute(positions, cIndex).applyMatrix4(transform);
+      const area = new THREE.Triangle(a, b, c).getArea();
+      if (area > 1e-7) triangles.push({ a, b, c, area });
+    }
+
+    // EdgesGeometry 只保留达到阈值的折线，避免把三角剖分的内部对角线误当成建筑结构。
+    const hardEdges = new THREE.EdgesGeometry(geometry, 32);
+    const edgePositions = hardEdges.attributes.position;
+    for (let edgeIndex = 0; edgeIndex < edgePositions.count; edgeIndex += 2) {
+      const a = new THREE.Vector3().fromBufferAttribute(edgePositions, edgeIndex).applyMatrix4(transform);
+      const b = new THREE.Vector3().fromBufferAttribute(edgePositions, edgeIndex + 1).applyMatrix4(transform);
+      const length = a.distanceTo(b);
+      if (length < 1e-5) continue;
+      edgeSegments.push({ a, b, length });
+      [a, b].forEach((point) => {
+        const key = `${Math.round(point.x * 80)}/${Math.round(point.y * 80)}/${Math.round(point.z * 80)}`;
+        if (!structureVertices.has(key)) structureVertices.set(key, point.clone());
+      });
+    }
+    hardEdges.dispose();
+  });
+
+  let totalArea = 0;
+  const cumulativeAreas = triangles.map((triangle) => {
+    totalArea += triangle.area;
+    return totalArea;
+  });
+  let totalEdgeLength = 0;
+  const cumulativeEdges = edgeSegments.map((edge) => {
+    totalEdgeLength += edge.length;
+    return totalEdgeLength;
+  });
+  const vertices = [...structureVertices.values()];
+
+  const compact = window.matchMedia("(max-width: 820px), (prefers-reduced-motion: reduce)").matches;
+  const faceCount = compact ? 7200 : 10400;
+  const edgeCount = compact ? 3100 : 4600;
+  const vertexCount = compact ? 720 : 1200;
+  const count = faceCount + edgeCount + vertexCount;
+  const pointPositions = new Float32Array(count * 3);
+  const seeds = new Float32Array(count);
+  const kinds = new Float32Array(count);
+  const sizes = new Float32Array(count);
+  const lights = new Float32Array(count);
+  const responses = new Float32Array(count);
+  const directions = new Float32Array(count * 3);
+  const center = new THREE.Vector3(0, 1.45, .1);
+
+  const pickWeighted = (cumulative, total) => {
+    const target = random() * total;
+    let low = 0;
+    let high = cumulative.length - 1;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if (cumulative[middle] < target) low = middle + 1;
+      else high = middle;
+    }
+    return low;
+  };
+  const put = (index, point, kind, size, light, response) => {
+    pointPositions.set(point.toArray(), index * 3);
+    seeds[index] = random();
+    kinds[index] = kind;
+    sizes[index] = size;
+    lights[index] = light;
+    responses[index] = response;
+    const direction = point.clone().sub(center);
+    direction.y += .25 + random() * .45;
+    direction.x += (random() - .5) * .38;
+    direction.z += (random() - .5) * .38;
+    if (direction.lengthSq() < .001) direction.set(0, 1, 0);
+    directions.set(direction.normalize().toArray(), index * 3);
+  };
+
+  for (let i = 0; i < faceCount; i += 1) {
+    const triangle = triangles[pickWeighted(cumulativeAreas, totalArea)];
+    let u = random();
+    let v = random();
+    if (u + v > 1) { u = 1 - u; v = 1 - v; }
+    const point = triangle.a.clone()
+      .addScaledVector(triangle.b.clone().sub(triangle.a), u)
+      .addScaledVector(triangle.c.clone().sub(triangle.a), v);
+    point.add(new THREE.Vector3(random() - .5, random() - .5, random() - .5).multiplyScalar(.018));
+    put(i, point, 0, .72 + random() * .6, .16 + random() * .18, .34 + random() * .38);
+  }
+
+  for (let i = 0; i < edgeCount; i += 1) {
+    const edge = edgeSegments[pickWeighted(cumulativeEdges, totalEdgeLength)];
+    let t = random();
+    if (random() < .54) t = random() < .5 ? Math.pow(random(), 2.1) : 1 - Math.pow(random(), 2.1);
+    const corner = Math.max(Math.exp(-Math.pow(t / .2, 2)), Math.exp(-Math.pow((1 - t) / .2, 2)));
+    const point = edge.a.clone().lerp(edge.b, t);
+    point.add(new THREE.Vector3(random() - .5, random() - .5, random() - .5).multiplyScalar(.028 + corner * .035));
+    put(faceCount + i, point, 1, 1.05 + corner * .8 + random() * .55, .44 + corner * .28, .14 + random() * .2);
+  }
+
+  for (let i = 0; i < vertexCount; i += 1) {
+    const vertex = vertices[Math.floor(random() * vertices.length)].clone();
+    vertex.add(new THREE.Vector3(random() - .5, random() - .5, random() - .5).multiplyScalar(.075 * Math.pow(random(), 2)));
+    put(faceCount + edgeCount + i, vertex, 2, 1.8 + random() * 1.45, .72 + random() * .24, .035 + random() * .08);
+  }
+
+  const particleGeometry = new THREE.BufferGeometry();
+  particleGeometry.setAttribute("position", new THREE.BufferAttribute(pointPositions, 3));
+  particleGeometry.setAttribute("aSeed", new THREE.BufferAttribute(seeds, 1));
+  particleGeometry.setAttribute("aKind", new THREE.BufferAttribute(kinds, 1));
+  particleGeometry.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
+  particleGeometry.setAttribute("aLight", new THREE.BufferAttribute(lights, 1));
+  particleGeometry.setAttribute("aResponse", new THREE.BufferAttribute(responses, 1));
+  particleGeometry.setAttribute("aDirection", new THREE.BufferAttribute(directions, 3));
+
+  const particleMaterial = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uTime: { value: 0 },
+      uOpacity: { value: 0 },
+      uFormation: { value: 0 },
+    },
+    vertexShader: `
+      uniform float uTime;
+      uniform float uFormation;
+      attribute float aSeed;
+      attribute float aKind;
+      attribute float aSize;
+      attribute float aLight;
+      attribute float aResponse;
+      attribute vec3 aDirection;
+      varying float vAlpha;
+      varying float vKind;
+      void main() {
+        float delayedForm = smoothstep(aResponse, 1.0, uFormation);
+        float scatter = 1.0 - delayedForm;
+        vec3 p = position + aDirection * scatter * (1.15 + aSeed * 2.65 + aKind * .28);
+        float orbit = (aSeed - .5) * scatter * 1.15;
+        float angle = orbit + uTime * (.05 + aSeed * .045) * scatter;
+        float c = cos(angle);
+        float s = sin(angle);
+        p.xz = mat2(c, -s, s, c) * p.xz;
+        p += vec3(
+          sin(uTime * .72 + aSeed * 31.0),
+          cos(uTime * .58 + aSeed * 23.0),
+          sin(uTime * .66 + aSeed * 17.0)
+        ) * (.012 + scatter * .16);
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = aSize * (72.0 / max(1.0, -mv.z));
+        vAlpha = aLight * (.72 + sin(uTime * 1.1 + aSeed * 19.0) * .18);
+        vKind = aKind;
+      }`,
+    fragmentShader: `
+      uniform float uOpacity;
+      varying float vAlpha;
+      varying float vKind;
+      void main() {
+        vec2 p = gl_PointCoord - .5;
+        float distanceToCenter = length(p) * 2.0;
+        if (distanceToCenter > 1.0) discard;
+        float halo = pow(1.0 - distanceToCenter, mix(2.4, 1.15, vKind * .5));
+        vec3 faceColor = vec3(1.0, .91, .84);
+        vec3 edgeColor = vec3(1.0, .58, .34);
+        vec3 nodeColor = vec3(1.0, .78, .52);
+        vec3 color = vKind < .5 ? faceColor : (vKind < 1.5 ? edgeColor : nodeColor);
+        gl_FragColor = vec4(color, halo * vAlpha * uOpacity);
+      }`,
+  });
+  const particles = new THREE.Points(particleGeometry, particleMaterial);
+  particles.name = "YB_structure_particle_memory";
+  particles.frustumCulled = false;
+  particles.visible = false;
+  building.add(particles);
+  return { particles, particleMaterial };
+}
+
 function makeBuilding(scene) {
   const materials = makeMaterials();
   const building = new THREE.Group();
@@ -413,55 +622,7 @@ function makeBuilding(scene) {
   YUANBAI_CONNECTIONS.forEach((connection) => addStairConnection(stairRoot, connection, materials));
   building.add(stairRoot);
   addCourtyard(building, materials);
-
-  const particleGeometry = new THREE.BufferGeometry();
-  const count = 6800;
-  const positions = new Float32Array(count * 3);
-  const seeds = new Float32Array(count);
-  for (let i = 0; i < count; i += 1) {
-    const angle = Math.random() * Math.PI * 2;
-    const radius = 1.3 + Math.pow(Math.random(), 1.45) * 5.2;
-    positions[i * 3] = Math.cos(angle) * radius;
-    positions[i * 3 + 1] = Math.random() * 4.3 - .1;
-    positions[i * 3 + 2] = Math.sin(angle) * radius * .86;
-    seeds[i] = Math.random();
-  }
-  particleGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  particleGeometry.setAttribute("aSeed", new THREE.BufferAttribute(seeds, 1));
-  const particleMaterial = new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
-    vertexShader: `
-      uniform float uTime;
-      attribute float aSeed;
-      varying float vAlpha;
-      void main() {
-        vec3 p = position;
-        float angle = uTime * (.12 + aSeed * .2) + p.y * .12;
-        float c = cos(angle); float s = sin(angle);
-        p.xz = mat2(c, -s, s, c) * p.xz;
-        p += vec3(sin(uTime * .7 + aSeed * 18.) * .16, sin(uTime + aSeed * 11.) * .11, 0.);
-        vec4 mv = modelViewMatrix * vec4(p, 1.0);
-        gl_Position = projectionMatrix * mv;
-        gl_PointSize = (2.2 + aSeed * 2.4) * (110.0 / -mv.z);
-        vAlpha = .35 + aSeed * .65;
-      }`,
-    fragmentShader: `
-      uniform float uOpacity;
-      varying float vAlpha;
-      void main() {
-        vec2 p = gl_PointCoord - .5;
-        float d = length(p);
-        if (d > .5) discard;
-        float glow = smoothstep(.5, .02, d);
-        gl_FragColor = vec4(vec3(1.0, .97, .92), glow * vAlpha * uOpacity);
-      }`,
-  });
-  const particles = new THREE.Points(particleGeometry, particleMaterial);
-  particles.position.copy(building.position);
-  scene.add(particles);
+  const { particles, particleMaterial } = makeStructureParticleCloud(building);
 
   return { building, blocks, stairRoot, windowMaterials, particles, particleMaterial };
 }
@@ -556,6 +717,9 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
     let smoothedLevel = 0;
     let previousLevel = 0;
     let particleOpacity = 0;
+    let particleFormation = 0;
+    let wasThinking = false;
+    let thinkingStartedAt = 0;
 
     const animate = (now) => {
       frame = requestAnimationFrame(animate);
@@ -595,13 +759,21 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
       });
 
       const thinking = currentPhase === "thinking" ? 1 : 0;
+      if (thinking && !wasThinking) {
+        thinkingStartedAt = t;
+        particleFormation = 0;
+      }
+      if (thinking) particleFormation = 1 - Math.exp(-(t - thinkingStartedAt) * 1.65);
+      else particleFormation = 0;
+      wasThinking = Boolean(thinking);
       particleOpacity += (thinking - particleOpacity) * .055;
       model.particleMaterial.uniforms.uTime.value = t;
       model.particleMaterial.uniforms.uOpacity.value = particleOpacity;
+      model.particleMaterial.uniforms.uFormation.value = particleFormation;
       model.particles.visible = particleOpacity > .01;
-      model.particles.rotation.y = t * .045;
+      model.particles.rotation.y = Math.sin(t * .19) * .055 * (1 - particleFormation);
       model.building.traverse((child) => {
-        if (!child.material) return;
+        if (!child.material || child === model.particles) return;
         child.material.opacity = 1 - particleOpacity * .94;
         child.material.transparent = particleOpacity > .01;
       });

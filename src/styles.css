@@ -182,11 +182,47 @@ h1 {
   box-shadow: 0 18px 50px rgba(0, 0, 0, .26);
   cursor: pointer;
   touch-action: none;
-  transition: border-color .25s ease, transform .25s ease, background .25s ease;
+  isolation: isolate;
+  transition: border-color .25s ease, transform .25s ease, background .25s ease, box-shadow .25s ease;
 }
 
+/* 录音按钮的两层光：内层跟随按压，外层像声波一样向外扩散。 */
+.hold-button::before,
+.hold-button::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0;
+}
+
+.hold-button::before {
+  z-index: -1;
+  inset: -3px;
+  background: radial-gradient(circle at 12% 50%, rgba(255, 190, 133, .52), rgba(212, 69, 39, .17) 42%, transparent 72%);
+  filter: blur(12px);
+  transform: scale(.88);
+}
+
+.hold-button::after {
+  z-index: -2;
+  inset: -9px;
+  border: 1px solid rgba(255, 155, 94, .58);
+  box-shadow: 0 0 28px rgba(232, 80, 42, .24), inset 0 0 18px rgba(255, 177, 118, .08);
+  transform: scale(.94);
+}
+
+.hold-button > * { position: relative; z-index: 1; }
+
 .hold-button:hover { border-color: rgba(239, 158, 101, .5); }
-.hold-button:active, .phase-listening .hold-button { transform: scale(.985); background: rgba(92, 24, 18, .94); }
+.hold-button:active, .phase-listening .hold-button {
+  transform: scale(.985);
+  border-color: rgba(255, 177, 115, .84);
+  background: rgba(92, 24, 18, .94);
+  box-shadow: 0 16px 56px rgba(0, 0, 0, .31), 0 0 34px rgba(224, 79, 43, .25);
+}
+.phase-listening .hold-button::before { animation: recordInnerGlow 1.05s ease-in-out infinite alternate; }
+.phase-listening .hold-button::after { animation: recordOuterRing 1.4s cubic-bezier(.2, .6, .2, 1) infinite; }
 .hold-button:disabled { cursor: wait; opacity: .78; }
 
 .mic-disc {
@@ -198,6 +234,19 @@ h1 {
   color: #2b0908;
   background: #df794d;
   box-shadow: 0 0 24px rgba(228, 99, 52, .3);
+  transition: color .2s ease, background .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+
+.phase-listening .mic-disc {
+  color: #3c0c08;
+  background: #ff9e68;
+  box-shadow: 0 0 0 6px rgba(255, 153, 94, .09), 0 0 31px rgba(255, 111, 61, .72);
+  animation: micHeartbeat .82s ease-in-out infinite alternate;
+}
+
+.phase-listening .waveform i {
+  background: rgba(255, 190, 137, .92);
+  box-shadow: 0 0 7px rgba(255, 116, 64, .55);
 }
 
 .hold-label { display: grid; gap: 3px; text-align: left; }
@@ -242,6 +291,18 @@ footer {
 
 @keyframes idleWave { 0%, 100% { transform: scaleY(.35); } 50% { transform: scaleY(.8); } }
 @keyframes pulse { from { opacity: .45; transform: scale(.8); } to { opacity: 1; transform: scale(1.25); } }
+@keyframes recordInnerGlow {
+  from { opacity: .55; transform: scale(.94); filter: blur(11px); }
+  to { opacity: 1; transform: scale(1.035); filter: blur(17px); }
+}
+@keyframes recordOuterRing {
+  0% { opacity: .75; transform: scale(.95); }
+  72%, 100% { opacity: 0; transform: scale(1.095, 1.35); }
+}
+@keyframes micHeartbeat {
+  from { transform: scale(.96); }
+  to { transform: scale(1.055); }
+}
 
 /* 手机布局入口：如果嵌入作品集后显得拥挤，优先调整这里。 */
 @media (max-width: 820px) {
@@ -251,7 +312,7 @@ footer {
   h1 { max-width: 280px; font-size: 42px; }
   .answer { max-width: 300px; font-size: 12px; }
   .subline { display: none; }
-  .scene-panel { inset: 23% -8% 15% 0; opacity: .92; }
+  .scene-panel { inset: 42% -8% 15% 0; opacity: .92; }
   .scene-caption { display: none; }
   .hold-button { left: 24px; bottom: 56px; width: calc(100vw - 48px); grid-template-columns: 42px 112px 1fr; }
   footer { right: 24px; left: 24px; bottom: 18px; }
