@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-labelledby="title description">
+  <title id="title">元白楼建筑标志</title>
+  <desc id="description">由等距建筑体块与围合院落组成的双色矢量标志</desc>
+  <!-- 双面配色：top 是混凝土亮面，side 是红砖暗面。背景保持透明。 -->
+  <g fill-rule="evenodd">
+    <!-- 右侧围合框架的垂直侧面 -->
+    <path fill="#A74431" d="M606 151 432 307v30l174-156Z"/>
+    <path fill="#A74431" d="m432 307-174-100v30l174 100Z"/>
+    <path fill="#A74431" d="m430 111 96 55v29l-96-55Z"/>
+    <!-- 右侧围合框架的顶部，中央留出庭院负形 -->
+    <path fill="#EADBD0" d="M430 47 606 151 432 307 258 207Zm0 64-95 86 97 56 94-87Z"/>
+
+    <!-- 左侧低层折线体量 -->
+    <path fill="#A74431" d="m48 220 64-37 60 35-28 17 61 36-55 32-61-35-41-24Z"/>
+    <path fill="#A74431" d="m89 268 61 35v29l-61-35Z"/>
+    <path fill="#EADBD0" d="m48 220 64-37 60 35-28 17 61 36-55 32-61-35-41-24Z"/>
+
+    <!-- 六个独立体块：所有侧面统一红砖色，顶面统一暖灰色 -->
+    <g>
+      <path fill="#A74431" d="m103 165 52 30v30l-52-30Z"/>
+      <path fill="#A74431" d="m207 165-52 30v30l52-30Z"/>
+      <path fill="#EADBD0" d="m155 133 52 32-52 30-52-30Z"/>
+    </g>
+    <g>
+      <path fill="#A74431" d="m171 91 57 34v31l-57-34Z"/>
+      <path fill="#A74431" d="m285 91-57 34v31l57-34Z"/>
+      <path fill="#EADBD0" d="m228 56 57 35-57 34-57-34Z"/>
+    </g>
+    <g>
+      <path fill="#A74431" d="m257 155 50 30v29l-50-30Z"/>
+      <path fill="#A74431" d="m357 155-50 30v29l50-30Z"/>
+      <path fill="#EADBD0" d="m307 124 50 31-50 30-50-30Z"/>
+    </g>
+    <g>
+      <path fill="#A74431" d="m323 211 47 28v28l-47-28Z"/>
+      <path fill="#A74431" d="m417 211-47 28v28l47-28Z"/>
+      <path fill="#EADBD0" d="m370 182 47 29-47 28-47-28Z"/>
+    </g>
+    <g>
+      <path fill="#A74431" d="m221 245 49 29v29l-49-29Z"/>
+      <path fill="#A74431" d="m319 245-49 29v29l49-29Z"/>
+      <path fill="#EADBD0" d="m270 215 49 30-49 29-49-29Z"/>
+    </g>
+    <g>
+      <path fill="#A74431" d="m116 300 52 31v30l-52-31Z"/>
+      <path fill="#A74431" d="m220 300-52 31v30l52-31Z"/>
+      <path fill="#EADBD0" d="m168 268 52 32-52 31-52-31Z"/>
+    </g>
+  </g>
+</svg>

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, Target, Waveform } from "@phosphor-icons/react";
 import { YuanbaiScene } from "./YuanbaiScene";
 
+const YUANBAI_MARK_URL = `${import.meta.env.BASE_URL}brand/yuanbai-mark.svg`;
+
 // 入口页只负责分流。新增第三个体验时，在这里增加一项，并同步调整 styles.css 的网格。
 const EXPERIENCES = [
   {
@@ -88,8 +90,11 @@ export function Portal() {
     <main className={`portal portal-active-${active}`}>
       <header className="portal-header">
         <div className="portal-brand">
-          <strong>元白工作台</strong>
-          <span>YUANBAI DESK</span>
+          <img src={YUANBAI_MARK_URL} alt="元白楼标志" />
+          <span className="portal-brand-copy">
+            <strong>元白工作台</strong>
+            <span>YUANBAI DESK</span>
+          </span>
         </div>
         <p>让建筑<br />再次与人相遇</p>
       </header>

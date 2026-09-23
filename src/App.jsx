@@ -12,6 +12,7 @@ const PHASE_COPY = {
 };
 
 const INTRO = "我记得这座楼、学院和大家的故事。设计卡住了，也可以慢慢说给我听。";
+const YUANBAI_MARK_URL = `${import.meta.env.BASE_URL}brand/yuanbai-mark.svg`;
 // 本地 Python 服务使用 /api/chat；发布到共享域名的 /yuanbai/ 后自动切换到 EdgeOne 函数。
 const API_CHAT_URL = import.meta.env.VITE_YUANBAI_API_URL || (
   globalThis.location?.pathname?.startsWith("/yuanbai/") ? "/api/yuanbai/chat" : "/api/chat"
@@ -365,7 +366,10 @@ export function App() {
   return (
     <main className={`experience phase-${phase}`}>
       <CursorLightTrail />
-      <header className="brand">YUANBAI / 元白</header>
+      <header className="brand">
+        <img src={YUANBAI_MARK_URL} alt="" />
+        <span>YUANBAI / 元白</span>
+      </header>
       <a className="back-to-portal" href={import.meta.env.BASE_URL}>
         <ArrowLeft size={14} weight="bold" />
         <span>返回元白工作台</span>
