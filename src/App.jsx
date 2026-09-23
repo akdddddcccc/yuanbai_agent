@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Microphone } from "@phosphor-icons/react";
+import { KnowledgePanel } from "./KnowledgePanel";
 import { YuanbaiScene } from "./YuanbaiScene";
 
 const PHASE_COPY = {
@@ -9,7 +10,7 @@ const PHASE_COPY = {
   speaking: ["元白正在回答", "灯光会跟着语气明暗起伏"],
 };
 
-const INTRO = "我会记得发生在这里的事，也会像一个熟悉校园的老朋友那样和你聊天。";
+const INTRO = "我记得这座楼、学院和大家的故事。设计卡住了，也可以慢慢说给我听。";
 // 本地 Python 服务使用 /api/chat；发布到共享域名的 /yuanbai/ 后自动切换到 EdgeOne 函数。
 const API_CHAT_URL = import.meta.env.VITE_YUANBAI_API_URL || (
   globalThis.location?.pathname?.startsWith("/yuanbai/") ? "/api/yuanbai/chat" : "/api/chat"
@@ -106,10 +107,15 @@ export function App() {
   const responseRef = useRef(null);
   const responseObjectUrlRef = useRef("");
   const historyRef = useRef([]);
+  const knowledgeDocumentsRef = useRef([]);
   const pressedRef = useRef(false);
   const sessionIdRef = useRef(
     globalThis.crypto?.randomUUID?.() || `yuanbai-${Date.now()}`,
   );
+
+  const onKnowledgeDocumentsChange = useCallback((documents) => {
+    knowledgeDocumentsRef.current = documents.map(({ name, content }) => ({ name, content }));
+  }, []);
 
   const ensureAudioContext = useCallback(async () => {
     if (!audioContextRef.current || audioContextRef.current.state === "closed") {
@@ -205,7 +211,8 @@ export function App() {
       // 各浏览器会产生不同的 WebM/MP4 封装；统一转成 16kHz 单声道 WAV，避免云端 DECODE_ERROR。
       const normalizedBlob = await normalizeRecordingToWav(blob);
       const audioBase64 = await blobToBase64(normalizedBlob);
-      // 浏览器只上传录音和最近四轮对话。API 密钥始终留在服务端函数中。
+      // 原文件留在浏览器，只把提取后的文字交给服务端做相关片段检索。
+      // API 密钥始终留在服务端函数中。
       const response = await fetch(API_CHAT_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -214,6 +221,7 @@ export function App() {
           mime_type: normalizedBlob.type,
           session_id: sessionIdRef.current,
           history: historyRef.current,
+          knowledge_documents: knowledgeDocumentsRef.current,
         }),
       });
       // 先读取文本再解析，避免网关返回空响应时只看到“Unexpected end of JSON input”。
@@ -360,6 +368,7 @@ export function App() {
         <ArrowLeft size={14} weight="bold" />
         <span>返回元白工作台</span>
       </a>
+      <KnowledgePanel onDocumentsChange={onKnowledgeDocumentsChange} />
       <section className="copy-panel" aria-live="polite">
         <div className="status-row">
           <span className="status-dot" />

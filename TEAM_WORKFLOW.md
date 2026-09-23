@@ -21,10 +21,11 @@
 - 工作台入口：`src/Portal.jsx`
 - 全局视觉：`src/styles.css`
 - 页面路由：`src/main.jsx`
-- 元白知识与说话风格：发布仓库的 `edge-functions/api/yuanbai/chat.js` 中 `SYSTEM_PROMPT`
+- 元白知识与说话风格：发布仓库的 `edge-functions/_shared/yuanbai-knowledge.js`
+- 临时路演资料上传与解析：`src/KnowledgePanel.jsx`、`src/knowledgeFiles.js`
 - 分支名：`web/功能名` 或 `corpus/主题名`。
 
-改语料时只改事实与说话规则，不改请求、鉴权和语音合成代码。事实有不确定性时，在 Pull Request 里注明来源或待确认项。
+改语料时只改事实与说话规则，不改请求、鉴权和语音合成代码。新增资料使用 `KNOWLEDGE_INTAKE.md` 的字段，注明来源、确认日期、可见范围和待确认项。
 
 ### 3. 语音交互
 
