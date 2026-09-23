@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>探索元白 · 黑暗中的建筑记忆</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #050505;
+    overflow: hidden;
+    font-family: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: #ccc;
+    user-select: none;
+    touch-action: none;
+  }
+
+  /* ===== 布局 ===== */
+  #game-wrapper {
+    position: relative;
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ===== 顶部信息栏 ===== */
+  #hud {
+    position: absolute;
+    top: 16px; left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 24px;
+    z-index: 100;
+    font-size: 13px;
+    letter-spacing: 1px;
+  }
+  .hud-left, .hud-right { display: flex; gap: 20px; }
+  .hud-item { color: #888; }
+  .hud-item span { color: #d4a574; font-weight: 600; }
+
+  /* ===== 3D 场景 ===== */
+  #scene {
+    position: relative;
+    width: 600px; height: 600px;
+    perspective: 1200px;
+    perspective-origin: 50% 40%;
+  }
+
+  #grid-container {
+    position: absolute;
+    width: 540px; height: 540px;
+    left: 30px; top: 30px;
+    transform-style: preserve-3d;
+    transform: rotateX(52deg) rotateZ(45deg);
+  }
+
+  .tile {
+    position: absolute;
+    width: 60px; height: 60px;
+    background-image: url('./assets/yuanbai-floor.jpg');
+    background-size: 540px 540px;
+    border: 1px solid rgba(0,0,0,0.6);
+    transition: opacity 0.4s ease, filter 0.4s ease;
+    transform-style: preserve-3d;
+  }
+
+  /* 未探索且不在视野内 —— 全黑 */
+  .tile.undiscovered {
+    background: #000;
+    background-image: none;
+    opacity: 0;
+  }
+
+  /* 未探索但在视野内 —— 隐约可见的混凝土轮廓 */
+  .tile.visible-unexplored {
+    background: #1a1a1a;
+    background-image: none;
+    opacity: 0.35;
+    border: 1px solid rgba(80,80,80,0.3);
+  }
+
+  /* 已探索 —— 显示建筑纹理 */
+  .tile.explored {
+    opacity: 1;
+  }
+
+  /* 悬崖格子（已探索后）—— 暗红调 */
+  .tile.cliff-explored {
+    filter: hue-rotate(-20deg) brightness(0.5) saturate(1.5);
+    box-shadow: inset 0 0 20px rgba(180, 30, 30, 0.4);
+  }
+
+  /* 玩家所在格 —— 聚光灯高亮 */
+  .tile.player-here {
+    box-shadow: 0 0 30px rgba(245, 230, 200, 0.6), inset 0 0 20px rgba(245, 230, 200, 0.3);
+    z-index: 10;
+  }
+
+  /* 道具标记 */
+  .tile.danger-mark::after {
+    content: '!';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 28px;
+    font-weight: 900;
+    color: #ff4444;
+    text-shadow: 0 0 10px #ff0000;
+    z-index: 20;
+  }
+  .tile.safe-mark::after {
+    content: '✓';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    font-weight: 900;
+    color: #44ff88;
+    text-shadow: 0 0 10px #00ff66;
+    z-index: 20;
+  }
+
+  /* ===== 聚光灯（玩家头顶） ===== */
+  #spotlight {
+    position: absolute;
+    width: 240px; height: 240px;
+    border-radius: 50%;
+    background: radial-gradient(circle,
+      rgba(245, 230, 200, 0.18) 0%,
+      rgba(245, 230, 200, 0.08) 35%,
+      transparent 70%);
+    pointer-events: none;
+    z-index: 5;
+    transform: translate(-50%, -50%);
+    transition: left 0.2s ease, top 0.2s ease, width 0.3s, height 0.3s;
+    mix-blend-mode: screen;
+  }
+
+  /* ===== 玩家光点 ===== */
+  #player-dot {
+    position: absolute;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff5d6 0%, #f5d67a 50%, transparent 100%);
+    box-shadow: 0 0 20px #ffe8a0, 0 0 40px rgba(255,220,120,0.5);
+    pointer-events: none;
+    z-index: 50;
+    transform: translate(-50%, -50%);
+    transition: left 0.15s ease, top 0.15s ease, opacity 0.3s;
+  }
+
+  /* ===== 屏幕震动 ===== */
+  .shaking { animation: shake 0.5s ease-in-out; }
+  @keyframes shake {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-8px, 4px); }
+    20% { transform: translate(8px, -6px); }
+    30% { transform: translate(-6px, -8px); }
+    40% { transform: translate(6px, 8px); }
+    50% { transform: translate(-8px, 4px); }
+    60% { transform: translate(8px, -4px); }
+    70% { transform: translate(-4px, 6px); }
+    80% { transform: translate(4px, -6px); }
+    90% { transform: translate(-2px, 2px); }
+  }
+
+  /* ===== 黑屏过渡 ===== */
+  #blackout {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #000;
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  #blackout.active { opacity: 1; pointer-events: all; }
+
+  /* ===== 底部操作栏 ===== */
+  #controls {
+    position: absolute;
+    bottom: 24px; left: 0; right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    z-index: 100;
+  }
+  .btn {
+    padding: 10px 20px;
+    background: rgba(40, 40, 40, 0.8);
+    border: 1px solid #555;
+    color: #ccc;
+    font-size: 13px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    min-width: 44px; min-height: 44px;
+  }
+  .btn:hover { background: rgba(70, 70, 70, 0.9); border-color: #d4a574; color: #fff; }
+  .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn .count { color: #d4a574; font-weight: 700; margin-left: 6px; }
+
+  /* 方向键 */
+  #dpad {
+    display: grid;
+    grid-template-columns: repeat(3, 48px);
+    grid-template-rows: repeat(2, 48px);
+    gap: 4px;
+  }
+  #dpad .btn {
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; font-size: 18px;
+  }
+  #btn-up { grid-column: 2; grid-row: 1; }
+  #btn-left { grid-column: 1; grid-row: 2; }
+  #btn-down { grid-column: 2; grid-row: 2; }
+  #btn-right { grid-column: 3; grid-row: 2; }
+
+  /* ===== 消息提示 ===== */
+  #message {
+    position: absolute;
+    top: 60px; left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 20px;
+    background: rgba(0,0,0,0.85);
+    border: 1px solid #666;
+    font-size: 13px;
+    color: #d4a574;
+    z-index: 150;
+    opacity: 0;
+    transition: opacity 0.3s;
+    letter-spacing: 1px;
+  }
+  #message.show { opacity: 1; }
+
+  /* ===== 通关面板 ===== */
+  #win-panel {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.9);
+    z-index: 300;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+  #win-panel.show { display: flex; }
+  #win-panel h1 {
+    font-size: 28px;
+    color: #d4a574;
+    letter-spacing: 4px;
+    font-weight: 400;
+  }
+  #win-panel p { color: #999; font-size: 14px; letter-spacing: 1px; }
+  #win-panel .btn { margin-top: 10px; }
+
+  /* ===== 开始面板 ===== */
+  #start-panel {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(5,5,5,0.97);
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 40px;
+    text-align: center;
+  }
+  #start-panel h1 {
+    font-size: 32px;
+    color: #d4a574;
+    letter-spacing: 8px;
+    font-weight: 300;
+  }
+  #start-panel .subtitle { color: #666; font-size: 13px; letter-spacing: 2px; }
+  #start-panel .rules {
+    max-width: 420px;
+    color: #888;
+    font-size: 13px;
+    line-height: 2;
+    text-align: left;
+    margin: 10px 0;
+  }
+  #start-panel .rules b { color: #d4a574; font-weight: 500; }
+
+  /* ===== 响应式：整体缩放 ===== */
+  @media (max-width: 700px) {
+    #scene { transform: scale(0.65); }
+  }
+  @media (max-width: 480px) {
+    #scene { transform: scale(0.5); }
+    #hud { font-size: 11px; padding: 0 12px; }
+    #controls { gap: 8px; bottom: 12px; }
+  }
+
+  /* 返回工作台入口；保持在开始、游戏和通关三种状态的最上层。 */
+  #back-hub {
+    position: fixed;
+    top: 14px;
+    left: 18px;
+    z-index: 420;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 14px;
+    color: #c9b8a5;
+    border: 1px solid rgba(212, 165, 116, .34);
+    background: rgba(5, 5, 5, .76);
+    text-decoration: none;
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+  #back-hub:hover, #back-hub:focus-visible { color: #fff; border-color: #d4a574; outline: none; }
+  #hud { top: 62px; }
+  #start-panel { overflow-y: auto; }
+
+  @media (max-width: 480px) {
+    #back-hub { top: 10px; left: 10px; }
+    #hud { top: 58px; }
+    #start-panel { justify-content: flex-start; padding: 84px 24px 28px; }
+    #start-panel h1 { font-size: 27px; }
+    #start-panel .rules { font-size: 12px; line-height: 1.75; }
+    #controls { align-items: flex-end; }
+    #controls > .btn { padding-inline: 12px; }
+  }
+</style>
+</head>
+<body>
+<a id="back-hub" href="../" aria-label="返回元白工作台">← 元白工作台</a>
+
+<div id="game-wrapper">
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-left">
+      <div class="hud-item">探索 <span id="explored-count">0</span>/81</div>
+      <div class="hud-item">视野 <span id="vision-display">4</span></div>
+    </div>
+    <div class="hud-right">
+      <div class="hud-item">坠落 <span id="fall-count">0</span></div>
+    </div>
+  </div>
+
+  <!-- 3D 场景 -->
+  <div id="scene">
+    <div id="grid-container"></div>
+    <div id="spotlight"></div>
+    <div id="player-dot"></div>
+  </div>
+
+  <!-- 消息 -->
+  <div id="message"></div>
+
+  <!-- 黑屏 -->
+  <div id="blackout"></div>
+
+  <!-- 操作栏 -->
+  <div id="controls">
+    <button class="btn" id="btn-item1">同伴提示<span class="count" id="item1-count">3</span></button>
+    <button class="btn" id="btn-item2">直线探测<span class="count" id="item2-count">2</span></button>
+    <div id="dpad">
+      <button class="btn" id="btn-up">↑</button>
+      <button class="btn" id="btn-left">←</button>
+      <button class="btn" id="btn-down">↓</button>
+      <button class="btn" id="btn-right">→</button>
+    </div>
+  </div>
+
+  <!-- 通关面板 -->
+  <div id="win-panel">
+    <h1>元白楼 · 全貌显现</h1>
+    <p>你已踏遍每一寸混凝土，粗野主义的巨兽在黑暗中完整苏醒。</p>
+    <button class="btn" onclick="restartGame()">再来一次</button>
+  </div>
+
+  <!-- 开始面板 -->
+  <div id="start-panel">
+    <h1>元白楼</h1>
+    <div class="subtitle">BRUTALIST EXPLORATION · 黑暗中的混凝土巨兽</div>
+    <div class="rules">
+      <b>玩法：</b>在9×9的黑暗网格中移动，探索每一块混凝土。<br>
+      <b>视野：</b>只能看见周围四格，走过的路会留下光亮。<br>
+      <b>悬崖：</b>踩空会坠入黑暗——回到起点，视野缩减为2格。<br>
+      <b>道具1 · 同伴提示：</b>标记相邻格子是否有悬崖。<br>
+      <b>道具2 · 直线探测：</b>沿朝向找到最近的安全格。<br>
+      <b>目标：</b>点亮全部81格，拼出元白楼的完整面貌。
+    </div>
+    <button class="btn" onclick="startGame()">进入黑暗</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // 静态文件通过 index.html 进入，加载完成后把地址栏整理成更干净的 /explore/。
+  if (location.pathname.endsWith('/explore/index.html')) {
+    history.replaceState(null, '', './');
+  }
+
+  // ===== 常量 =====
+  const GRID_SIZE = 9;
+  const TILE_SIZE = 60;
+  const START_VISION = 4;
+  const PENALTY_VISION = 2;
+  const IMG_URL = './assets/yuanbai-floor.jpg';
+
+  // 悬崖位置（row, col）
+  const CLIFFS = new Set([
+    '1,3', '2,1', '2,5', '3,7', '4,2',
+    '4,6', '5,4', '6,0', '6,7', '7,3', '8,5'
+  ]);
+
+  // ===== 游戏状态 =====
+  let state = {
+    playerRow: 0,
+    playerCol: 0,
+    facing: { dr: 0, dc: 1 }, // 初始朝右
+    vision: START_VISION,
+    explored: new Set(),
+    item1: 3,
+    item2: 2,
+    fallCount: 0,
+    isFalling: false,
+    isWon: false,
+    started: false
+  };
+
+  // ===== DOM 引用 =====
+  const gridContainer = document.getElementById('grid-container');
+  const playerDot = document.getElementById('player-dot');
+  const spotlight = document.getElementById('spotlight');
+  const blackout = document.getElementById('blackout');
+  const messageEl = document.getElementById('message');
+  const winPanel = document.getElementById('win-panel');
+  const startPanel = document.getElementById('start-panel');
+  const exploredCountEl = document.getElementById('explored-count');
+  const visionDisplayEl = document.getElementById('vision-display');
+  const fallCountEl = document.getElementById('fall-count');
+  const item1CountEl = document.getElementById('item1-count');
+  const item2CountEl = document.getElementById('item2-count');
+  const scene = document.getElementById('scene');
+
+  let tiles = []; // 二维数组存 tile DOM
+
+  // ===== 初始化网格 =====
+  function buildGrid() {
+    gridContainer.innerHTML = '';
+    tiles = [];
+    for (let r = 0; r < GRID_SIZE; r++) {
+      tiles[r] = [];
+      for (let c = 0; c < GRID_SIZE; c++) {
+        const tile = document.createElement('div');
+        tile.className = 'tile undiscovered';
+        tile.style.left = (c * TILE_SIZE) + 'px';
+        tile.style.top = (r * TILE_SIZE) + 'px';
+        // 背景图裁切：每个格子对应图片的一块
+        const bgSize = TILE_SIZE * GRID_SIZE;
+        tile.style.backgroundSize = bgSize + 'px ' + bgSize + 'px';
+        tile.style.backgroundPosition = (-c * TILE_SIZE) + 'px ' + (-r * TILE_SIZE) + 'px';
+        gridContainer.appendChild(tile);
+        tiles[r][c] = tile;
+      }
+    }
+  }
+
+  // ===== 渲染视野 =====
+  function render() {
+    for (let r = 0; r < GRID_SIZE; r++) {
+      for (let c = 0; c < GRID_SIZE; c++) {
+        const tile = tiles[r][c];
+        const key = r + ',' + c;
+        const isExplored = state.explored.has(key);
+        const dist = Math.abs(r - state.playerRow) + Math.abs(c - state.playerCol);
+        const isCliff = CLIFFS.has(key);
+        const isPlayerHere = (r === state.playerRow && c === state.playerCol);
+
+        // 重置类
+        tile.className = 'tile';
+
+        if (isExplored) {
+          tile.classList.add('explored');
+          if (isCliff) tile.classList.add('cliff-explored');
+        } else if (dist <= state.vision) {
+          tile.classList.add('visible-unexplored');
+        } else {
+          tile.classList.add('undiscovered');
+        }
+
+        if (isPlayerHere) {
+          tile.classList.add('player-here');
+        }
+      }
+    }
+
+    // 玩家光点位置（3D场景中的2D投影位置近似计算）
+    // 由于网格经过 rotateX(52deg) rotateZ(45deg)，需要把网格坐标映射回屏幕坐标
+    const sceneRect = scene.getBoundingClientRect();
+    const gridRect = gridContainer.getBoundingClientRect();
+    const cx = gridRect.left - sceneRect.left + gridRect.width / 2;
+    const cy = gridRect.top - sceneRect.top + gridRect.height / 2;
+
+    // 计算格子中心在3D变换后的屏幕位置
+    // 简化：用网格内的相对位置做近似
+    const tileX = state.playerCol * TILE_SIZE + TILE_SIZE / 2;
+    const tileY = state.playerRow * TILE_SIZE + TILE_SIZE / 2;
+    // 转换为网格容器中心相对坐标
+    const relX = tileX - (GRID_SIZE * TILE_SIZE) / 2;
+    const relY = tileY - (GRID_SIZE * TILE_SIZE) / 2;
+    // 45度旋转后的投影
+    const rotX = (relX - relY) * Math.cos(Math.PI / 4);
+    const rotY = (relX + relY) * Math.sin(Math.PI / 4) * Math.cos(52 * Math.PI / 180);
+
+    playerDot.style.left = (cx + rotX) + 'px';
+    playerDot.style.top = (cy + rotY) + 'px';
+
+    // 聚光灯跟随
+    spotlight.style.left = playerDot.style.left;
+    spotlight.style.top = playerDot.style.top;
+    const spotSize = state.vision * TILE_SIZE * 1.2;
+    spotlight.style.width = spotSize + 'px';
+    spotlight.style.height = spotSize + 'px';
+
+    // HUD 更新
+    exploredCountEl.textContent = state.explored.size;
+    visionDisplayEl.textContent = state.vision;
+    fallCountEl.textContent = state.fallCount;
+    item1CountEl.textContent = state.item1;
+    item2CountEl.textContent = state.item2;
+
+    // 按钮状态
+    document.getElementById('btn-item1').disabled = (state.item1 <= 0 || state.isFalling || state.isWon);
+    document.getElementById('btn-item2').disabled = (state.item2 <= 0 || state.isFalling || state.isWon);
+  }
+
+  // ===== 移动 =====
+  function move(dr, dc) {
+    if (state.isFalling || state.isWon || !state.started) return;
+
+    const newRow = state.playerRow + dr;
+    const newCol = state.playerCol + dc;
+
+    // 边界检查
+    if (newRow < 0 || newRow >= GRID_SIZE || newCol < 0 || newCol >= GRID_SIZE) return;
+
+    state.facing = { dr, dc };
+    state.playerRow = newRow;
+    state.playerCol = newCol;
+
+    const key = newRow + ',' + newCol;
+    const isCliff = CLIFFS.has(key);
+
+    // 标记为已探索
+    state.explored.add(key);
+
+    if (isCliff) {
+      triggerFall();
+    }
+
+    render();
+    checkWin();
+  }
+
+  // ===== 坠落 =====
+  function triggerFall() {
+    state.isFalling = true;
+    state.fallCount++;
+
+    showMessage('踩空了——坠入黑暗');
+
+    // 屏幕震动
+    scene.classList.add('shaking');
+
+    // 玩家光点快速下落消失
+    playerDot.style.transition = 'opacity 0.3s, top 0.4s ease-in';
+    playerDot.style.top = (parseFloat(playerDot.style.top) + 100) + 'px';
+    playerDot.style.opacity = '0';
+
+    setTimeout(() => {
+      scene.classList.remove('shaking');
+      // 黑屏
+      blackout.classList.add('active');
+
+      setTimeout(() => {
+        // 回到起点
+        state.playerRow = 0;
+        state.playerCol = 0;
+        state.vision = PENALTY_VISION;
+        state.facing = { dr: 0, dc: 1 };
+
+        // 恢复玩家光点
+        playerDot.style.transition = 'opacity 0.3s, top 0.15s ease, left 0.15s ease';
+        playerDot.style.opacity = '1';
+
+        render();
+
+        showMessage('视野缩减为 ' + PENALTY_VISION + ' 格 · 使用道具恢复');
+
+        // 黑屏淡出
+        setTimeout(() => {
+          blackout.classList.remove('active');
+          state.isFalling = false;
+        }, 800);
+
+      }, 600);
+
+    }, 500);
+  }
+
+  // ===== 道具1：同伴提示 =====
+  function useItem1() {
+    if (state.item1 <= 0 || state.isFalling || state.isWon) return;
+    state.item1--;
+
+    const dirs = [{dr:-1,dc:0},{dr:1,dc:0},{dr:0,dc:-1},{dr:0,dc:1}];
+    let found = false;
+
+    dirs.forEach(({dr, dc}) => {
+      const r = state.playerRow + dr;
+      const c = state.playerCol + dc;
+      if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE) return;
+      const key = r + ',' + c;
+      if (CLIFFS.has(key)) {
+        tiles[r][c].classList.add('danger-mark');
+        found = true;
+        setTimeout(() => tiles[r][c].classList.remove('danger-mark'), 3000);
+      }
+    });
+
+    if (found) {
+      showMessage('同伴：附近有悬崖——小心脚下');
+    } else {
+      showMessage('同伴：周围四格都是安全的');
+    }
+
+    // 使用道具后视野+1（恢复惩罚）
+    if (state.vision < START_VISION) {
+      state.vision++;
+      if (state.vision === START_VISION) {
+        setTimeout(() => showMessage('视野恢复正常'), 1500);
+      }
+    }
+
+    render();
+  }
+
+  // ===== 道具2：直线探测 =====
+  function useItem2() {
+    if (state.item2 <= 0 || state.isFalling || state.isWon) return;
+    state.item2--;
+
+    const { dr, dc } = state.facing;
+    let foundR = -1, foundC = -1;
+
+    for (let i = 1; i < GRID_SIZE; i++) {
+      const r = state.playerRow + dr * i;
+      const c = state.playerCol + dc * i;
+      if (r < 0 || r >= GRID_SIZE || c < 0 || c >= GRID_SIZE) break;
+      const key = r + ',' + c;
+      if (!CLIFFS.has(key)) {
+        foundR = r;
+        foundC = c;
+        break;
+      }
+    }
+
+    if (foundR >= 0) {
+      tiles[foundR][foundC].classList.add('safe-mark');
+      setTimeout(() => tiles[foundR][foundC].classList.remove('safe-mark'), 3000);
+      showMessage('探测：前方最近安全格在 (' + (foundR+1) + ',' + (foundC+1) + ')');
+    } else {
+      showMessage('探测：这个方向没有安全的路');
+    }
+
+    // 使用道具后视野+1
+    if (state.vision < START_VISION) {
+      state.vision++;
+      if (state.vision === START_VISION) {
+        setTimeout(() => showMessage('视野恢复正常'), 1500);
+      }
+    }
+
+    render();
+  }
+
+  // ===== 通关检测 =====
+  function checkWin() {
+    if (state.explored.size >= GRID_SIZE * GRID_SIZE) {
+      state.isWon = true;
+      // 全图提亮
+      for (let r = 0; r < GRID_SIZE; r++) {
+        for (let c = 0; c < GRID_SIZE; c++) {
+          tiles[r][c].style.transition = 'opacity 1s, filter 1s';
+          tiles[r][c].style.opacity = '1';
+          tiles[r][c].style.filter = 'brightness(1.2)';
+        }
+      }
+      setTimeout(() => {
+        winPanel.classList.add('show');
+      }, 800);
+    }
+  }
+
+  // ===== 消息提示 =====
+  let msgTimer = null;
+  function showMessage(text) {
+    messageEl.textContent = text;
+    messageEl.classList.add('show');
+    if (msgTimer) clearTimeout(msgTimer);
+    msgTimer = setTimeout(() => messageEl.classList.remove('show'), 2500);
+  }
+
+  // ===== 开始游戏 =====
+  window.startGame = function() {
+    startPanel.style.display = 'none';
+    state.started = true;
+    // 起点标记为已探索
+    state.explored.add('0,0');
+    render();
+    showMessage('你站在元白楼的入口——黑暗中只有脚下一方光亮');
+  };
+
+  // ===== 重新开始 =====
+  window.restartGame = function() {
+    state = {
+      playerRow: 0, playerCol: 0,
+      facing: { dr: 0, dc: 1 },
+      vision: START_VISION,
+      explored: new Set(['0,0']),
+      item1: 3, item2: 2,
+      fallCount: 0, isFalling: false, isWon: false, started: true
+    };
+    winPanel.classList.remove('show');
+    // 重置所有tile样式
+    for (let r = 0; r < GRID_SIZE; r++) {
+      for (let c = 0; c < GRID_SIZE; c++) {
+        tiles[r][c].style.opacity = '';
+        tiles[r][c].style.filter = '';
+        tiles[r][c].style.transition = '';
+      }
+    }
+    render();
+    showMessage('重新踏入黑暗');
+  };
+
+  // ===== 键盘控制 =====
+  document.addEventListener('keydown', (e) => {
+    if (!state.started || state.isWon) return;
+    switch(e.key) {
+      case 'ArrowUp': case 'w': case 'W': move(-1, 0); e.preventDefault(); break;
+      case 'ArrowDown': case 's': case 'S': move(1, 0); e.preventDefault(); break;
+      case 'ArrowLeft': case 'a': case 'A': move(0, -1); e.preventDefault(); break;
+      case 'ArrowRight': case 'd': case 'D': move(0, 1); e.preventDefault(); break;
+      case '1': useItem1(); break;
+      case '2': useItem2(); break;
+    }
+  });
+
+  // ===== 按钮绑定 =====
+  document.getElementById('btn-up').addEventListener('click', () => move(-1, 0));
+  document.getElementById('btn-down').addEventListener('click', () => move(1, 0));
+  document.getElementById('btn-left').addEventListener('click', () => move(0, -1));
+  document.getElementById('btn-right').addEventListener('click', () => move(0, 1));
+  document.getElementById('btn-item1').addEventListener('click', useItem1);
+  document.getElementById('btn-item2').addEventListener('click', useItem2);
+
+  // ===== 触摸滑动 =====
+  let touchStartX = 0, touchStartY = 0;
+  document.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    if (!state.started || state.isWon) return;
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      move(0, dx > 0 ? 1 : -1);
+    } else {
+      move(dy > 0 ? 1 : -1, 0);
+    }
+  }, { passive: true });
+
+  // ===== 初始化 =====
+  buildGrid();
+  render();
+
+})();
+</script>
+</body>
+</html>

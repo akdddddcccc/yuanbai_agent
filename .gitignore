@@ -4,3 +4,5 @@ dist/
 *.log
 .env
 .env.*
+qa-*.png
+design-qa-comparison*.png

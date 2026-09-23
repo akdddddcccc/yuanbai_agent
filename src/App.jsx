@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Microphone } from "@phosphor-icons/react";
+import { ArrowLeft, Microphone } from "@phosphor-icons/react";
 import { YuanbaiScene } from "./YuanbaiScene";
 
 const PHASE_COPY = {
@@ -43,6 +43,10 @@ export function App() {
   const [answer, setAnswer] = useState("");
   const [transcript, setTranscript] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    document.title = "对话元白 · YUANBAI";
+  }, []);
 
   const mediaRef = useRef(null);
   const recorderRef = useRef(null);
@@ -163,7 +167,17 @@ export function App() {
           history: historyRef.current,
         }),
       });
-      const result = await response.json();
+      // 先读取文本再解析，避免网关返回空响应时只看到“Unexpected end of JSON input”。
+      const rawResponse = await response.text();
+      let result;
+      try {
+        result = rawResponse ? JSON.parse(rawResponse) : null;
+      } catch {
+        throw new Error(`语音服务返回了无法识别的响应（HTTP ${response.status}）。`);
+      }
+      if (!result) {
+        throw new Error(`语音服务没有返回内容（HTTP ${response.status}），请稍后重试。`);
+      }
       if (!response.ok || !result.ok) {
         throw new Error(result.error || "这次没有回答成功，请再试一次。");
       }
@@ -293,6 +307,10 @@ export function App() {
   return (
     <main className={`experience phase-${phase}`}>
       <header className="brand">YUANBAI / 元白</header>
+      <a className="back-to-portal" href={import.meta.env.BASE_URL}>
+        <ArrowLeft size={14} weight="bold" />
+        <span>返回元白工作台</span>
+      </a>
       <section className="copy-panel" aria-live="polite">
         <div className="status-row">
           <span className="status-dot" />

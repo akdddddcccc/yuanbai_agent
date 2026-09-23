@@ -99,6 +99,28 @@ h1 {
   letter-spacing: -.04em;
 }
 
+.back-to-portal {
+  position: fixed;
+  top: 58px;
+  left: 42px;
+  z-index: 9;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: rgba(222, 193, 171, .58);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-decoration: none;
+  transition: color .2s ease, transform .2s ease;
+}
+
+.back-to-portal:hover,
+.back-to-portal:focus-visible {
+  color: var(--color-text);
+  transform: translateX(-3px);
+  outline: none;
+}
+
 .answer {
   min-height: 4.8em;
   max-width: 410px;
@@ -224,6 +246,7 @@ footer {
 /* 手机布局入口：如果嵌入作品集后显得拥挤，优先调整这里。 */
 @media (max-width: 820px) {
   .brand { top: 24px; left: 24px; }
+  .back-to-portal { top: 48px; left: 24px; }
   .copy-panel { top: 24%; left: 24px; width: calc(100vw - 48px); transform: none; }
   h1 { max-width: 280px; font-size: 42px; }
   .answer { max-width: 300px; font-size: 12px; }
@@ -234,4 +257,237 @@ footer {
   footer { right: 24px; left: 24px; bottom: 18px; }
   footer span:first-child { display: none; }
   footer { justify-content: flex-end; }
+}
+
+/* ==========================================================================
+   元白工作台 / 首页
+   视觉修改建议：先改下面这组 --portal-* 变量，再改卡片尺寸和移动端断点。
+   ========================================================================== */
+.portal {
+  --portal-bg: #090909;
+  --portal-panel: #b9b6af;
+  --portal-panel-ink: #11110f;
+  --portal-red: #c33028;
+  --portal-muted: #99938b;
+  position: relative;
+  width: 100%;
+  min-height: 100dvh;
+  overflow: hidden;
+  color: #f2eee8;
+  background: var(--portal-bg);
+  isolation: isolate;
+}
+
+.portal-header {
+  position: absolute;
+  top: 28px;
+  left: 34px;
+  z-index: 8;
+  display: flex;
+  align-items: flex-start;
+  gap: 30px;
+}
+
+.portal-brand { display: grid; gap: 1px; }
+.portal-brand strong {
+  font-size: clamp(24px, 2.25vw, 36px);
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: -.04em;
+}
+.portal-brand span {
+  color: #d4cec7;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .24em;
+}
+.portal-header p {
+  margin: 2px 0 0;
+  padding-left: 24px;
+  border-left: 1px solid rgba(255, 255, 255, .38);
+  color: #c6c1bb;
+  font-family: Georgia, "Noto Serif SC", serif;
+  font-size: 11px;
+  line-height: 1.65;
+  letter-spacing: .2em;
+}
+
+.portal-status {
+  position: absolute;
+  top: 26px;
+  left: 50%;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  min-height: 34px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, .28);
+  color: #d2cdc7;
+  font-size: 9px;
+  letter-spacing: .13em;
+  transform: translateX(-50%);
+}
+.portal-status span + span,
+.portal-status time { padding-left: 15px; border-left: 1px solid rgba(255, 255, 255, .2); }
+.portal-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--portal-red); box-shadow: 0 0 12px rgba(239, 63, 47, .7); }
+
+/* 中央 stage 直接复用对话页的 Three.js 楼体，因此模型只维护一份。 */
+.portal-stage {
+  position: absolute;
+  inset: 9% 29% 9%;
+  z-index: 1;
+  min-width: 420px;
+}
+.portal-stage .scene-mount { width: 100%; height: 100%; }
+.portal-stage canvas { display: block; width: 100%; height: 100%; }
+.portal-model-copy {
+  position: absolute;
+  top: 16%;
+  right: -5%;
+  display: grid;
+  width: 135px;
+  gap: 7px;
+  color: rgba(236, 230, 223, .72);
+  font-size: 9px;
+  line-height: 1.6;
+  letter-spacing: .1em;
+}
+.portal-model-copy span { font-family: Georgia, "Noto Serif SC", serif; font-size: 14px; }
+.portal-model-copy strong { color: #f0eae4; font-size: 8px; letter-spacing: .15em; }
+.portal-model-copy p { margin: 0; color: rgba(236, 230, 223, .44); }
+
+.portal-navigation { display: contents; }
+.portal-card {
+  position: absolute;
+  top: 19%;
+  z-index: 4;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto auto;
+  width: min(27vw, 390px);
+  height: 59%;
+  min-height: 470px;
+  padding: clamp(24px, 2.1vw, 34px);
+  overflow: hidden;
+  color: var(--portal-panel-ink);
+  border: 1px solid rgba(255, 255, 255, .25);
+  border-top: 5px solid var(--portal-red);
+  background: var(--portal-panel);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, .45);
+  text-decoration: none;
+  transition: transform .3s ease, background .3s ease, box-shadow .3s ease;
+}
+.portal-card-explore { left: 3.3%; }
+.portal-card-dialogue { right: 3.3%; }
+.portal-card:hover,
+.portal-card:focus-visible {
+  background: #cac7c0;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .58);
+  transform: translateY(-8px);
+  outline: 3px solid rgba(218, 56, 44, .72);
+  outline-offset: 4px;
+}
+.portal-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.portal-card-head strong { font-size: clamp(42px, 4vw, 62px); line-height: .85; letter-spacing: -.06em; }
+.portal-card-head span { max-width: 132px; padding-top: 5px; text-align: right; font-size: 8px; font-weight: 700; letter-spacing: .15em; }
+.portal-card-title { margin-top: 28px; }
+.portal-accent { display: block; width: 48px; height: 5px; margin-bottom: 12px; background: var(--portal-red); }
+.portal-card h2 { margin: 0; font-size: clamp(34px, 3.45vw, 54px); line-height: 1; letter-spacing: -.07em; }
+.portal-card-icon { display: grid; place-items: center; color: #181714; }
+.portal-card p { max-width: 270px; margin: 0 0 18px; font-size: 12px; line-height: 1.75; letter-spacing: .04em; }
+.portal-card-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 66px;
+  margin: 0 calc(clamp(24px, 2.1vw, 34px) * -1) calc(clamp(24px, 2.1vw, 34px) * -1);
+  padding: 0 clamp(24px, 2.1vw, 34px);
+  color: #f5f0eb;
+  background: #121211;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: .09em;
+}
+.portal-card:hover .portal-card-action,
+.portal-card:focus-visible .portal-card-action { background: #2a0b09; }
+
+.portal-footer {
+  position: absolute;
+  right: 34px;
+  bottom: 22px;
+  left: 34px;
+  z-index: 8;
+  display: flex;
+  justify-content: space-between;
+  color: rgba(226, 219, 212, .42);
+  font-size: 8px;
+  letter-spacing: .18em;
+}
+
+@media (max-width: 1180px) {
+  .portal-card { width: 29vw; padding: 24px; }
+  .portal-card-explore { left: 2%; }
+  .portal-card-dialogue { right: 2%; }
+  .portal-stage { right: 28%; left: 28%; min-width: 360px; }
+  .portal-model-copy { display: none; }
+}
+
+/* 手机端改为“品牌 → 模型 → 两张入口卡”的自然滚动顺序，触摸区域至少 44px。 */
+@media (max-width: 820px) {
+  .portal {
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow-y: auto;
+    padding: 22px 18px 28px;
+  }
+  .portal-header,
+  .portal-status,
+  .portal-stage,
+  .portal-card,
+  .portal-footer { position: relative; inset: auto; transform: none; }
+  .portal-header { justify-content: space-between; gap: 18px; }
+  .portal-header p { padding-left: 16px; }
+  .portal-status {
+    left: auto;
+    width: 100%;
+    margin-top: 24px;
+    justify-content: center;
+  }
+  .portal-status time { display: none; }
+  .portal-stage {
+    width: 100%;
+    min-width: 0;
+    height: 330px;
+    margin-top: 8px;
+  }
+  .portal-model-copy { display: grid; top: 20px; right: 0; }
+  .portal-navigation { display: grid; gap: 18px; }
+  .portal-card {
+    width: 100%;
+    height: auto;
+    min-height: 420px;
+  }
+  .portal-card h2 { font-size: clamp(42px, 13vw, 58px); }
+  .portal-card-icon { min-height: 110px; }
+  .portal-footer { margin-top: 24px; gap: 18px; line-height: 1.6; }
+  .portal-footer span:last-child { text-align: right; }
+}
+
+@media (max-width: 440px) {
+  .portal { padding-inline: 14px; }
+  .portal-brand strong { font-size: 25px; }
+  .portal-header p { display: none; }
+  .portal-status { gap: 10px; padding-inline: 10px; font-size: 8px; }
+  .portal-status span + span { padding-left: 10px; }
+  .portal-stage { height: 290px; }
+  .portal-model-copy { right: 4px; width: 112px; }
+  .portal-card { min-height: 390px; padding: 22px; }
+  .portal-card-action { margin-inline: -22px; margin-bottom: -22px; padding-inline: 22px; }
+  .portal-footer { font-size: 7px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-card,
+  .back-to-portal { transition: none; }
 }

@@ -11,4 +11,4 @@ npm ci
 npm run dev
 ```
 
-本地默认请求 `/api/chat`；部署到 `/yuanbai/` 后会自动请求 `/api/yuanbai/chat`。API 密钥只配置在托管平台的服务端环境变量中，不应提交到此仓库。
+本地默认请求 `/api/chat`，Vite 会将它转发到已部署的 `/api/yuanbai/chat`；部署到 `/yuanbai/` 后前端直接请求云端函数。API 密钥只配置在托管平台的服务端环境变量中，不应提交到此仓库。

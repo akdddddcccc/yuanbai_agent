@@ -193,7 +193,7 @@ function makeBuilding(scene) {
   return { building, blocks, stairRoot, windowMaterials, particles, particleMaterial };
 }
 
-export function YuanbaiScene({ phase, level }) {
+export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
   const mountRef = useRef(null);
   // 动画循环只创建一次；React 状态通过 ref 注入，避免每次说话都重建 WebGL 场景。
   const stateRef = useRef({ phase, level });
@@ -206,7 +206,11 @@ export function YuanbaiScene({ phase, level }) {
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x180506, .031);
     const camera = new THREE.PerspectiveCamera(32, 1, .1, 100);
-    camera.position.set(8.2, 3.4, 16.4);
+    // 工作台中央模型更接近正视角；对话页保留原来的侧前方视角。
+    const cameraHome = variant === "portal"
+      ? new THREE.Vector3(7.2, 2.7, 17.2)
+      : new THREE.Vector3(8.2, 3.4, 16.4);
+    camera.position.copy(cameraHome);
     camera.lookAt(.25, .2, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
@@ -241,7 +245,21 @@ export function YuanbaiScene({ phase, level }) {
     floor.receiveShadow = true;
     scene.add(floor);
 
+    // 工作台模式补一层真实 WebGL 网格，呼应方案 3 的红色建筑制图背景。
+    if (variant === "portal") {
+      const grid = new THREE.GridHelper(34, 22, 0x8e211b, 0x3d1110);
+      grid.rotation.x = Math.PI / 2;
+      grid.position.set(0, 0, -4.2);
+      grid.material.transparent = true;
+      grid.material.opacity = .34;
+      scene.add(grid);
+    }
+
     const model = makeBuilding(scene);
+    if (variant === "portal") {
+      model.building.scale.multiplyScalar(1.08);
+      model.building.position.y = -.25;
+    }
     let width = 0;
     let height = 0;
     const resize = () => {
@@ -323,8 +341,8 @@ export function YuanbaiScene({ phase, level }) {
 
       model.building.rotation.y += ((-.16 + pointer.x * .055) - model.building.rotation.y) * .025;
       model.building.rotation.x += ((-.045 - pointer.y * .025) - model.building.rotation.x) * .025;
-      camera.position.x += ((8.2 + pointer.x * .2) - camera.position.x) * .018;
-      camera.position.y += ((3.4 - pointer.y * .12) - camera.position.y) * .018;
+      camera.position.x += ((cameraHome.x + pointer.x * .2) - camera.position.x) * .018;
+      camera.position.y += ((cameraHome.y - pointer.y * .12) - camera.position.y) * .018;
       camera.lookAt(.25, .2, 0);
       renderer.render(scene, camera);
     };
@@ -342,7 +360,7 @@ export function YuanbaiScene({ phase, level }) {
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, []);
+  }, [variant]);
 
-  return createElement("div", { ref: mountRef, className: "scene-mount" });
+  return createElement("div", { ref: mountRef, className: `scene-mount scene-mount-${variant}` });
 }
