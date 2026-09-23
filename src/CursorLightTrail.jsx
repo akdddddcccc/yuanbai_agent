@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 
-const DOT_COUNT = 22;
+const TRAIL_POINT_COUNT = 22;
 
-// 仅在精确鼠标设备上启用。每个点追随前一个点，形成带延迟的暖色光轨。
+// 仅在精确鼠标设备上启用。采样点负责延迟跟随，最终绘制为一条连续渐变曲线。
 export function CursorLightTrail() {
   const canvasRef = useRef(null);
 
@@ -12,7 +12,7 @@ export function CursorLightTrail() {
     if (!canvas || !pointerQuery.matches) return undefined;
 
     const context = canvas.getContext("2d");
-    const points = Array.from({ length: DOT_COUNT }, () => ({ x: window.innerWidth / 2, y: window.innerHeight / 2 }));
+    const points = Array.from({ length: TRAIL_POINT_COUNT }, () => ({ x: window.innerWidth / 2, y: window.innerHeight / 2 }));
     const target = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     let frame = 0;
     let strength = 0;
@@ -48,18 +48,31 @@ export function CursorLightTrail() {
         points[index].y += (points[index - 1].y - points[index].y) * follow;
       }
 
+      const head = points[0];
+      const tail = points[points.length - 1];
+      const gradient = context.createLinearGradient(tail.x, tail.y, head.x, head.y);
+      gradient.addColorStop(0, "rgba(255, 158, 112, 0)");
+      gradient.addColorStop(.34, `rgba(232, 91, 49, ${strength * .18})`);
+      gradient.addColorStop(.72, `rgba(255, 125, 65, ${strength * .48})`);
+      gradient.addColorStop(1, `rgba(255, 205, 157, ${strength * .86})`);
+
       context.globalCompositeOperation = "lighter";
-      for (let index = points.length - 1; index >= 0; index -= 1) {
-        const progress = index / (points.length - 1);
-        const alpha = strength * Math.pow(1 - progress, 1.55) * .82;
-        const radius = .65 + (1 - progress) * 2.45;
-        context.beginPath();
-        context.fillStyle = `rgba(255, ${Math.round(137 + progress * 42)}, ${Math.round(83 + progress * 66)}, ${alpha})`;
-        context.shadowColor = `rgba(255, 105, 55, ${alpha * .8})`;
-        context.shadowBlur = 7 + (1 - progress) * 13;
-        context.arc(points[index].x, points[index].y, radius, 0, Math.PI * 2);
-        context.fill();
+      context.beginPath();
+      context.moveTo(tail.x, tail.y);
+      for (let index = points.length - 2; index > 0; index -= 1) {
+        const next = points[index - 1];
+        const midpointX = (points[index].x + next.x) * .5;
+        const midpointY = (points[index].y + next.y) * .5;
+        context.quadraticCurveTo(points[index].x, points[index].y, midpointX, midpointY);
       }
+      context.lineTo(head.x, head.y);
+      context.strokeStyle = gradient;
+      context.lineWidth = 2.15;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.shadowColor = `rgba(255, 100, 52, ${strength * .44})`;
+      context.shadowBlur = 13;
+      context.stroke();
       context.globalCompositeOperation = "source-over";
       context.shadowBlur = 0;
     };
