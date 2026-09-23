@@ -88,6 +88,25 @@ function makeSurfaceTexture(type) {
   return texture;
 }
 
+// 楼体不再落在可见地面上。这个柔和的径向纹理只在楼体下方形成一块遥远投影，
+// 保留空间尺度感，同时让画面边缘自然消失在深色背景中。
+function makeDistantProjectionTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d");
+  const gradient = ctx.createRadialGradient(256, 256, 18, 256, 256, 248);
+  gradient.addColorStop(0, "rgba(222,92,52,.72)");
+  gradient.addColorStop(.18, "rgba(170,49,32,.34)");
+  gradient.addColorStop(.5, "rgba(88,20,18,.12)");
+  gradient.addColorStop(1, "rgba(24,5,6,0)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 512, 512);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 function makeMaterials() {
   const brickTexture = makeSurfaceTexture("brick");
   const darkBrickTexture = makeSurfaceTexture("brickDark");
@@ -637,12 +656,12 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
     if (!mount) return undefined;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x180506, .028);
+    scene.fog = new THREE.FogExp2(0x0b0203, .034);
     const camera = new THREE.PerspectiveCamera(31, 1, .1, 100);
     const cameraHome = variant === "portal"
       ? new THREE.Vector3(10.8, 9.6, 16.8)
       : new THREE.Vector3(11.8, 8.7, 17.5);
-    const lookAt = new THREE.Vector3(0, 1.15, .3);
+    const lookAt = new THREE.Vector3(0, 1.48, .3);
     camera.position.copy(cameraHome);
     camera.lookAt(lookAt);
 
@@ -653,11 +672,12 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.38;
+    renderer.toneMappingExposure = .88;
     mount.appendChild(renderer.domElement);
 
-    scene.add(new THREE.HemisphereLight(0xffe1cd, 0x250908, 2.35));
-    const key = new THREE.DirectionalLight(0xffd3b9, 5.2);
+    const ambient = new THREE.HemisphereLight(0xffddc7, 0x120304, 1.08);
+    scene.add(ambient);
+    const key = new THREE.DirectionalLight(0xffd3b9, 2.15);
     key.position.set(8, 13, 10);
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
@@ -666,32 +686,31 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
     key.shadow.camera.top = 8;
     key.shadow.camera.bottom = -8;
     scene.add(key);
-    const rim = new THREE.PointLight(0xc73d2a, 62, 32, 1.55);
+    const rim = new THREE.PointLight(0xc73d2a, 17, 32, 1.55);
     rim.position.set(-6, 3, 5);
     scene.add(rim);
-    const fill = new THREE.PointLight(0xffa76c, 42, 28, 1.45);
+    const fill = new THREE.PointLight(0xffa76c, 9, 28, 1.45);
     fill.position.set(6, 5, 8);
     scene.add(fill);
 
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(34, 34),
-      new THREE.MeshStandardMaterial({ color: 0x180506, roughness: 1, transparent: true, opacity: .76 }),
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -.065;
-    floor.receiveShadow = true;
-    scene.add(floor);
-
-    if (variant === "portal") {
-      const grid = new THREE.GridHelper(34, 24, 0x8e211b, 0x3d1110);
-      grid.position.y = -.045;
-      grid.material.transparent = true;
-      grid.material.opacity = .28;
-      scene.add(grid);
-    }
+    const projectionMaterial = new THREE.MeshBasicMaterial({
+      map: makeDistantProjectionTexture(),
+      color: 0xd95e3d,
+      transparent: true,
+      opacity: .075,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const projection = new THREE.Mesh(new THREE.PlaneGeometry(16, 11), projectionMaterial);
+    projection.name = "YB_distant_voice_projection";
+    projection.rotation.x = -Math.PI / 2;
+    projection.position.set(.2, -2.45, .45);
+    scene.add(projection);
 
     const model = makeBuilding(scene);
     if (variant === "portal") model.building.scale.setScalar(1.04);
+    const buildingHomeY = variant === "portal" ? .48 : .72;
+    model.building.position.y = buildingHomeY;
 
     const resize = () => {
       const width = mount.clientWidth;
@@ -752,11 +771,21 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
 
       model.stairRoot.position.y = Math.sin(t * .42) * .006;
       model.stairRoot.rotation.z = Math.sin(t * .28) * .0015;
-      const lightPulse = .12 + smoothedLevel * 8.1 + afterglow * 2.15;
+      const lightPulse = .035 + smoothedLevel * 8.4 + afterglow * 1.8;
       model.windowMaterials.forEach((material, index) => {
         const uneven = .72 + Math.sin(t * 4.0 + index * 1.47) * .18;
         material.emissiveIntensity = lightPulse * uneven;
       });
+
+      // 常态保持克制；只有元白开口时，主光、边缘光和远处投影才一起抬升。
+      const speechGlow = Math.min(1, smoothedLevel * 1.35 + afterglow * .36);
+      ambient.intensity += ((1.08 + speechGlow * .42) - ambient.intensity) * .08;
+      key.intensity += ((2.15 + speechGlow * 2.8) - key.intensity) * .09;
+      rim.intensity += ((17 + speechGlow * 54) - rim.intensity) * .1;
+      fill.intensity += ((9 + speechGlow * 31) - fill.intensity) * .1;
+      projectionMaterial.opacity += ((.06 + speechGlow * .19) - projectionMaterial.opacity) * .08;
+      const projectionScale = 1 + speechGlow * .1 + Math.sin(t * .82) * .008;
+      projection.scale.set(projectionScale, projectionScale, 1);
 
       const thinking = currentPhase === "thinking" ? 1 : 0;
       if (thinking && !wasThinking) {
@@ -780,6 +809,7 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
 
       model.building.rotation.y += ((-.12 + pointer.x * .07) - model.building.rotation.y) * .024;
       model.building.rotation.x += ((pointer.y * -.018) - model.building.rotation.x) * .024;
+      model.building.position.y += ((buildingHomeY + Math.sin(t * .37) * .035) - model.building.position.y) * .045;
       camera.position.x += ((cameraHome.x + pointer.x * .28) - camera.position.x) * .018;
       camera.position.y += ((cameraHome.y - pointer.y * .18) - camera.position.y) * .018;
       camera.lookAt(lookAt);

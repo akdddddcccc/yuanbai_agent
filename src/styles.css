@@ -1,6 +1,6 @@
 :root {
   /* 视觉主题入口：先改这组变量，可以整体换色和调整左右版式。 */
-  --color-bg: #180506;
+  --color-bg: #0b0203;
   --color-text: #f2e7dc;
   --color-muted: #cbb9aa;
   --color-accent: #ef8c58;
@@ -32,7 +32,18 @@ button { font: inherit; }
   min-height: 100dvh;
   overflow: hidden;
   isolation: isolate;
-  background: var(--color-bg);
+  background:
+    radial-gradient(circle at 76% 44%, rgba(98, 22, 18, .16), transparent 34%),
+    radial-gradient(circle at 48% 112%, rgba(79, 15, 13, .13), transparent 48%),
+    var(--color-bg);
+}
+
+/* 回答发声时只抬高模型周围的环境辉光，避免整个页面突然变亮。 */
+.experience.phase-speaking {
+  background:
+    radial-gradient(circle at 76% 44%, rgba(145, 39, 26, .25), transparent 38%),
+    radial-gradient(circle at 48% 112%, rgba(105, 23, 17, .18), transparent 50%),
+    var(--color-bg);
 }
 
 /* 叠在最上层的细颗粒，用来削弱纯数字渲染感。删除本段即可获得更干净的画面。 */
