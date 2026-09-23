@@ -7,4 +7,11 @@ The visual interaction is intentionally separated from the current procedural ge
 - `windowMaterials`: emissive materials inside windows, gaps, and stair undersides. Their intensity follows voice energy and retains a short afterglow during pauses.
 - `particles`: the thinking-state point cloud. It dissolves and rebuilds the model while the API response is pending.
 
-For a replacement GLB, give nodes a `userData.role` value of `block`, `stair`, or `light`. Load the file in `YuanbaiScene.js`, collect those nodes into the same arrays, and keep the animation loop unchanged.
+The current editable export is `public/models/yuanbai-brutalist-v1.glb`. It uses these names:
+
+- `YB_mass_*`: the 12 animated masses, with `userData.role` set to `animated_mass`.
+- `YB_stable_stairs_and_bridges`: the five stable connections, with `userData.role` set to `stable_connector`.
+- `warm_recessed_window`: emissive window geometry.
+- `YB_circular_courtyard_3_brick_2_grass`: the courtyard landscape.
+
+When replacing the GLB in Blender or Rhino, preserve these node prefixes. Load the file in `YuanbaiScene.js`, collect the named nodes into the same arrays, and keep the animation loop unchanged. Run `npm run model:glb` to regenerate the current reference export from `src/yuanbaiModelSpec.js`.

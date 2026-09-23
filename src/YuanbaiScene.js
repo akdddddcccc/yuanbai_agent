@@ -1,156 +1,347 @@
 import { createElement, useEffect, useRef } from "react";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { YUANBAI_CONNECTIONS, YUANBAI_COURTYARD, YUANBAI_MASSES } from "./yuanbaiModelSpec.js";
 
-// 每行依次是 [x, y, z, 宽, 高, 深, z轴旋转]。
-// 想改楼体轮廓时优先改这里；增加一行就是增加一个红砖体块。
-const BLOCKS = [
-  [-2.55, 2.9, 0.15, 2.7, 1.05, 1.5, -0.06],
-  [2.35, 3.15, -0.05, 2.15, 1.1, 1.45, 0.04],
-  [-3.0, 1.45, -0.22, 2.4, 1.15, 1.55, 0.08],
-  [2.65, 1.65, 0.3, 2.65, 1.0, 1.35, -0.04],
-  [-2.15, 0.0, 0.55, 3.1, 1.25, 1.3, -0.02],
-  [2.5, 0.25, -0.4, 2.25, 1.25, 1.5, 0.05],
-  [-3.05, -1.55, -0.15, 2.35, 1.05, 1.45, 0.03],
-  [2.6, -1.25, 0.45, 2.75, 1.15, 1.3, -0.06],
-  [-2.3, -3.0, 0.35, 2.85, 1.05, 1.5, 0.04],
-  [2.25, -2.75, -0.2, 2.2, 1.15, 1.4, -0.03],
-  [-3.55, 3.95, -0.6, 1.45, .9, 1.2, 0.08],
-  [3.55, 3.9, .25, 1.35, .85, 1.1, -0.07],
-  [-3.65, -.2, -.7, 1.25, .9, 1.25, 0.04],
-  [3.75, -1.9, -.55, 1.4, .9, 1.15, -0.05],
-  [3.35, -3.75, .2, 1.3, .85, 1.1, 0.08],
-];
-
-// Three.js 材质色板。页面 UI 色板在 styles.css 的 :root 中，两处可分别调整。
 const palette = {
-  brick: new THREE.Color("#a44735"),
-  brickDark: new THREE.Color("#70271f"),
-  concrete: new THREE.Color("#d2c7bc"),
-  glow: new THREE.Color("#ff9d57"),
+  brick: new THREE.Color("#963f31"),
+  brickDark: new THREE.Color("#67251f"),
+  concrete: new THREE.Color("#aaa49b"),
+  concreteLight: new THREE.Color("#d0c9bd"),
+  metal: new THREE.Color("#322d2a"),
+  glow: new THREE.Color("#ff9c55"),
+  grass: new THREE.Color("#596344"),
 };
 
-function noiseMaterial(color, roughness = .9) {
-  const base = new THREE.Color(color);
-  return new THREE.MeshStandardMaterial({
-    color: base,
-    emissive: base.clone().multiplyScalar(.22),
-    emissiveIntensity: 1.15,
-    roughness,
-    metalness: 0.02,
+function seededNoise(seed) {
+  const value = Math.sin(seed * 91.917) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function makeSurfaceTexture(type) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+
+  if (type === "brick" || type === "brickDark") {
+    const base = type === "brick" ? "#9b4938" : "#672a23";
+    const mortar = type === "brick" ? "#6e3027" : "#3f1d19";
+    ctx.fillStyle = mortar;
+    ctx.fillRect(0, 0, 256, 256);
+    const brickW = 44;
+    const brickH = 18;
+    for (let row = 0; row < 15; row += 1) {
+      const offset = row % 2 ? -brickW / 2 : 0;
+      for (let col = -1; col < 8; col += 1) {
+        const tone = Math.round((seededNoise(row * 17 + col * 7) - .5) * 18);
+        ctx.fillStyle = base;
+        ctx.fillRect(offset + col * brickW + 2, row * brickH + 2, brickW - 4, brickH - 4);
+        ctx.fillStyle = `rgba(${tone > 0 ? 255 : 30},${tone > 0 ? 225 : 10},${tone > 0 ? 205 : 8},${Math.abs(tone) / 90})`;
+        ctx.fillRect(offset + col * brickW + 2, row * brickH + 2, brickW - 4, brickH - 4);
+      }
+    }
+  } else {
+    ctx.fillStyle = "#aaa59c";
+    ctx.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 3400; i += 1) {
+      const value = 120 + Math.floor(seededNoise(i * 3.13) * 95);
+      ctx.fillStyle = `rgba(${value},${value},${value - 4},${.025 + seededNoise(i) * .08})`;
+      const x = seededNoise(i * 1.71) * 256;
+      const y = seededNoise(i * 2.37) * 256;
+      ctx.fillRect(x, y, 1 + seededNoise(i * 4.4) * 2, 1);
+    }
+    ctx.strokeStyle = "rgba(73,68,63,.18)";
+    ctx.lineWidth = 1;
+    for (let y = 32; y < 256; y += 48) {
+      ctx.beginPath();
+      ctx.moveTo(0, y + .5);
+      ctx.lineTo(256, y + .5);
+      ctx.stroke();
+    }
+    for (let x = 64; x < 256; x += 96) {
+      ctx.beginPath();
+      ctx.moveTo(x + .5, 0);
+      ctx.lineTo(x + .5, 256);
+      ctx.stroke();
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(type === "concrete" ? 1.5 : 2.8, type === "concrete" ? 2 : 3.4);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  return texture;
+}
+
+function makeMaterials() {
+  const brickTexture = makeSurfaceTexture("brick");
+  const darkBrickTexture = makeSurfaceTexture("brickDark");
+  const concreteTexture = makeSurfaceTexture("concrete");
+  return {
+    brick: new THREE.MeshStandardMaterial({ map: brickTexture, color: palette.brick, roughness: .94, metalness: .01 }),
+    brickDark: new THREE.MeshStandardMaterial({ map: darkBrickTexture, color: palette.brickDark, roughness: .96, metalness: 0 }),
+    concrete: new THREE.MeshStandardMaterial({ map: concreteTexture, color: palette.concrete, roughness: .98, metalness: 0 }),
+    concreteLight: new THREE.MeshStandardMaterial({ map: concreteTexture, color: palette.concreteLight, roughness: .96, metalness: 0 }),
+    concreteDark: new THREE.MeshStandardMaterial({ color: "#6f6a64", roughness: .98, metalness: 0 }),
+    metal: new THREE.MeshStandardMaterial({ color: palette.metal, roughness: .7, metalness: .24 }),
+    grass: new THREE.MeshStandardMaterial({ color: palette.grass, roughness: 1, metalness: 0 }),
+    soil: new THREE.MeshStandardMaterial({ color: "#342822", roughness: 1, metalness: 0 }),
+  };
+}
+
+function footprintGeometry(points, height) {
+  const shape = new THREE.Shape();
+  points.forEach(([x, z], index) => {
+    if (index === 0) shape.moveTo(x, -z);
+    else shape.lineTo(x, -z);
+  });
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, curveSegments: 1 });
+  geometry.rotateX(-Math.PI / 2);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function bodyGeometry(mass, height = mass.size[1]) {
+  if (mass.footprint) return footprintGeometry(mass.footprint, height);
+  return new RoundedBoxGeometry(mass.size[0], height, mass.size[2], 2, .025);
+}
+
+function addWindow(group, face, x, y, z, width, height, materials, windowMaterials) {
+  const recess = new THREE.Mesh(
+    new THREE.BoxGeometry(
+      face === "front" ? width + .11 : .055,
+      height + .11,
+      face === "front" ? .055 : width + .11,
+    ),
+    materials.concreteDark,
+  );
+  recess.position.set(x, y, z);
+  group.add(recess);
+
+  const glowMaterial = new THREE.MeshStandardMaterial({
+    color: "#1c1512",
+    emissive: palette.glow,
+    emissiveIntensity: .16,
+    roughness: .42,
+    metalness: .03,
+  });
+  const glass = new THREE.Mesh(
+    new THREE.BoxGeometry(
+      face === "front" ? width : .028,
+      height,
+      face === "front" ? .028 : width,
+    ),
+    glowMaterial,
+  );
+  glass.position.set(
+    x + (face === "side" ? Math.sign(x || 1) * .033 : 0),
+    y,
+    z + (face === "front" ? Math.sign(z || 1) * .033 : 0),
+  );
+  group.add(glass);
+  windowMaterials.push(glowMaterial);
+}
+
+function addFacadeDetails(group, mass, index, materials, windowMaterials) {
+  const [width, height, depth] = mass.size;
+  const rowCount = Math.max(1, Math.min(4, Math.floor((height - .28) / .58)));
+  const colCount = Math.max(1, Math.min(3, Math.floor(width / .48)));
+  const frontZ = depth / 2 + .031;
+
+  for (let row = 0; row < rowCount; row += 1) {
+    const wy = .34 + row * ((height - .58) / Math.max(1, rowCount - 1));
+    for (let col = 0; col < colCount; col += 1) {
+      if ((row * 3 + col + index) % 5 === 0) continue;
+      const wx = (col - (colCount - 1) / 2) * Math.min(.43, width / Math.max(2, colCount + .4));
+      addWindow(group, "front", wx, wy, frontZ, .25, .18, materials, windowMaterials);
+    }
+    const sideX = (index % 2 ? 1 : -1) * (width / 2 + .031);
+    const sideZ = ((row + index) % 2 ? -.19 : .19) * Math.min(1, depth);
+    addWindow(group, "side", sideX, wy, sideZ, .23, .18, materials, windowMaterials);
+  }
+
+  const roof = new THREE.Mesh(
+    new RoundedBoxGeometry(width * 1.055, .09, depth * 1.055, 2, .018),
+    materials.concreteLight,
+  );
+  roof.position.y = height + .045;
+  roof.castShadow = true;
+  group.add(roof);
+
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(.12, height * .78, .16), materials.concreteLight);
+  fin.position.set(width * .28 * (index % 2 ? 1 : -1), height * .48, depth / 2 + .1);
+  fin.castShadow = true;
+  group.add(fin);
+
+  if (index % 3 === 0 && height > 1.4) {
+    const balcony = new THREE.Mesh(new THREE.BoxGeometry(width * .58, .09, .34), materials.concreteLight);
+    balcony.position.set(0, height * .58, depth / 2 + .17);
+    balcony.castShadow = true;
+    group.add(balcony);
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(width * .56, .25, .025), materials.metal);
+    rail.position.set(0, height * .58 + .17, depth / 2 + .33);
+    group.add(rail);
+  }
+
+  if (mass.finish === "concrete") {
+    for (let seam = .42; seam < height - .18; seam += .62) {
+      const line = new THREE.Mesh(new THREE.BoxGeometry(width * .88, .018, .018), materials.concreteDark);
+      line.position.set(0, seam, depth / 2 + .038);
+      group.add(line);
+    }
+  }
+
+  if (index % 2 === 0) {
+    const roofCore = new THREE.Mesh(new RoundedBoxGeometry(width * .34, .28, depth * .3, 2, .018), materials.concrete);
+    roofCore.position.set(-width * .16, height + .18, 0);
+    roofCore.castShadow = true;
+    group.add(roofCore);
+  } else {
+    const vent = new THREE.Mesh(new THREE.CylinderGeometry(.055, .07, .36, 10), materials.metal);
+    vent.position.set(width * .22, height + .22, -depth * .12);
+    group.add(vent);
+  }
+}
+
+function addCourtyard(building, materials) {
+  const root = new THREE.Group();
+  root.name = "YB_circular_courtyard";
+  root.position.set(...YUANBAI_COURTYARD.position);
+  building.add(root);
+
+  const soil = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, .035, 64), materials.soil);
+  soil.position.y = -.01;
+  soil.receiveShadow = true;
+  root.add(soil);
+
+  YUANBAI_COURTYARD.brickRadii.forEach((radius, index) => {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, .065, 6, 72), index % 2 ? materials.brickDark : materials.brick);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = .035 + index * .018;
+    ring.receiveShadow = true;
+    root.add(ring);
+  });
+
+  YUANBAI_COURTYARD.grassRadii.forEach((radius, index) => {
+    const grass = new THREE.Mesh(new THREE.TorusGeometry(radius, .085, 6, 64), materials.grass);
+    grass.rotation.x = Math.PI / 2;
+    grass.position.y = .048 + index * .018;
+    root.add(grass);
   });
 }
 
-function addWindow(group, position, scale, windowMaterials) {
-  const material = new THREE.MeshStandardMaterial({
-    color: "#2a0a07",
-    emissive: palette.glow,
-    emissiveIntensity: .18,
-    roughness: .5,
+function cylinderBetween(start, end, radius, material) {
+  const direction = end.clone().sub(start);
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, direction.length(), 8), material);
+  mesh.position.copy(start).add(end).multiplyScalar(.5);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
+  return mesh;
+}
+
+function addStairConnection(stairRoot, connection, materials) {
+  const root = new THREE.Group();
+  root.name = `YB_stair_${connection.id}`;
+  const start = new THREE.Vector3(...connection.from);
+  const end = new THREE.Vector3(...connection.to);
+  const horizontal = new THREE.Vector3(end.x - start.x, 0, end.z - start.z);
+  const run = Math.max(.01, horizontal.length());
+  const stepCount = Math.max(5, Math.ceil(Math.max(run * 9, Math.abs(end.y - start.y) * 10)));
+  const rotationY = Math.atan2(horizontal.x, horizontal.z);
+
+  for (let i = 0; i < stepCount; i += 1) {
+    const amount = (i + .5) / stepCount;
+    const point = start.clone().lerp(end, amount);
+    const step = new THREE.Mesh(
+      new THREE.BoxGeometry(connection.width, .07, run / stepCount * 1.18),
+      materials.concreteLight,
+    );
+    step.position.copy(point);
+    step.rotation.y = rotationY;
+    step.castShadow = true;
+    root.add(step);
+  }
+
+  const side = new THREE.Vector3(horizontal.z, 0, -horizontal.x).normalize().multiplyScalar(connection.width * .48);
+  [-1, 1].forEach((direction) => {
+    const railStart = start.clone().addScaledVector(side, direction);
+    const railEnd = end.clone().addScaledVector(side, direction);
+    railStart.y += .28;
+    railEnd.y += .28;
+    root.add(cylinderBetween(railStart, railEnd, .018, materials.metal));
   });
-  const window = new THREE.Mesh(new THREE.BoxGeometry(...scale), material);
-  window.position.set(...position);
-  group.add(window);
-  windowMaterials.push(material);
+  stairRoot.add(root);
 }
 
 function makeBuilding(scene) {
-  // building 是完整实体楼；以后替换 GLB 时，可以保留返回值中的交互接口。
+  const materials = makeMaterials();
   const building = new THREE.Group();
-  building.rotation.set(-.045, -.16, -.02);
-  building.position.set(.3, -.05, 0);
-  building.scale.setScalar(1.12);
+  building.name = "Yuanbai_Brutalist_Architecture";
+  building.rotation.y = -.12;
+  building.position.set(0, -.03, .15);
   scene.add(building);
 
-  const concrete = noiseMaterial(palette.concrete, .96);
-  const brickMaterials = [noiseMaterial(palette.brick, .92), noiseMaterial(palette.brickDark, .95)];
-  const metal = new THREE.MeshStandardMaterial({ color: "#4e3d36", roughness: .72, metalness: .08 });
   const windowMaterials = [];
   const blocks = [];
 
-  // 中央浅色混凝土核心筒。
-  const core = new THREE.Mesh(new RoundedBoxGeometry(2.1, 8.8, 2, 4, .12), concrete);
-  core.position.set(.05, .35, 0);
-  core.castShadow = true;
-  core.receiveShadow = true;
-  building.add(core);
-
-  const slitPositions = [-2.95, -1.45, .05, 1.55, 3.05];
-  slitPositions.forEach((y, index) => {
-    addWindow(building, [1.07, y + .35, .24], [.055, .26 + (index % 2) * .12, .76], windowMaterials);
-  });
-
-  BLOCKS.forEach(([x, y, z, w, h, d, rz], index) => {
+  YUANBAI_MASSES.forEach((mass, index) => {
     const group = new THREE.Group();
-    group.position.set(x, y, z);
-    group.rotation.z = rz;
+    group.name = `YB_mass_${mass.id}`;
+    group.position.set(...mass.position);
+    group.rotation.y = mass.rotation;
     group.userData.home = group.position.clone();
-    group.userData.phase = index * .61;
-    group.userData.axis = new THREE.Vector3(x, y * .18, (index % 3 - 1) * .42).normalize();
+    group.userData.baseRotation = mass.rotation;
+    group.userData.phase = index * .73;
+    const radial = new THREE.Vector3(mass.position[0], .22 + (index % 3) * .04, mass.position[2]);
+    if (radial.lengthSq() < .2) radial.set(-.4, .25, -.6);
+    group.userData.axis = radial.normalize();
     group.userData.impulse = 0;
 
-    const body = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 3, .055), brickMaterials[index % 2]);
+    const body = new THREE.Mesh(bodyGeometry(mass), materials[mass.finish]);
+    body.name = `${group.name}_body`;
+    if (!mass.footprint) body.position.y = mass.size[1] / 2;
     body.castShadow = true;
     body.receiveShadow = true;
     group.add(body);
 
-    const windowCount = index % 3 === 0 ? 3 : 2;
-    for (let j = 0; j < windowCount; j += 1) {
-      const side = x < 0 ? 1 : -1;
-      const wx = side * (w / 2 + .012);
-      const wy = (j - (windowCount - 1) / 2) * .28;
-      addWindow(group, [wx, wy, .12], [.035, .13, .45], windowMaterials);
-      addWindow(
-        group,
-        [(j - (windowCount - 1) / 2) * .38, .03, d / 2 + .016],
-        [.2, .24, .035],
-        windowMaterials,
-      );
+    if (mass.footprint) {
+      for (let i = 0; i < 5; i += 1) {
+        addWindow(group, "front", -2.25 + i * .55, .62, 2.025, .28, .2, materials, windowMaterials);
+      }
+      const canopy = new THREE.Mesh(new THREE.BoxGeometry(1.65, .12, .58), materials.concreteLight);
+      canopy.position.set(1.65, .62, 2.22);
+      canopy.castShadow = true;
+      group.add(canopy);
+      const roof = new THREE.Mesh(footprintGeometry(mass.footprint, .08), materials.concreteLight);
+      roof.position.y = mass.size[1];
+      group.add(roof);
+    } else {
+      addFacadeDetails(group, mass, index, materials, windowMaterials);
     }
 
     building.add(group);
     blocks.push(group);
   });
 
-  // 楼梯独立成组，动画里只做极小幅度摆动，避免说话时跟着体块剧烈爆开。
   const stairRoot = new THREE.Group();
-  stairRoot.position.z = 1.18;
+  stairRoot.name = "YB_stable_stairs_and_bridges";
+  YUANBAI_CONNECTIONS.forEach((connection) => addStairConnection(stairRoot, connection, materials));
   building.add(stairRoot);
-  const stairGlow = [];
+  addCourtyard(building, materials);
 
-  for (let flight = 0; flight < 5; flight += 1) {
-    const direction = flight % 2 === 0 ? 1 : -1;
-    const y = -3.05 + flight * 1.45;
-    for (let step = 0; step < 7; step += 1) {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(.43, .13, .72), concrete);
-      mesh.position.set(direction * (-1.33 + step * .22), y + step * .17, 0);
-      mesh.castShadow = true;
-      stairRoot.add(mesh);
-    }
-    const landing = new THREE.Mesh(new THREE.BoxGeometry(2.95, .1, .82), metal);
-    landing.position.set(0, y + 1.16, 0);
-    stairRoot.add(landing);
-
-    const glowMat = new THREE.MeshStandardMaterial({ color: "#31100b", emissive: palette.glow, emissiveIntensity: .12 });
-    const glow = new THREE.Mesh(new THREE.BoxGeometry(2.35, .025, .46), glowMat);
-    glow.position.set(0, y + 1.1, -.12);
-    stairRoot.add(glow);
-    stairGlow.push(glowMat);
-  }
-  windowMaterials.push(...stairGlow);
-
-  // 等待阶段的白色 GLSL 粒子云。count 控制密度，也最影响低端设备性能。
   const particleGeometry = new THREE.BufferGeometry();
-  const count = 7600;
+  const count = 6800;
   const positions = new Float32Array(count * 3);
   const seeds = new Float32Array(count);
   for (let i = 0; i < count; i += 1) {
-    const theta = Math.random() * Math.PI * 2;
-    const y = (Math.random() - .5) * 9.5;
-    const radius = 1.05 + Math.pow(Math.random(), 1.8) * 3.5;
-    positions[i * 3] = Math.cos(theta) * radius;
-    positions[i * 3 + 1] = y;
-    positions[i * 3 + 2] = Math.sin(theta) * radius * .65;
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 1.3 + Math.pow(Math.random(), 1.45) * 5.2;
+    positions[i * 3] = Math.cos(angle) * radius;
+    positions[i * 3 + 1] = Math.random() * 4.3 - .1;
+    positions[i * 3 + 2] = Math.sin(angle) * radius * .86;
     seeds[i] = Math.random();
   }
   particleGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -166,13 +357,13 @@ function makeBuilding(scene) {
       varying float vAlpha;
       void main() {
         vec3 p = position;
-        float angle = uTime * (.14 + aSeed * .18) + p.y * .08;
+        float angle = uTime * (.12 + aSeed * .2) + p.y * .12;
         float c = cos(angle); float s = sin(angle);
         p.xz = mat2(c, -s, s, c) * p.xz;
-        p += vec3(sin(uTime * .7 + aSeed * 18.) * .16, sin(uTime + aSeed * 11.) * .12, 0.);
+        p += vec3(sin(uTime * .7 + aSeed * 18.) * .16, sin(uTime + aSeed * 11.) * .11, 0.);
         vec4 mv = modelViewMatrix * vec4(p, 1.0);
         gl_Position = projectionMatrix * mv;
-        gl_PointSize = (2.3 + aSeed * 2.5) * (110.0 / -mv.z);
+        gl_PointSize = (2.2 + aSeed * 2.4) * (110.0 / -mv.z);
         vAlpha = .35 + aSeed * .65;
       }`,
     fragmentShader: `
@@ -195,7 +386,6 @@ function makeBuilding(scene) {
 
 export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
   const mountRef = useRef(null);
-  // 动画循环只创建一次；React 状态通过 ref 注入，避免每次说话都重建 WebGL 场景。
   const stateRef = useRef({ phase, level });
   stateRef.current = { phase, level };
 
@@ -204,67 +394,65 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
     if (!mount) return undefined;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x180506, .031);
-    const camera = new THREE.PerspectiveCamera(32, 1, .1, 100);
-    // 工作台中央模型更接近正视角；对话页保留原来的侧前方视角。
+    scene.fog = new THREE.FogExp2(0x180506, .028);
+    const camera = new THREE.PerspectiveCamera(31, 1, .1, 100);
     const cameraHome = variant === "portal"
-      ? new THREE.Vector3(7.2, 2.7, 17.2)
-      : new THREE.Vector3(8.2, 3.4, 16.4);
+      ? new THREE.Vector3(10.8, 9.6, 16.8)
+      : new THREE.Vector3(11.8, 8.7, 17.5);
+    const lookAt = new THREE.Vector3(0, 1.15, .3);
     camera.position.copy(cameraHome);
-    camera.lookAt(.25, .2, 0);
+    camera.lookAt(lookAt);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     renderer.setClearColor(0x180506, 0);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.42;
+    renderer.toneMappingExposure = 1.38;
     mount.appendChild(renderer.domElement);
 
-    scene.add(new THREE.HemisphereLight(0xffe3ce, 0x2a0908, 2.65));
-    const key = new THREE.DirectionalLight(0xffd6bd, 5.4);
-    key.position.set(7, 10, 9);
+    scene.add(new THREE.HemisphereLight(0xffe1cd, 0x250908, 2.35));
+    const key = new THREE.DirectionalLight(0xffd3b9, 5.2);
+    key.position.set(8, 13, 10);
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
+    key.shadow.camera.left = -8;
+    key.shadow.camera.right = 8;
+    key.shadow.camera.top = 8;
+    key.shadow.camera.bottom = -8;
     scene.add(key);
-    const rim = new THREE.PointLight(0xd3492e, 75, 34, 1.5);
-    rim.position.set(-5, .5, 4);
+    const rim = new THREE.PointLight(0xc73d2a, 62, 32, 1.55);
+    rim.position.set(-6, 3, 5);
     scene.add(rim);
-    const fill = new THREE.PointLight(0xffb57d, 48, 28, 1.4);
-    fill.position.set(5.5, 3.5, 8);
+    const fill = new THREE.PointLight(0xffa76c, 42, 28, 1.45);
+    fill.position.set(6, 5, 8);
     scene.add(fill);
 
     const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(32, 32),
-      new THREE.MeshStandardMaterial({ color: 0x180506, roughness: 1, transparent: true, opacity: .7 }),
+      new THREE.PlaneGeometry(34, 34),
+      new THREE.MeshStandardMaterial({ color: 0x180506, roughness: 1, transparent: true, opacity: .76 }),
     );
     floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -4.45;
+    floor.position.y = -.065;
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // 工作台模式补一层真实 WebGL 网格，呼应方案 3 的红色建筑制图背景。
     if (variant === "portal") {
-      const grid = new THREE.GridHelper(34, 22, 0x8e211b, 0x3d1110);
-      grid.rotation.x = Math.PI / 2;
-      grid.position.set(0, 0, -4.2);
+      const grid = new THREE.GridHelper(34, 24, 0x8e211b, 0x3d1110);
+      grid.position.y = -.045;
       grid.material.transparent = true;
-      grid.material.opacity = .34;
+      grid.material.opacity = .28;
       scene.add(grid);
     }
 
     const model = makeBuilding(scene);
-    if (variant === "portal") {
-      model.building.scale.multiplyScalar(1.08);
-      model.building.position.y = -.25;
-    }
-    let width = 0;
-    let height = 0;
+    if (variant === "portal") model.building.scale.setScalar(1.04);
+
     const resize = () => {
-      width = mount.clientWidth;
-      height = mount.clientHeight;
+      const width = mount.clientWidth;
+      const height = mount.clientHeight;
       renderer.setSize(width, height, false);
       camera.aspect = width / Math.max(1, height);
       camera.updateProjectionMatrix();
@@ -292,15 +480,13 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
       const t = (now - startedAt) / 1000;
       const { phase: currentPhase, level: rawLevel } = stateRef.current;
       const voiceLevel = currentPhase === "speaking" ? rawLevel : 0;
-      // 上升快、下降慢，让灯光对重音灵敏，同时在停顿后留下自然余辉。
       smoothedLevel += (voiceLevel - smoothedLevel) * (voiceLevel > smoothedLevel ? .24 : .075);
       afterglow = Math.max(smoothedLevel, afterglow * .974);
 
       const onset = voiceLevel - previousLevel;
-      // onset 是相邻帧音量突增。阈值越低，楼体越容易触发“爆炸式”外推。
       if (currentPhase === "speaking" && onset > .085 && voiceLevel > .15) {
         model.blocks.forEach((block, index) => {
-          block.userData.impulse += onset * (1.1 + (index % 4) * .12);
+          block.userData.impulse += onset * (1.05 + (index % 4) * .13);
         });
       }
       previousLevel = voiceLevel;
@@ -308,42 +494,41 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
       model.blocks.forEach((block, index) => {
         const data = block.userData;
         data.impulse *= .91;
-        const idle = Math.sin(t * .58 + data.phase) * .055;
-        // .52 控制持续发声位移，1.8 控制重音瞬间的爆发距离。
-        const outward = (smoothedLevel * .52 + data.impulse * 1.8) * (0.72 + (index % 5) * .06);
+        const idle = Math.sin(t * .56 + data.phase) * .026;
+        const outward = (smoothedLevel * .62 + data.impulse * 2.0) * (.78 + (index % 5) * .055);
         const target = data.home.clone().addScaledVector(data.axis, outward);
         target.y += idle;
         block.position.lerp(target, .08);
-        block.rotation.x = Math.sin(t * .33 + index) * .008 + smoothedLevel * data.axis.z * .025;
-        block.rotation.z += (BLOCKS[index][6] + smoothedLevel * data.axis.x * .018 - block.rotation.z) * .07;
+        block.rotation.x = Math.sin(t * .31 + index) * .006 + smoothedLevel * data.axis.z * .018;
+        block.rotation.z = Math.cos(t * .29 + index * .7) * .004 + smoothedLevel * data.axis.x * .016;
+        block.rotation.y += (data.baseRotation + smoothedLevel * data.axis.x * .025 - block.rotation.y) * .07;
       });
 
-      model.stairRoot.position.y = Math.sin(t * .45) * .012;
-      model.stairRoot.rotation.z = Math.sin(t * .3) * .0025;
-      // 8.2 是实时语调亮度，2.1 是停顿后的余辉强度。
-      const lightPulse = .12 + smoothedLevel * 8.2 + afterglow * 2.1;
+      model.stairRoot.position.y = Math.sin(t * .42) * .006;
+      model.stairRoot.rotation.z = Math.sin(t * .28) * .0015;
+      const lightPulse = .12 + smoothedLevel * 8.1 + afterglow * 2.15;
       model.windowMaterials.forEach((material, index) => {
-        const uneven = .72 + Math.sin(t * 4.1 + index * 1.63) * .18;
+        const uneven = .72 + Math.sin(t * 4.0 + index * 1.47) * .18;
         material.emissiveIntensity = lightPulse * uneven;
       });
 
-      // thinking 阶段让实体楼淡出、粒子云淡入；.055 控制溶解速度。
       const thinking = currentPhase === "thinking" ? 1 : 0;
       particleOpacity += (thinking - particleOpacity) * .055;
       model.particleMaterial.uniforms.uTime.value = t;
       model.particleMaterial.uniforms.uOpacity.value = particleOpacity;
       model.particles.visible = particleOpacity > .01;
-      model.particles.rotation.y = t * .05;
+      model.particles.rotation.y = t * .045;
       model.building.traverse((child) => {
-        if (child.material) child.material.opacity = 1 - particleOpacity * .94;
-        if (child.material) child.material.transparent = particleOpacity > .01;
+        if (!child.material) return;
+        child.material.opacity = 1 - particleOpacity * .94;
+        child.material.transparent = particleOpacity > .01;
       });
 
-      model.building.rotation.y += ((-.16 + pointer.x * .055) - model.building.rotation.y) * .025;
-      model.building.rotation.x += ((-.045 - pointer.y * .025) - model.building.rotation.x) * .025;
-      camera.position.x += ((cameraHome.x + pointer.x * .2) - camera.position.x) * .018;
-      camera.position.y += ((cameraHome.y - pointer.y * .12) - camera.position.y) * .018;
-      camera.lookAt(.25, .2, 0);
+      model.building.rotation.y += ((-.12 + pointer.x * .07) - model.building.rotation.y) * .024;
+      model.building.rotation.x += ((pointer.y * -.018) - model.building.rotation.x) * .024;
+      camera.position.x += ((cameraHome.x + pointer.x * .28) - camera.position.x) * .018;
+      camera.position.y += ((cameraHome.y - pointer.y * .18) - camera.position.y) * .018;
+      camera.lookAt(lookAt);
       renderer.render(scene, camera);
     };
     frame = requestAnimationFrame(animate);

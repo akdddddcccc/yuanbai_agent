@@ -56,15 +56,20 @@
 
 ## 2. 修改楼体造型与材质
 
-文件：`src/YuanbaiScene.js`
+形体参数：`src/yuanbaiModelSpec.js`
 
-- `BLOCKS` 是十五个红砖体块。每行七个数依次为 `x、y、z、宽、高、深、旋转角度`。
-- `palette` 控制红砖、深砖、混凝土和内部灯光的颜色。
-- `core` 是中央浅色核心筒；修改 `RoundedBoxGeometry(2.1, 8.8, 2, ...)` 的前三个数即可改宽、高、深。
-- `stairRoot` 下方的两个循环生成楼梯。`flight < 5` 是五段楼梯，`step < 7` 是每段七级。
-- `count = 7600` 是等待粒子数量。低端设备卡顿时可降到 3500~5000。
+材质、细节和动画：`src/YuanbaiScene.js`
 
-如果后续换成 Blender 导出的 GLB，请按照 `MODEL_REPLACEMENT.md` 保留 `building、blocks、stairRoot、windowMaterials` 这几个交互对象。这样录音和声音动画无需重写。
+- `YUANBAI_MASSES` 是从“元白楼大型参考.3dm”读取后换算出的 12 个体块。`position` 控制平面位置，`size` 依次为宽、高、深，`rotation` 是平面旋转。
+- `west-courtyard` 的 `footprint` 是左侧 L 形低层的真实六点轮廓；不要把它改回矩形包围盒。
+- `YUANBAI_CONNECTIONS` 是五处楼梯和连桥的起止点，网页会自动计算踏步与栏杆。
+- `YUANBAI_COURTYARD` 控制三层红砖、两层草的圆形中庭位置和半径。
+- `palette` 控制红砖、深砖、混凝土、金属、草和内部灯光的颜色。
+- `makeSurfaceTexture()` 生成砖缝、色差、混凝土颗粒和模板浇筑缝。
+- `addFacadeDetails()` 生成深窗洞、压顶、竖向构件、阳台、屋顶机房和排气筒。
+- `count = 6800` 是等待粒子数量。低端设备卡顿时可降到 3500~5000。
+
+可替换模型位于 `public/models/yuanbai-brutalist-v1.glb`，运行 `npm run model:glb` 可按当前参数重新导出。节点规范见 `public/models/README.md` 和 `MODEL_REPLACEMENT.md`。
 
 ## 3. 修改“说话爆炸”和灯光节奏
 
@@ -72,13 +77,13 @@
 
 - `onset > .085`：重音触发阈值。改小更敏感，改大更克制。
 - `data.impulse *= .91`：爆发后的回弹速度。数值越小，返回越快。
-- `smoothedLevel * .52`：持续说话时的基础外移距离。
-- `data.impulse * 1.8`：重音瞬间的爆发距离。
-- `lightPulse` 中的 `8.2`：当前语调对灯光亮度的影响。
-- `afterglow * 2.1`：停顿后余辉的强度。
+- `smoothedLevel * .62`：持续说话时的基础外移距离。
+- `data.impulse * 2.0`：重音瞬间的爆发距离。
+- `lightPulse` 中的 `8.1`：当前语调对灯光亮度的影响。
+- `afterglow * 2.15`：停顿后余辉的强度。
 - 粒子透明度插值中的 `.055`：等待阶段实体楼与粒子云切换速度。
 
-楼梯目前只用 `position.y = ... * .012` 和 `rotation.z = ... * .0025` 微动，保持稳定感。
+楼梯目前只用 `position.y = ... * .006` 和 `rotation.z = ... * .0015` 微动，保持稳定感。
 
 ## 4. 修改对话与录音交互
 
