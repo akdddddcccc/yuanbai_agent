@@ -570,26 +570,35 @@ footer {
 .portal-status time { padding-left: 15px; border-left: 1px solid rgba(255, 255, 255, .2); }
 .portal-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--portal-red); box-shadow: 0 0 12px rgba(239, 63, 47, .7); }
 
-/* 中央 stage 直接复用对话页的 Three.js 楼体，因此模型只维护一份。 */
+/* 工作台中央使用主标志；三维楼体留在对话页，避免入口页的信息层级过满。 */
 .portal-stage {
   position: absolute;
   inset: 9% 29% 9%;
   z-index: 1;
   min-width: 420px;
 }
-.portal-stage .scene-mount { width: 100%; height: 100%; }
-.portal-stage canvas { display: block; width: 100%; height: 100%; }
+.portal-identity-mark {
+  position: absolute;
+  top: 49%;
+  left: 50%;
+  width: min(92%, 520px);
+  height: auto;
+  filter: drop-shadow(0 26px 44px rgba(0, 0, 0, .42));
+  transform: translate(-50%, -50%);
+}
 .portal-model-copy {
   position: absolute;
-  top: 16%;
-  right: -5%;
+  right: 50%;
+  bottom: 2%;
   display: grid;
-  width: 135px;
+  width: 230px;
   gap: 7px;
   color: rgba(236, 230, 223, .72);
   font-size: 9px;
   line-height: 1.6;
   letter-spacing: .1em;
+  text-align: center;
+  transform: translateX(50%);
 }
 .portal-model-copy span { font-family: Georgia, "Noto Serif SC", serif; font-size: 14px; }
 .portal-model-copy strong { color: #f0eae4; font-size: 8px; letter-spacing: .15em; }
@@ -597,6 +606,7 @@ footer {
 
 .portal-navigation { display: contents; }
 .portal-card {
+  --card-float: -9px;
   position: absolute;
   top: 19%;
   z-index: 4;
@@ -614,9 +624,10 @@ footer {
   box-shadow: 0 26px 70px rgba(0, 0, 0, .45);
   text-decoration: none;
   transition: transform .3s ease, background .3s ease, box-shadow .3s ease;
+  will-change: translate, transform;
 }
-.portal-card-explore { left: 3.3%; }
-.portal-card-dialogue { right: 3.3%; }
+.portal-card-explore { left: 3.3%; animation: portalCardFloat 5.8s ease-in-out infinite; }
+.portal-card-dialogue { right: 3.3%; animation: portalCardFloat 6.4s ease-in-out -2.15s infinite; }
 .portal-card:hover,
 .portal-card:focus-visible {
   background: #cac7c0;
@@ -649,6 +660,11 @@ footer {
 }
 .portal-card:hover .portal-card-action,
 .portal-card:focus-visible .portal-card-action { background: #2a0b09; }
+
+@keyframes portalCardFloat {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 var(--card-float); }
+}
 
 .portal-footer {
   position: absolute;
@@ -699,9 +715,11 @@ footer {
     height: 330px;
     margin-top: 8px;
   }
-  .portal-model-copy { display: grid; top: 20px; right: 0; }
+  .portal-identity-mark { width: min(82%, 470px); }
+  .portal-model-copy { display: grid; top: auto; right: 50%; bottom: 2px; transform: translateX(50%); }
   .portal-navigation { display: grid; gap: 18px; }
   .portal-card {
+    --card-float: -5px;
     width: 100%;
     height: auto;
     min-height: 420px;
@@ -719,7 +737,7 @@ footer {
   .portal-status { gap: 10px; padding-inline: 10px; font-size: 8px; }
   .portal-status span + span { padding-left: 10px; }
   .portal-stage { height: 290px; }
-  .portal-model-copy { right: 4px; width: 112px; }
+  .portal-model-copy { right: 50%; width: 180px; }
   .portal-card { min-height: 390px; padding: 22px; }
   .portal-card-action { margin-inline: -22px; margin-bottom: -22px; padding-inline: 22px; }
   .portal-footer { font-size: 7px; }
@@ -728,4 +746,5 @@ footer {
 @media (prefers-reduced-motion: reduce) {
   .portal-card,
   .back-to-portal { transition: none; }
+  .portal-card { animation: none; translate: 0 0; }
 }

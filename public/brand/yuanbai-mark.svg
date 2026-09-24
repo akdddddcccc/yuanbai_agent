@@ -1,50 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-labelledby="title description">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1448 1086" role="img" aria-labelledby="title description">
   <title id="title">元白楼建筑标志</title>
-  <desc id="description">由等距建筑体块与围合院落组成的双色矢量标志</desc>
-  <!-- 双面配色：top 是混凝土亮面，side 是红砖暗面。背景保持透明。 -->
-  <g fill-rule="evenodd">
-    <!-- 右侧围合框架的垂直侧面 -->
-    <path fill="#A74431" d="M606 151 432 307v30l174-156Z"/>
-    <path fill="#A74431" d="m432 307-174-100v30l174 100Z"/>
-    <path fill="#A74431" d="m430 111 96 55v29l-96-55Z"/>
-    <!-- 右侧围合框架的顶部，中央留出庭院负形 -->
-    <path fill="#EADBD0" d="M430 47 606 151 432 307 258 207Zm0 64-95 86 97 56 94-87Z"/>
-
-    <!-- 左侧低层折线体量 -->
-    <path fill="#A74431" d="m48 220 64-37 60 35-28 17 61 36-55 32-61-35-41-24Z"/>
-    <path fill="#A74431" d="m89 268 61 35v29l-61-35Z"/>
-    <path fill="#EADBD0" d="m48 220 64-37 60 35-28 17 61 36-55 32-61-35-41-24Z"/>
-
-    <!-- 六个独立体块：所有侧面统一红砖色，顶面统一暖灰色 -->
-    <g>
-      <path fill="#A74431" d="m103 165 52 30v30l-52-30Z"/>
-      <path fill="#A74431" d="m207 165-52 30v30l52-30Z"/>
-      <path fill="#EADBD0" d="m155 133 52 32-52 30-52-30Z"/>
-    </g>
-    <g>
-      <path fill="#A74431" d="m171 91 57 34v31l-57-34Z"/>
-      <path fill="#A74431" d="m285 91-57 34v31l57-34Z"/>
-      <path fill="#EADBD0" d="m228 56 57 35-57 34-57-34Z"/>
-    </g>
-    <g>
-      <path fill="#A74431" d="m257 155 50 30v29l-50-30Z"/>
-      <path fill="#A74431" d="m357 155-50 30v29l50-30Z"/>
-      <path fill="#EADBD0" d="m307 124 50 31-50 30-50-30Z"/>
-    </g>
-    <g>
-      <path fill="#A74431" d="m323 211 47 28v28l-47-28Z"/>
-      <path fill="#A74431" d="m417 211-47 28v28l47-28Z"/>
-      <path fill="#EADBD0" d="m370 182 47 29-47 28-47-28Z"/>
-    </g>
-    <g>
-      <path fill="#A74431" d="m221 245 49 29v29l-49-29Z"/>
-      <path fill="#A74431" d="m319 245-49 29v29l49-29Z"/>
-      <path fill="#EADBD0" d="m270 215 49 30-49 29-49-29Z"/>
-    </g>
-    <g>
-      <path fill="#A74431" d="m116 300 52 31v30l-52-31Z"/>
-      <path fill="#A74431" d="m220 300-52 31v30l52-31Z"/>
-      <path fill="#EADBD0" d="m168 268 52 32-52 31-52-31Z"/>
-    </g>
-  </g>
+  <desc id="description">由元白楼体块与围合院落构成的双色等距矢量标志</desc>
+  <defs>
+    <linearGradient id="side" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#67251f"/>
+      <stop offset="1" stop-color="#210b0c"/>
+    </linearGradient>
+    <linearGradient id="top" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eadbd0"/>
+      <stop offset="0.48" stop-color="#d49780"/>
+      <stop offset="1" stop-color="#bd4d35"/>
+    </linearGradient>
+  </defs>
+  <!-- 按用户提供的新标志图分离顶面和侧面后矢量化；背景透明。 -->
+  <path d="M1406 509 L968 908 L765 714 L765 782 L971 994 L1407 598ZM783 296 L783 362 L864 438 L994 328 L1213 551 L1258 511 L996 247 L865 364ZM695 697 L520 758 L461 605 L461 680 L493 763 L538 806 L412 914 L289 803 L288 875 L412 987 L537 879 L538 823 L695 769ZM508 395 L507 460 L635 510 L636 543 L643 541 L665 605 L756 687 L890 575 L889 502 L757 612 L637 503 L689 458 L703 437 L731 379 L732 311 L663 455ZM45 498 L44 574 L188 742 L301 789 L365 731 L204 658ZM333 199 L333 244 L336 246 L350 241 L355 242 L375 308 L470 392 L536 336 L579 247 L611 259 L610 200 L470 319ZM184 294 L183 368 L204 427 L266 493 L401 453 L401 388 L235 438ZM281 510 L237 545 L281 563Z" fill="url(#side)" fill-rule="evenodd"/>
+  <path d="M1000 100 L783 295 L865 363 L996 246 L1259 511 L1215 552 L1206 545 L1213 554 L974 774 L844 646 L765 712 L967 907 L1406 508 L1407 518 L1407 507ZM170 394 L45 497 L204 657 L366 731 L288 802 L412 913 L537 806 L433 705 L399 614 L236 545 L281 508 L205 431 L203 425ZM474 78 L334 197 L470 318 L611 199ZM643 542 L461 603 L520 757 L693 696 L696 697 L696 704 L696 695ZM771 390 L638 502 L757 611 L889 501 L891 506 L890 500ZM354 242 L336 247 L333 245 L329 249 L183 292 L183 320 L185 294 L235 437 L401 387 L377 315 L378 312 L380 314 L374 308ZM579 248 L508 394 L663 454 L731 311 L733 322 L733 309Z" fill="url(#top)" fill-rule="evenodd"/>
 </svg>

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, Target, Waveform } from "@phosphor-icons/react";
-import { YuanbaiScene } from "./YuanbaiScene";
 
 const YUANBAI_MARK_URL = `${import.meta.env.BASE_URL}brand/yuanbai-mark.svg`;
 
@@ -110,7 +109,7 @@ export function Portal() {
       </div>
 
       <section className="portal-stage" aria-label="元白楼建筑人格模型">
-        <YuanbaiScene phase="idle" level={0} variant="portal" />
+        <img className="portal-identity-mark" src={YUANBAI_MARK_URL} alt="元白楼建筑标志" />
         <div className="portal-model-copy">
           <span>元白与你</span>
           <strong>{activeExperience.eyebrow}</strong>
