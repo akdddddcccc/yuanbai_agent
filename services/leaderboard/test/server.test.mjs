@@ -98,3 +98,14 @@ test('服务器重启后 SQLite 保留成绩',async t=>{
   assert.equal(board.items[0].nickname,'留在云端');
   assert.equal(board.items[0].isYou,true);
 });
+
+test('平衡版与原 SAN 版分榜显示',async t=>{
+  const s=await setup(t);
+  s.DB.sqlite.prepare('INSERT INTO scores (id,player_id,run_id,rule_version,nickname,deaths,duration_ms,steps,created_at) VALUES (?,?,?,?,?,?,?,?,?)')
+    .run('old-score','old-player','old-run','yuanbai-v5-san','旧版探索者',1,100000,80,Date.now());
+  const current=await s.request('/leaderboard?season=current');
+  const old=await s.request('/leaderboard?season=san');
+  assert.equal(current.data.total,0);
+  assert.equal(old.data.total,1);
+  assert.equal(old.data.items[0].nickname,'旧版探索者');
+});
