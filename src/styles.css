@@ -626,45 +626,6 @@ footer {
 }
 .portal-sculpture-fallback { position: absolute; inset: 14% 8%; width: 84%; height: 72%; object-fit: contain; }
 .portal-sculpture[data-state="ready"] .portal-sculpture-fallback { display: none; }
-.portal-scan-line {
-  /* 焦点在左侧 36%：亮芯厚度、近场辉光、远场光带都围绕同一位置衰减。 */
-  --scan-focus: 36%;
-  position: absolute;
-  top: 48.5%;
-  right: 4%;
-  left: 4%;
-  z-index: 5;
-  height: 18px;
-  transform: translateY(-50%);
-  pointer-events: none;
-  /* 椭圆而非整条 box-shadow，防止辉光沿整条线保持相同粗细。 */
-  background:
-    radial-gradient(ellipse 19% 38% at var(--scan-focus) 50%, rgba(255, 187, 145, .85), rgba(250, 78, 47, .5) 30%, transparent 100%),
-    radial-gradient(ellipse 55% 19% at 43% 50%, rgba(245, 72, 48, .68), rgba(185, 35, 25, .22) 55%, transparent 100%);
-  animation: portalScanPulse 3.8s ease-in-out infinite;
-}
-.portal-scan-line::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  right: -3%;
-  left: -3%;
-  height: 96px;
-  transform: translateY(-50%);
-  background:
-    radial-gradient(ellipse 25% 44% at var(--scan-focus) 50%, rgba(255, 107, 66, .34), rgba(230, 57, 35, .16) 35%, transparent 100%),
-    radial-gradient(ellipse 58% 20% at 44% 50%, rgba(222, 48, 29, .2), rgba(179, 31, 23, .045) 62%, transparent 100%);
-  filter: blur(9px);
-}
-.portal-scan-line::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  /* 亮芯在焦点处约 5px，沿右侧长尾渐细至零；颜色和透明度同步衰减。 */
-  clip-path: polygon(0 50%, 12% 48%, 24% 44%, var(--scan-focus) 35%, 43% 42%, 65% 47%, 85% 49%, 100% 50%, 85% 51%, 65% 53%, 43% 58%, var(--scan-focus) 65%, 24% 56%, 12% 52%);
-  background: linear-gradient(90deg, transparent 0, rgba(195, 44, 28, .14) 8%, rgba(247, 96, 58, .65) 23%, #ffe9c7 33%, #fff8e6 36%, #ffb886 41%, rgba(240, 81, 47, .64) 55%, rgba(184, 35, 25, .23) 76%, transparent 100%);
-  animation: portalScanGlint 6.5s ease-in-out infinite;
-}
 .portal-floor-projection {
   position: absolute;
   right: 12%;
@@ -706,6 +667,19 @@ footer {
 }
 .portal-scale-left { left: 0; }
 .portal-scale-right { right: 0; }
+/* 红色指针与刻度条分离，鼠标移动时保持在同一个读数高度。 */
+.portal-scale-marker {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 9px;
+  height: 10px;
+  background: #c44837;
+  transform: translateY(-50%);
+  filter: drop-shadow(0 0 3px rgba(198, 61, 42, .25));
+}
+.portal-scale-left .portal-scale-marker { right: 0; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.portal-scale-right .portal-scale-marker { left: 0; clip-path: polygon(100% 0, 0 50%, 100% 100%); }
 .portal-scale-strip {
   display: grid;
   transition: transform .16s cubic-bezier(.2, .8, .2, 1);
@@ -732,14 +706,6 @@ footer {
 .portal-scale-strip span:nth-child(3n + 1) i { width: 16px; }
 .portal-scale-right .portal-scale-strip b { order: 2; }
 
-@keyframes portalScanPulse {
-  0%, 100% { opacity: .78; }
-  50% { opacity: 1; }
-}
-@keyframes portalScanGlint {
-  0%, 100% { opacity: .72; filter: brightness(1); }
-  50% { opacity: 1; filter: brightness(1.22); }
-}
 @keyframes portalLightBreath {
   0%, 100% { opacity: .55; transform: scaleX(.96); }
   50% { opacity: .85; transform: scaleX(1.035); }
@@ -890,7 +856,6 @@ footer {
   .portal-floor-projection { right: 12%; bottom: 22%; left: 12%; height: 13%; }
   .portal-floor-projection canvas { filter: blur(6px) sepia(.3) saturate(.7) brightness(.85); }
   .portal-scale { display: none; }
-  .portal-scan-line { right: 8%; left: 8%; opacity: .58; }
   .portal-model-copy { display: grid; top: auto; right: 50%; bottom: 2px; transform: translateX(50%); }
   .portal-navigation { display: grid; gap: 18px; }
   .portal-card {
@@ -922,8 +887,6 @@ footer {
   .portal-card,
   .back-to-portal { transition: none; }
   .portal-card { animation: none; translate: 0 0; }
-  .portal-scan-line { animation: none; }
-  .portal-scan-line::after,
   .portal-top-light,
   .portal-top-light::after,
   .portal-floor-projection canvas { animation: none; }

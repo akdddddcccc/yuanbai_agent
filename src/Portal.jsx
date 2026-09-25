@@ -75,8 +75,11 @@ export function Portal() {
     document.title = "元白感知实验室 · YUANBAI PERCEPTION LAB";
     const timer = window.setInterval(() => setNow(new Date()), 1000);
 
+    const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     // 两侧刻度随鼠标纵向位置反向滑动；CSS transition 负责消除手部细小抖动。
     const onPointerMove = (event) => {
+      if (event.pointerType === "touch" || !finePointer.matches || reducedMotion.matches) return;
       const amount = (event.clientY / window.innerHeight - .5) * -52;
       portalRef.current?.style.setProperty("--scale-left-y", `${amount.toFixed(2)}px`);
       portalRef.current?.style.setProperty("--scale-right-y", `${(-amount * .78).toFixed(2)}px`);
@@ -137,13 +140,15 @@ export function Portal() {
         <span className="portal-floor-projection" aria-hidden="true">
           <canvas ref={projectionRef} width="256" height="160" />
         </span>
-        <span className="portal-scan-line" aria-hidden="true" />
         <div className="portal-scale portal-scale-left" aria-hidden="true">
+          {/* 角标固定在刻度窗中央；只有下方 strip 随鼠标滑动。 */}
+          <i className="portal-scale-marker" />
           <div className="portal-scale-strip">
             {scaleTicks.map((label, index) => <span key={`left-${index}`}><b>{label}</b><i /></span>)}
           </div>
         </div>
         <div className="portal-scale portal-scale-right" aria-hidden="true">
+          <i className="portal-scale-marker" />
           <div className="portal-scale-strip">
             {scaleTicks.map((label, index) => <span key={`right-${index}`}><i /><b>{label}</b></span>)}
           </div>

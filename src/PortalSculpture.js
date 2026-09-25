@@ -4,12 +4,28 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 // 更换模型时改此路径即可；材质、贴图和 UV 随 GLB 一起加载。
-const MODEL_URL = `${import.meta.env.BASE_URL}models/yuanbai-perception-sculpture.glb`;
+// 同名文件替换后更新版本标记，避免浏览器继续使用旧模型缓存。
+const MODEL_URL = `${import.meta.env.BASE_URL}models/yuanbai-perception-sculpture.glb?v=e45928b1b882`;
 const FALLBACK_URL = `${import.meta.env.BASE_URL}brand/yuanbai-mark.svg`;
-// 网页灯光下的轻微压色，避免灰墙泛白、红砖变成浅粉；原始贴图保留在 GLB。
-const MATERIAL_TONES = {
-  YB_Site_Cast_Concrete: "#bcb8b0",
-  YB_Site_Red_Brick: "#d8bab0",
+// 首页照明统一在这里调整。曝光影响整体；主光塑形，环境/补光只保留暗部细节。
+// 不给实拍颜色贴图额外染色，避免红砖变浅粉、混凝土变暖白。
+const LIGHTING = {
+  exposure: .78,
+  environment: .24,
+  hemisphere: .25,
+  key: 1.25,
+  fill: .38,
+  rim: .55,
+  breath: .035,
+};
+// 对应 2026-09-25 用户手工 GLB 的导出材质名；换模型时只需更新此表。
+// 粗糙度是表面反光宽度，不会凭空生成凹凸；已导出的法线/粗糙度贴图优先保留。
+const MATERIAL_RESPONSE = {
+  "Rusty iron": { roughness: .82, metalness: .22, opaque: true },
+  "Material.001": { roughness: .9, metalness: 0 }, // 红砖
+  "材质.005": { roughness: .9, metalness: 0 }, // 红砖副本
+  "材质.001": { roughness: .96, metalness: 0 }, // 混凝土
+  "材质.006": { roughness: .96, metalness: 0 }, // 混凝土副本
 };
 
 function disposeModel(root) {
@@ -56,7 +72,7 @@ export function PortalSculpture({ projectionRef }) {
     }
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = .98;
+    renderer.toneMappingExposure = LIGHTING.exposure;
     renderer.setClearColor(0x000000, 0);
     mount.appendChild(renderer.domElement);
     mount.dataset.state = "loading";
@@ -66,19 +82,19 @@ export function PortalSculpture({ projectionRef }) {
     const pmrem = new THREE.PMREMGenerator(renderer);
     const environment = pmrem.fromScene(room, .04);
     scene.environment = environment.texture;
-    scene.environmentIntensity = .55;
+    scene.environmentIntensity = LIGHTING.environment;
     room.dispose();
     pmrem.dispose();
 
     // 实际照明只负责模型明暗；可见光束在 CSS，避免叠出硬边三角形。
-    scene.add(new THREE.HemisphereLight("#dfdfda", "#201714", .85));
-    const key = new THREE.DirectionalLight("#ffe7ce", 2.5);
+    scene.add(new THREE.HemisphereLight("#dfdfda", "#201c19", LIGHTING.hemisphere));
+    const key = new THREE.DirectionalLight("#fff1e1", LIGHTING.key);
     key.position.set(-3.5, 8, 4);
     scene.add(key);
-    const fill = new THREE.DirectionalLight("#a8bac7", 1.1);
+    const fill = new THREE.DirectionalLight("#bdc9d2", LIGHTING.fill);
     fill.position.set(5, 3, 4);
     scene.add(fill);
-    const rim = new THREE.DirectionalLight("#bc5b40", 2.0);
+    const rim = new THREE.DirectionalLight("#cfb9a6", LIGHTING.rim);
     rim.position.set(1.5, 4, -5);
     scene.add(rim);
     const group = new THREE.Group();
@@ -126,10 +142,17 @@ export function PortalSculpture({ projectionRef }) {
         if (!object.isMesh) return;
         for (const material of [].concat(object.material)) {
           if (material.map) material.map.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
-          const tone = MATERIAL_TONES[material.name];
-          if (tone) material.color.set(tone);
-          // 暗色钢架只提高反射响应，保留实拍贴图的色彩和磨损。
-          if (material.metalness > .5) material.envMapIntensity = 2.5;
+          const response = MATERIAL_RESPONSE[material.name];
+          if (response) {
+            if (!material.roughnessMap) material.roughness = response.roughness;
+            if (!material.metalnessMap) material.metalness = response.metalness;
+            // 当前钢材贴图为无 alpha 的 RGB 图片，BLEND 是导出残留。
+            // 仅修正这个已确认的不透明材质，避免钢架前后透明排序错误。
+            if (response.opaque && material.opacity === 1) {
+              material.transparent = false;
+              material.depthWrite = true;
+            }
+          }
         }
       });
       group.add(model);
@@ -175,7 +198,7 @@ export function PortalSculpture({ projectionRef }) {
       group.position.y = Math.sin(time * .55) * .075 * motion;
       group.rotation.y += (pointer.x * .08 * motion - group.rotation.y) * .06;
       group.rotation.x += (-pointer.y * .035 * motion - group.rotation.x) * .06;
-      key.intensity = 2.5 + Math.sin(time * Math.PI / 4) * .12 * motion;
+      key.intensity = LIGHTING.key + Math.sin(time * Math.PI / 4) * LIGHTING.breath * motion;
       renderer.render(scene, camera);
       // 主渲染后立即复制同一帧；压扁、模糊与漂移交给 CSS，每秒只更新 6 次。
       if (context && model && timestamp - lastProjection > (motion ? 160 : 1000)) {

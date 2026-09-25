@@ -1,6 +1,6 @@
 # 元白网页视觉与交互修改指南
 
-这份指南对应当前本地待审核版本，包含元白感知实验室首页的实拍材质模型与光效；不表示这些改动已经上线。所有路径均相对于仓库根目录 `D:\codex\yuanbai_agent`，修改后先本地预览和检查，再决定发布。
+这份指南对应元白感知实验室首页的手工 GLB 与光效设置。所有路径均相对于仓库根目录 `D:\codex\yuanbai_agent`，修改后先本地预览和检查，再决定发布。
 
 ## 0. 页面和网址分别在哪里
 
@@ -47,35 +47,35 @@
 
 | 要修改的内容 | 文件或目录 |
 | --- | --- |
-| 在 Blender 中编辑形体、材质和查看渲染 | `artifacts/yuanbai-perception-sculpture.blend` |
-| 按参数重新构建形体、接缝、材质并导出 | `scripts/build-perception-sculpture-blender.py` |
+| 旧概念模型归档（不是当前手工 GLB 的源工程） | `artifacts/yuanbai-perception-sculpture.blend` |
+| 旧概念模型生成器，请勿用于覆盖当前手工 GLB | `scripts/build-perception-sculpture-blender.py` |
 | 网页实际加载的模型，包含贴图与 UV | `public/models/yuanbai-perception-sculpture.glb` |
 | 网页相机、光照、浮动及模型加载 | `src/PortalSculpture.js` |
 | 768 像素颜色、法线和粗糙度贴图 | `public/models/textures/yuanbai-site/` |
 | 实拍照片整理后的 `*-source.png` 样片归档 | `assets/materials/yuanbai-site/` |
 | 从归档样片重新生成轻量材质贴图 | `scripts/build-site-material-maps.py` |
 
-`SOURCE.md` 记录贴图来源。颜色贴图来自现场照片整理，法线与粗糙度是基于图像的美术估计；它们不是实测扫描。改完外部 JPG/PNG 后，还需要重新导出 GLB，网页才会使用更新后的内嵌贴图。运行构建脚本会重新生成 `.blend`，手动编辑的工程应另存副本。
+当前模型是用户在 2026-09-25 替换的手工 GLB，12 个网格、5 个材质，约 1.33MB。内嵌颜色贴图随 GLB 加载；当前没有导出法线/粗糙度贴图。上表中的旧 `.blend`、脚本和 `yuanbai-site` 贴图仅为前一版概念模型归档，不要运行旧脚本覆盖手工模型。更新时请从你们自己的源工程导出 GLB。
 
 在 `src/PortalSculpture.js` 中可搜索以下参数：
 
 - `MODEL_URL`：更换首页 GLB 的路径；保留 `import.meta.env.BASE_URL`，这样 `/yuanbai/` 子路径部署仍能找到模型。
 - `camera.position.set(0, 10.6, 7.1)` 与 `camera.lookAt(0, 0, 0)`：正交相机的观察方向；`fitCamera()` 根据模型边界与屏幕比例调整取景，末尾的 `* 1.14` 控制周围留白。
-- `renderer.toneMappingExposure = .98`：模型整体曝光；`key`、`fill`、`rim` 和 `HemisphereLight` 分别控制主光、补光、轮廓光和环境明暗。CSS 顶光控制可见光束，不会直接照亮模型表面。
-- `scene.environmentIntensity = .55`：柔和的环境反射；钢材单独设置 `material.envMapIntensity = 2.5`，避免黑色背景把钢架轮廓吞掉。环境房间只用来计算反射，不会出现在页面背景里。
-- `MATERIAL_TONES`：网页灯光下混凝土与红砖的压色；改成 `#ffffff` 可恢复 GLB 原始颜色。此处不会覆盖或重新生成照片贴图。
+- `LIGHTING`：集中控制模型照明。`exposure: .78` 是曝光，`environment: .24` 是环境反射，`hemisphere: .25` 是环境漫射；`key: 1.25`、`fill: .38`、`rim: .55` 分别控制主光、补光和轮廓光。`breath: .035` 控制主光的小幅慢呼吸。
+- `MATERIAL_RESPONSE`：只适配表中列出的导出材质名，保留 GLB 原始颜色/贴图。红砖粗糙度 `.9`，混凝土 `.96`，锈蚀钢材 `.82`、金属度 `.22`。换 GLB 后材质名若变化，更新表即可；已有粗糙度/金属度贴图会优先保留。
+- 当前 `Rusty iron` 使用无 alpha 的 RGB 贴图，运行时去掉导出残留的透明混合，减少钢架透明排序异常。其它透明材质不受影响。
 - `group.position.y = Math.sin(time * .55) * .075 * motion`：整体上下浮动；`.075` 是幅度，`.55` 控制速度。
 - `pointer.x * .08`、`-pointer.y * .035`：鼠标左右和上下移动时的转角；后面的 `.06` 控制跟随平滑度。
 
-钢架和紧邻混凝土接口必须随同一 `group` 整体移动。当前静态模型有构件间距检查，但最窄接口间距很小；不要把紧邻的钢架、砖或混凝土分别移动，否则静态检查通过后仍可能在动画中穿模。Blender 构建脚本里的 `clearance_audit()` 会检查重新生成的 14 个构件，并把结果写入 `artifacts/yuanbai-perception-sculpture-manifest.json`。
+钢架和紧邻混凝土接口随同一个 `group` 整体移动，保留手工 GLB 的相对关系。旧 manifest 的构件间距检查只适用于旧概念模型，不代表当前手工模型通过了相交检查。
 
-### 修改顶光、扫描光束与下方投影
+### 修改顶光、固定角标与下方投影
 
 文件：`src/styles.css` 中“中央装置”一段。对应的层级元素位于 `src/Portal.jsx`。
 
 - **顶光**：`.portal-top-light::before` 的 `conic-gradient` 控制锥形宽度与亮度，`mask-image` 控制下端淡出。`.portal-top-light::after` 使用 SVG 噪点形成微弱尘埃，调整其 `opacity` 可改变颗粒存在感。`portalLightBreath 8s` 是 8 秒透明度呼吸；`portalLightNoise 17s` 控制噪点缓慢漂移。调整时保留淡出边缘，避免光束变成硬边三角形。
-- **扫描光束的亮芯**：`.portal-scan-line` 的 `--scan-focus: 36%` 控制偏左焦点。`::after` 的 `clip-path` 使亮芯在焦点约 5px 厚、两端渐细至零；其中的 `linear-gradient` 同步控制颜色、亮度与透明度。修改焦点时也要相应移动颜色渐变里的 33%、36%、41% 三个高光色标。
-- **近场与宽幅弱光**：主元素的两层椭圆渐变负责近场辉光，`::before` 的 96px 高椭圆光带负责远场晕光，两者都偏左聚集。这里不再使用整条等宽 `box-shadow`。`portalScanPulse 3.8s` 控制整体呼吸，`portalScanGlint 6.5s` 控制亮芯的慢速亮度变化，焦点不会横穿整条光束。
+- **固定红色角标**：`.portal-scale-marker` 的 `background` 控制红色，`width`/`height` 控制三角形尺寸，`top: 50%` 固定在刻度窗中央。左右分别用 `clip-path` 指向模型；角标是刻度条的兄弟元素，因此不会随刻度滑动。
+- **刻度滑动**：`src/Portal.jsx` 的 `onPointerMove()` 将鼠标纵向位置映射成左右相反的偏移；`-52` 控制总行程，`.78` 控制右侧行程比例。触屏及减少动态效果偏好不启用指针映射；手机隐藏两侧刻度。横贯模型的红色扫描线已移除。
 - **下方投影**：`PortalSculpture.js` 在主模型渲染后，把同一画面复制到宽度 256 像素的 2D 画布；更新间隔 `160` 毫秒，约每秒 6 次，不额外创建一套 3D 场景。`.portal-floor-projection canvas` 用 `scaleY(.28)` 压扁、`blur(7px)` 模糊、`opacity: .45` 控制可见度；`portalProjectionDrift 9s` 控制 9 秒轻微漂移。投影是视觉复制效果，不是物理实时阴影。
 - **手机留白**：在 `@media (max-width: 820px)` 中，`.portal-stage` 的 `margin-bottom: 44px` 是中央文案与第一张卡片之间的留白；高度为 `330px`，小于 `440px` 时改为 `340px`。优先调整这处间距，不要用负外边距把文案压向卡片。
 
