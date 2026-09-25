@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Microphone } from "@phosphor-icons/react";
 import { CursorLightTrail } from "./CursorLightTrail";
-import { KnowledgePanel } from "./KnowledgePanel";
 import { YuanbaiScene } from "./YuanbaiScene";
 
 const PHASE_COPY = {
@@ -109,15 +108,10 @@ export function App() {
   const responseRef = useRef(null);
   const responseObjectUrlRef = useRef("");
   const historyRef = useRef([]);
-  const knowledgeDocumentsRef = useRef([]);
   const pressedRef = useRef(false);
   const sessionIdRef = useRef(
     globalThis.crypto?.randomUUID?.() || `yuanbai-${Date.now()}`,
   );
-
-  const onKnowledgeDocumentsChange = useCallback((documents) => {
-    knowledgeDocumentsRef.current = documents.map(({ name, content }) => ({ name, content }));
-  }, []);
 
   const ensureAudioContext = useCallback(async () => {
     if (!audioContextRef.current || audioContextRef.current.state === "closed") {
@@ -223,7 +217,6 @@ export function App() {
           mime_type: normalizedBlob.type,
           session_id: sessionIdRef.current,
           history: historyRef.current,
-          knowledge_documents: knowledgeDocumentsRef.current,
         }),
       });
       // 先读取文本再解析，避免网关返回空响应时只看到“Unexpected end of JSON input”。
@@ -374,7 +367,6 @@ export function App() {
         <ArrowLeft size={14} weight="bold" />
         <span>返回元白感知实验室</span>
       </a>
-      <KnowledgePanel onDocumentsChange={onKnowledgeDocumentsChange} />
       <section className="copy-panel" aria-live="polite">
         <div className="status-row">
           <span className="status-dot" />

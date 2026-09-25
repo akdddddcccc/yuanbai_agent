@@ -22,7 +22,7 @@
 - 全局视觉：`src/styles.css`
 - 页面路由：`src/main.jsx`
 - 元白知识与说话风格：发布仓库的 `edge-functions/_shared/yuanbai-knowledge.js`
-- 临时路演资料上传与解析：`src/KnowledgePanel.jsx`、`src/knowledgeFiles.js`
+- 对话页使用版本化语料，不提供临时文件上传入口。
 - 分支名：`web/功能名` 或 `corpus/主题名`。
 
 改语料时只改事实与说话规则，不改请求、鉴权和语音合成代码。新增资料使用 `KNOWLEDGE_INTAKE.md` 的字段，注明来源、确认日期、可见范围和待确认项。

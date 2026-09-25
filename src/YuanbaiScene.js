@@ -671,6 +671,7 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
     const cameraHome = variant === "portal"
       ? new THREE.Vector3(10.8, 9.6, 16.8)
       : new THREE.Vector3(11.8, 8.7, 17.5);
+    let cameraScale = 1;
     const lookAt = new THREE.Vector3(0, 1.48, .3);
     camera.position.copy(cameraHome);
     camera.lookAt(lookAt);
@@ -725,8 +726,14 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
     const resize = () => {
       const width = mount.clientWidth;
       const height = mount.clientHeight;
+      if (!width || !height) return;
       renderer.setSize(width, height, false);
       camera.aspect = width / Math.max(1, height);
+      if (variant === "dialogue") {
+        // 以常见笔记本窗口为基准，让大屏楼体更饱满，较矮窗口仍保留完整轮廓。
+        cameraScale = 1 / THREE.MathUtils.clamp(Math.min(width / 960, height / 680), .78, 1.18);
+        camera.position.copy(cameraHome).multiplyScalar(cameraScale);
+      }
       camera.updateProjectionMatrix();
     };
     const observer = new ResizeObserver(resize);
@@ -849,8 +856,8 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
       model.building.rotation.y += ((-.12 + pointer.x * .17) - model.building.rotation.y) * .032;
       model.building.rotation.x += ((pointer.y * -.058) - model.building.rotation.x) * .032;
       model.building.position.y += ((buildingHomeY + Math.sin(t * .31) * .062) - model.building.position.y) * .045;
-      camera.position.x += ((cameraHome.x + pointer.x * .62) - camera.position.x) * .024;
-      camera.position.y += ((cameraHome.y - pointer.y * .38) - camera.position.y) * .024;
+      camera.position.x += ((cameraHome.x * cameraScale + pointer.x * .62 * cameraScale) - camera.position.x) * .024;
+      camera.position.y += ((cameraHome.y * cameraScale - pointer.y * .38 * cameraScale) - camera.position.y) * .024;
       camera.lookAt(lookAt);
       renderer.render(scene, camera);
     };
