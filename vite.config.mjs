@@ -5,6 +5,17 @@ export default defineConfig({
   base: process.env.PORTFOLIO_APP_PUBLIC_PATH || "/",
   build: {
     outDir: "dist/client",
+    rollupOptions: {
+      output: {
+        // The static host serves .mjs as application/octet-stream, which browsers
+        // reject when PDF.js loads its module worker. Keep the worker content but
+        // publish it with the .js extension so it receives application/javascript.
+        assetFileNames: (asset) => {
+          const isPdfWorker = asset.names?.some((name) => name.endsWith("pdf.worker.min.mjs"));
+          return isPdfWorker ? "assets/[name]-[hash].js" : "assets/[name]-[hash][extname]";
+        },
+      },
+    },
   },
   optimizeDeps: {
     include: ["react", "react-dom/client"],
