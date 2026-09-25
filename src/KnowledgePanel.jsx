@@ -101,9 +101,9 @@ export function KnowledgePanel({ onDocumentsChange }) {
           />
           <button type="button" onClick={() => inputRef.current?.click()} disabled={busy}>
             <FileArrowUp size={22} weight="duotone" />
-            <span><strong>{busy ? "正在读取" : "上传手头资料"}</strong><small>PDF · Word · PPT · 文本，单份不超过15MB</small></span>
+            <span><strong>{busy ? "正在读取" : "上传手头资料"}</strong><small>PDF · Word · PPT · 文本 · CSV · JSON，单份不超过15MB</small></span>
           </button>
-          <p>资料仅保存在当前浏览器。提问时只发送相关文字片段，不上传原文件。</p>
+          <p>这里上传的普通资料保存在当前浏览器，关闭页面后仍会保留；清理网站数据或更换浏览器、设备后不会同步。提问时只发送相关文字片段，不上传原文件。现场共用的人名测试库由云端服务端统一提供。</p>
           {message && <output>{message}</output>}
         </section>
 
