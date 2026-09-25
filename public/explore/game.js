@@ -14,6 +14,11 @@
   let walking=null,falling=null,winning=null,sweep=null,echoCue=null,hover=-1,overview=null,boundary=null;
   let starting=false,started=false,runId=null,practice=false,actions=[],startTick=0,endElapsed=null,verified=null,verifying=false,submitting=false,generation=0,lastClock=0,toastUntil=0;
   let boardPage=1,boardPages=1,boardRequest=0,boardSeason='current';
+  // 公共 API 地址不是密钥。身份令牌由服务端生成，保存在本机浏览器中。
+  const leaderboardBase='https://123.56.162.88/api/yuanbai/game';
+  const tokenStorageKey='yuanbai-player-v1';
+  let playerToken=null;
+  try{playerToken=localStorage.getItem(tokenStorageKey);}catch{}
   let soundEnabled = false, hapticsEnabled=true, audio = null, artReady = false;
   let lastSanTick=0,lastSanUI=0,wasRestricted=false,lastStrainTone=0;
   let renderShift={x:0,y:0};
@@ -295,8 +300,16 @@
     canvas.setAttribute('aria-label',`位置第${game.r+1}行第${game.c+1}列，走过${game.count}/${SAFE_COUNT}个安全格，坠落${game.falls}次，面朝${DIRS[game.direction].name}。道具：提示${game.stock.companion}、探测${game.stock.probe}、全景${game.stock.panorama}。WASD移动，123使用道具。`);
   }
   async function api(path,data){
-    const response=await fetch('/api/yuanbai/game'+path.slice(4),{method:data===undefined?'GET':'POST',credentials:'same-origin',headers:data===undefined?{}:{'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data),signal:AbortSignal.timeout(12000)});
-    const result=await response.json();if(!response.ok)throw new Error(result.error||'暂时无法连接，请重试。');return result;
+    const headers=data===undefined?{}:{'Content-Type':'application/json'};
+    if(playerToken)headers.Authorization='Bearer '+playerToken;
+    const response=await fetch(leaderboardBase+path.slice(4),{method:data===undefined?'GET':'POST',headers,body:data===undefined?undefined:JSON.stringify(data),signal:AbortSignal.timeout(12000)});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||'暂时无法连接，请重试。');
+    if(path==='/api/runs'&&result.playerToken){
+      if(!/^[a-f0-9]{64}$/.test(result.playerToken))throw new Error('服务器返回的身份信息无效。');
+      playerToken=result.playerToken;
+      try{localStorage.setItem(tokenStorageKey,playerToken);}catch{}
+    }
+    return result;
   }
   async function beginRun(){
     if(started)return true;starting=true;const current=generation;updateUI();
