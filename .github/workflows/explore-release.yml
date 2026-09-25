@@ -1,0 +1,61 @@
+name: Explore game release
+
+on:
+  pull_request:
+    paths:
+      - "public/explore/**"
+      - "scripts/check-explore-production.mjs"
+      - "scripts/prepare-portal-build.mjs"
+      - ".github/workflows/explore-release.yml"
+      - "package.json"
+      - "package-lock.json"
+  push:
+    branches: [main]
+    paths:
+      - "public/explore/**"
+      - "scripts/check-explore-production.mjs"
+      - "scripts/prepare-portal-build.mjs"
+      - ".github/workflows/explore-release.yml"
+      - "package.json"
+      - "package-lock.json"
+  # The publishing repository syncs submodules at :17 and :47.
+  # Allow ten minutes for EdgeOne to build before checking the public page.
+  schedule:
+    - cron: "0,30 * * * *"
+  workflow_dispatch:
+    inputs:
+      require_leaderboard:
+        description: "Also fail if the shared leaderboard is unavailable"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.11.0
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - name: Confirm that the game is included in the deployable build
+        run: |
+          for asset in index.html core.js game.js style.css yuanbai-art.webp; do
+            test -s "dist/client/explore/$asset" || exit 1
+          done
+
+  production:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Compare production files and report leaderboard health
+        env:
+          REQUIRE_LEADERBOARD: ${{ inputs.require_leaderboard || 'false' }}
+        run: node scripts/check-explore-production.mjs

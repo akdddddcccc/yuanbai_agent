@@ -71,3 +71,28 @@ Codex 生成改动后，先本地预览，再提交 Pull Request。三个人可�
 ## 建议的 GitHub 保护
 
 为 `main` 建立规则：必须通过 Pull Request 合并、至少一人审批、禁止强制推送、合并后自动删除分支。等三人的 GitHub 用户名确定后，再加入 `CODEOWNERS`，让游戏、网页与语音目录自动请求对应负责人审阅。
+
+## 探索游戏上线流程
+
+这套流程只在产品仓库提交游戏代码。发布仓库已有 `sync-apps.yml`：每小时的 `:17`、`:47` 自动把产品仓库 `main` 的新版本同步到 `apps/yuanbai` 子模块，并触发 EdgeOne 部署。不要为每次游戏更新复制一份前端到发布仓库，也不要直接向两个仓库的 `main` 推送。
+
+| 阶段 | 执行人 / 自动化 | 验收点 |
+| --- | --- | --- |
+| 开发 | 游戏负责人从最新 `main` 创建 `game/功能名`，主要修改 `public/explore/` | 桌面、手机预览；本地运行 `npm ci && npm run build` |
+| 提交 PR | 游戏负责人提交 PR，写明玩法变化与截图 | `Explore game release / build` 通过，检查打包后的五项游戏资源 |
+| 审阅合并 | 另一位成员在 GitHub 提交 **Approve** 后由维护者合并 | GitHub PR 有另一人的审阅记录；勾选 PR 模板并不等于审阅 |
+| 自动发布 | 发布仓库同步子模块，EdgeOne 根据发布仓库 `main` 部署 | 发布仓库的 `Sync linked app repositories` 成功，部署完成 |
+| 自动验收 | 本仓库 `Explore game release / production` 每小时的 `:00`、`:30` 运行 | 将线上 HTML、JS、CSS、画面素材逐一与本仓库 `main` 做 SHA-256 对照；最多重试约 2 分钟；读取排行榜并在运行摘要中报告状态 |
+| 人工验收 | 游戏负责人打开 [线上探索页](https://apps-demo.muyang23333.top/yuanbai/explore/) | 检查桌面/手机移动、边界提示、SAN、道具、返回实验室；如要启用排行榜，实际完成一局并验证昵称成绩入榜 |
+
+自动检查脚本可在仓库根目录手动运行：
+
+```bash
+node scripts/check-explore-production.mjs
+# 仅在准备正式启用共享成绩时，要求排行榜也必须可用：
+node scripts/check-explore-production.mjs --require-leaderboard
+```
+
+也可在 GitHub Actions 的 **Explore game release → Run workflow** 选择 `main` 并打开 `require_leaderboard`，运行正式成绩接口检查。定时检查默认只将排行榜故障标为警告：当前发布域名缺少 `/api/yuanbai/game/{runs,finish,scores,leaderboard}`，游戏会显示**练习模式**，不会产生入榜成绩；不能把静态页上线等同于排行榜上线。启用共享排名时应由有发布权限的负责人单独接入并审阅服务端接口，随后将这项检查设为必需并做一次真实通关提交验收。
+
+如果静态资源校验失败，先核对发布仓库的同步任务和 EdgeOne 部署记录，再重跑验收；确有线上故障时通过 PR 撤回或修复产品代码，等待再次同步。由于本仓库当前操作者没有设置仓库规则的管理员权限，**必须由仓库管理员**在 `main` 的 Branch protection / Rulesets 中启用“必须通过 PR”、“至少 1 位其他成员批准”、“必须通过 `Explore game release / build`”、“禁止强制推送”；自动化脚本和 PR 模板都不能替代这条保护规则。
