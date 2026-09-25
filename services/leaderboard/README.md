@@ -2,7 +2,7 @@
 
 游戏前端仍在 `https://apps-demo.muyang23333.top/yuanbai/explore/`，**这个目录里的后端运行在自己的云服务器**。接口为 `https://123.56.162.88/api/yuanbai/game/{runs,finish,scores,leaderboard}`；不需要修改 `portfolio-app-demos`。只有通关且服务器回放成功后才能提交昵称。每名玩家每个规则版本只保留最佳成绩，按坠落次数、用时、步数依次升序排名。浏览器将服务器签发的随机身份令牌存在当前浏览器的 localStorage；换浏览器不继承身份。
 
-数据库为服务器磁盘 `/var/lib/yuanbai/leaderboard.sqlite`（SQLite WAL 还会生成 `-wal` 和 `-shm` 文件）。游戏源码、数据库和私钥分别存放；**SSH 私钥不要上传到 GitHub、网页或聊天窗口**。当前设计不自动迁移旧排行榜数据；历史榜单需要单独导入旧数据。
+数据库为服务器磁盘 `/var/lib/yuanbai/leaderboard.sqlite`（SQLite WAL 还会生成 `-wal` 和 `-shm` 文件）。游戏源码、数据库和私钥分别存放；**SSH 私钥不要上传到 GitHub、网页或聊天窗口**。SAN 平衡版启用新的规则版本，原 SAN 版成绩保留在独立历史榜中；当前设计不自动迁移别处的排行榜数据，旧数据需要单独导入。更换规则时应一起更新游戏前端和服务端，避免版本不匹配进入练习模式。
 
 ## 在能连接服务器的电脑上部署
 

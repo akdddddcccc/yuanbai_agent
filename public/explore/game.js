@@ -1,7 +1,7 @@
 /* 元白 · 失重之间 | Canvas绘制、输入、声音与动画。 */
 (() => {
   'use strict';
-  const { Game, SIZE, SAFE_COUNT, DIRS, CLIFFS, PICKUPS, TOOL_NAMES, RULE_VERSION, PANORAMA_MS, id } = window.YuanbaiCore;
+  const { Game, SIZE, SAFE_COUNT, DIRS, CLIFFS, PICKUPS, TOOL_NAMES, RULE_VERSION, PANORAMA_MS, SAN_PER_SECOND, SAN_PICKUP, SAN_FALL, SAN_OVERLOAD_MS, id } = window.YuanbaiCore;
   const game = new Game(), $ = s => document.querySelector(s);
   const canvas = $('#world'), ctx = canvas.getContext('2d', { alpha: false });
   const ui = Object.fromEntries([...document.querySelectorAll('[id]')].map(el=>[el.id,el]));
@@ -189,11 +189,12 @@
   }
   function advanceSan(now=performance.now()){
     if(!started||game.mode==='won')return;
+    if(document.hidden||document.querySelector('dialog[open]')){lastSanTick=now;return;}
     game.advanceTime(Math.max(0,now-lastSanTick));lastSanTick=now;
     if(game.restrictedVision!==wasRestricted){
       wasRestricted=game.restrictedVision;hover=-1;
-      if(wasRestricted){toast('SAN 100% · 视野收缩至脚下',2300);tone('strain');}
-      else if(!falling)toast('SAN 回落 · 周围视野恢复',1600);
+      if(wasRestricted){toast('SAN 100% · 短暂迷失，呼吸后恢复',2300);tone('strain');}
+      else if(!falling)toast('呼吸稳定 · 周围视野恢复',1600);
       updateSanUI();
     }
     if(now-lastSanUI>150){lastSanUI=now;updateSanUI();}
@@ -204,8 +205,9 @@
     ui['san-value'].textContent=value.toFixed(1)+'%';ui['san-meter'].setAttribute('aria-valuenow',value);
     ui['san-fill'].style.width=game.san+'%';ui['san-fill'].style.background=`hsl(${43-game.san*.35} 65% 64%)`;
     ui['san-block'].classList.toggle('critical',game.restrictedVision);
-    ui['san-state'].textContent=game.restrictedVision?'仅脚下可见 · 拾取可恢复':'每秒 +0.5 · 拾取 −5 · 坠落 +10';
+    ui['san-state'].textContent=game.restrictedVision?`短暂迷失 · ${Math.ceil((SAN_OVERLOAD_MS-game.overloadMs)/1000)} 秒后恢复`:`每秒 +${SAN_PER_SECOND} · 拾取 −${SAN_PICKUP} · 坠落 +${SAN_FALL}`;
     ui['vision-status'].hidden=!game.restrictedVision||!!winning||!!overview;
+    if(game.restrictedVision)ui['vision-status'].lastElementChild.textContent=`约 ${Math.ceil((SAN_OVERLOAD_MS-game.overloadMs)/1000)} 秒后恢复四邻视野`;
     ui['opening-hint'].hidden=game.restrictedVision||!!winning;
     canvas.dataset.visibleTiles=(falling||winning||overview?81:game.visibleCells().length);
   }
@@ -326,7 +328,7 @@
     ui['opening-hint'].style.opacity=0;tone('step');
     if(result.kind==='fall'){startFall();return;}
     if(result.kind==='win'){startWin();return;}
-    if(result.pickup){say(`拾取「${TOOL_NAMES[result.pickup.type]}」×1。`,'SAN 降低 5 个百分点；道具随时可用，每处只拾取一次。');toast(TOOL_NAMES[result.pickup.type]+' +1 · SAN −5',1300);tone('pickup');}
+    if(result.pickup){say(`拾取「${TOOL_NAMES[result.pickup.type]}」×1。`,`SAN 降低 ${SAN_PICKUP} 个百分点；道具随时可用，每处只拾取一次。`);toast(TOOL_NAMES[result.pickup.type]+` +1 · SAN −${SAN_PICKUP}`,1300);tone('pickup');}
     else say('这一步已经成为记忆。',practice?'当前未连接共享成绩，仍可完整练习。':'自由移动。已有道具可以随时使用，注意脚下。');
     const signal=game.environment();
     if(signal&&!wasNear){echoCue={start:performance.now()+180};tone('echo');vibrate([16,45,20]);if(!result.pickup){say('附近似乎不太对劲。','空气与光发生了变化；用道具确认准确的悬崖位置。');toast('附近似乎不太对劲',1400);}}
@@ -351,7 +353,7 @@
     updateUI();
   }
   async function turn(delta){if(busy())return;if(!await beginRun())return;advanceSan();if(game.turn(delta)){actions.push(delta===-1?'left':'right');updateUI();tone('turn');}}
-  function startFall(){falling={start:performance.now(),reset:false};walking=null;sweep=echoCue=null;boundary=null;say('脚下失去了重量 · SAN +10。','回到起点后保留当前 SAN、进度与未用道具。',true);ui['fall-caption'].textContent='失 重';tone('fall');vibrate([40,30,65]);updateUI();}
+  function startFall(){falling={start:performance.now(),reset:false};walking=null;sweep=echoCue=null;boundary=null;say(`脚下失去了重量 · SAN +${SAN_FALL}。`,'回到起点后保留当前 SAN、进度与未用道具。',true);ui['fall-caption'].textContent='失 重';tone('fall');vibrate([40,30,65]);updateUI();}
   function updateFall(time){
     const duration=3400,t=(time-falling.start)/duration;
     ui.fade.style.opacity=t<.61?clamp((t-.39)/.22):t<.81?1:clamp(1-(t-.81)/.19);ui['fall-caption'].style.opacity=t>.56&&t<.82?'1':'0';
@@ -386,7 +388,7 @@
       ui['ranking-state'].hidden=data.total>0;ui['ranking-state'].textContent=boardSeason==='previous'?'上一版还没有通关记录。':'还没有通关记录，成为第一个留下名字的人。';ui['ranking-table'].hidden=data.total===0;ui['ranking-page'].textContent=`${data.total} 位探索者 · ${boardPage} / ${boardPages}`;ui['ranking-prev'].disabled=boardPage<=1;ui['ranking-next'].disabled=boardPage>=boardPages;
     }catch(error){if(request!==boardRequest)return;ui['ranking-state'].textContent='排行榜暂时无法连接。已提交的记录不会因此消失。';ui['ranking-page'].textContent='';ui['ranking-retry'].hidden=false;}
   }
-  function selectSeason(season){boardSeason=season;for(const name of ['current','previous','reconstruction','legacy'])ui['ranking-'+name].setAttribute('aria-pressed',season===name);loadLeaderboard(1);}
+  function selectSeason(season){boardSeason=season;for(const name of ['current','san','previous','reconstruction','legacy'])ui['ranking-'+name].setAttribute('aria-pressed',season===name);loadLeaderboard(1);}
   function openRanking(){ui['ranking-dialog'].showModal();selectSeason('current');}
   function restart(){
     generation++;game.reset();falling=walking=winning=sweep=echoCue=overview=boundary=null;camera=plane(game.r,game.c);
@@ -417,10 +419,11 @@
   ui['turn-left'].addEventListener('click',()=>turn(-1));ui['turn-right'].addEventListener('click',()=>turn(1));
   ui['new-game'].addEventListener('click',()=>{if(starting||falling||overview)return;ui['restart-dialog'].showModal();});ui['cancel-restart'].addEventListener('click',()=>ui['restart-dialog'].close());ui['confirm-restart'].addEventListener('click',()=>{ui['restart-dialog'].close();restart();});ui.restart.addEventListener('click',restart);
   ui.help.addEventListener('click',()=>ui['help-dialog'].showModal());ui['close-help'].addEventListener('click',()=>ui['help-dialog'].close());ui.begin.addEventListener('click',()=>ui['help-dialog'].close());ui['reduce-motion'].addEventListener('change',e=>{reduced=e.target.checked;});ui.haptics.addEventListener('change',e=>{hapticsEnabled=e.target.checked;});
-  ui['leaderboard-open'].addEventListener('click',openRanking);ui['win-ranking'].addEventListener('click',openRanking);ui['close-ranking'].addEventListener('click',()=>ui['ranking-dialog'].close());ui['ranking-current'].addEventListener('click',()=>selectSeason('current'));ui['ranking-previous'].addEventListener('click',()=>selectSeason('previous'));ui['ranking-reconstruction'].addEventListener('click',()=>selectSeason('reconstruction'));ui['ranking-legacy'].addEventListener('click',()=>selectSeason('legacy'));ui['ranking-prev'].addEventListener('click',()=>loadLeaderboard(boardPage-1));ui['ranking-next'].addEventListener('click',()=>loadLeaderboard(boardPage+1));ui['ranking-retry'].addEventListener('click',()=>loadLeaderboard(boardPage));
+  ui['leaderboard-open'].addEventListener('click',openRanking);ui['win-ranking'].addEventListener('click',openRanking);ui['close-ranking'].addEventListener('click',()=>ui['ranking-dialog'].close());ui['ranking-current'].addEventListener('click',()=>selectSeason('current'));ui['ranking-san'].addEventListener('click',()=>selectSeason('san'));ui['ranking-previous'].addEventListener('click',()=>selectSeason('previous'));ui['ranking-reconstruction'].addEventListener('click',()=>selectSeason('reconstruction'));ui['ranking-legacy'].addEventListener('click',()=>selectSeason('legacy'));ui['ranking-prev'].addEventListener('click',()=>loadLeaderboard(boardPage-1));ui['ranking-next'].addEventListener('click',()=>loadLeaderboard(boardPage+1));ui['ranking-retry'].addEventListener('click',()=>loadLeaderboard(boardPage));
   ui['score-form'].addEventListener('submit',submitScore);ui['retry-verify'].addEventListener('click',verifyFinish);
   ui.sound.addEventListener('click',()=>{try{if(!audio)audio=new(window.AudioContext||window.webkitAudioContext)();soundEnabled=!soundEnabled;ui.sound.textContent='声音 '+(soundEnabled?'开':'关');ui.sound.setAttribute('aria-pressed',soundEnabled);if(soundEnabled)tone('probe');}catch{say('当前浏览器未能开启声音。','可以继续无声探索。');}});
   document.addEventListener('keydown',event=>{if(event.altKey||event.ctrlKey||event.metaKey||document.querySelector('dialog[open]')||['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName))return;const key=event.key.toLowerCase(),move={w:0,arrowup:0,d:1,arrowright:1,s:2,arrowdown:2,a:3,arrowleft:3};if(key in move){event.preventDefault();if(!event.repeat)step(move[key]);}else if(['1','2','3','q','e'].includes(key)){event.preventDefault();if(event.repeat)return;if(key==='1')tool('companion');if(key==='2')tool('probe');if(key==='3')tool('panorama');if(key==='q')turn(-1);if(key==='e')turn(1);}});
+  document.addEventListener('visibilitychange',()=>{lastSanTick=performance.now();});
   art.onload=()=>{artReady=true;textures.clear();};art.onerror=()=>say('建筑图像加载失败。','请刷新页面后重试。',true);art.src='yuanbai-art.webp';
   resize();camera=plane(game.r,game.c);updateUI();requestAnimationFrame(draw);
   if(document.modelContext?.registerTool){const lifecycle=new AbortController();addEventListener('pagehide',()=>lifecycle.abort(),{once:true});try{Promise.resolve(document.modelContext.registerTool({name:'explore_yuanbai',title:'探索元白楼',description:'通过与界面相同的操作探索元白楼，不泄露未知格。道具需要先拾取。',inputSchema:{type:'object',properties:{action:{type:'string',enum:['read','move_ne','move_se','move_sw','move_nw','turn_left','turn_right','companion','probe','panorama']}},required:['action'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},async execute(input){const choices=['read','move_ne','move_se','move_sw','move_nw','turn_left','turn_right','companion','probe','panorama'];if(!input||Object.keys(input).some(k=>k!=='action')||!choices.includes(input.action))throw Error('无效操作');if(input.action!=='read'){if(busy())throw Error('请等待动画或关闭弹窗');const d=choices.slice(1,5).indexOf(input.action);if(d>=0)await step(d);else if(input.action.startsWith('turn_'))await turn(input.action==='turn_left'?-1:1);else tool(input.action);await new Promise(resolve=>{function done(){if(!starting&&!walking&&!falling&&!overview&&(!winning||performance.now()-winning.start>2700))resolve();else requestAnimationFrame(done);}done();});}return {position:{row:game.r+1,column:game.c+1},collected:game.count,san:Number(game.san.toFixed(1)),visibleTiles:game.visibleCells().length,deaths:game.falls,stock:{...game.stock},facing:DIRS[game.direction].name,mode:game.mode,message:ui['message-title'].textContent};}},{signal:lifecycle.signal})).catch(()=>{});}catch{}}

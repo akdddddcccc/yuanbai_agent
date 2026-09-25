@@ -8,7 +8,7 @@
     "build": "vite build && node scripts/prepare-portal-build.mjs && node scripts/prepare-sites-build.mjs",
     "model:glb": "node scripts/generate-yuanbai-glb.mjs",
     "preview": "vite preview",
-    "test:leaderboard": "node --test services/leaderboard/test/server.test.mjs",
+    "test:leaderboard": "node --test services/leaderboard/test/server.test.mjs services/leaderboard/test/san.test.mjs",
     "test:sites": "node --test tests/sites-worker.test.mjs"
   },
   "dependencies": {

@@ -1,8 +1,9 @@
-/* 3.4 / SAN. 规则由浏览器与服务器共同使用；位置从0计数。 */
+/* 3.5 / SAN 平衡版。规则由浏览器与服务器共同使用；位置从0计数。 */
 (function(root){
   'use strict';
-  const SIZE=9, RULE_VERSION='yuanbai-v5-san', PANORAMA_MS=1500;
-  const SAN_PER_SECOND=.5, SAN_PICKUP=5, SAN_FALL=10;
+  const SIZE=9, RULE_VERSION='yuanbai-v6-san-balance', PANORAMA_MS=1500;
+  const SAN_PER_SECOND=.2, SAN_PICKUP=8, SAN_FALL=8;
+  const SAN_OVERLOAD_MS=5000, SAN_RECOVER_TO=65;
   const START={r:8,c:0};
   const CLIFFS=[3,7,11,15,22,26,28,34,40,46,50,56,60,66,70];
   const SAFE_COUNT=SIZE*SIZE-CLIFFS.length;
@@ -28,7 +29,7 @@
     get count(){return this.safeVisited.size;}
     get position(){return id(this.r,this.c);}
     get restrictedVision(){return this.san>=100;}
-    get effectLevel(){return .78*Math.pow(this.san/100,1.5)+(this.restrictedVision?.22*(1-Math.exp(-this.overloadMs/12000)):0);}
+    get effectLevel(){return .72*Math.pow(this.san/100,1.5)+(this.restrictedVision?.12*(1-Math.exp(-this.overloadMs/1300)):0);}
     changeSan(amount){
       if(!Number.isFinite(amount))return 0;
       const before=this.san;this.san=Math.max(0,Math.min(100,this.san+amount));
@@ -37,9 +38,18 @@
     }
     advanceTime(ms){
       if(!Number.isFinite(ms)||ms<=0||!['playing','falling'].includes(this.mode))return;
-      const untilFull=(100-this.san)/SAN_PER_SECOND*1000;
-      this.changeSan(ms/1000*SAN_PER_SECOND);
-      if(this.restrictedVision)this.overloadMs+=Math.max(0,ms-untilFull);
+      let remaining=ms;
+      while(remaining>0){
+        if(this.restrictedVision){
+          const slice=Math.min(remaining,Math.max(0,SAN_OVERLOAD_MS-this.overloadMs));
+          this.overloadMs+=slice;remaining-=slice;
+          if(this.overloadMs>=SAN_OVERLOAD_MS){this.san=SAN_RECOVER_TO;this.overloadMs=0;}
+        }else{
+          const untilFull=Math.max(0,(100-this.san)/SAN_PER_SECOND*1000);
+          if(remaining<untilFull){this.changeSan(remaining/1000*SAN_PER_SECOND);break;}
+          this.san=100;this.overloadMs=0;remaining-=untilFull;
+        }
+      }
     }
     visibleCells(){return [{r:this.r,c:this.c},...(this.restrictedVision?[]:this.neighbors())];}
     isCliff(r,c){return CLIFFS.includes(id(r,c));}
@@ -102,6 +112,6 @@
     }
     if(g.mode!=='won'||g.count!==SAFE_COUNT)throw new Error('尚未走遍全部安全格');return g;
   }
-  const api={Game,SIZE,SAFE_COUNT,START,CLIFFS,DIRS,PICKUPS,TOOL_NAMES,RULE_VERSION,PANORAMA_MS,SAN_PER_SECOND,SAN_PICKUP,SAN_FALL,id,inside,replay};
+  const api={Game,SIZE,SAFE_COUNT,START,CLIFFS,DIRS,PICKUPS,TOOL_NAMES,RULE_VERSION,PANORAMA_MS,SAN_PER_SECOND,SAN_PICKUP,SAN_FALL,SAN_OVERLOAD_MS,SAN_RECOVER_TO,id,inside,replay};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.YuanbaiCore=api;
 })(typeof window!=='undefined'?window:globalThis);

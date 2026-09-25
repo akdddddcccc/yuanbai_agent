@@ -1,7 +1,7 @@
 import '../../public/explore/core.js';
 const core=globalThis.YuanbaiCore;
 const {replay,RULE_VERSION,PANORAMA_MS}=core;
-const HISTORICAL_RULES={previous:'yuanbai-v3',reconstruction:'yuanbai-v4',legacy:'yuanbai-v2'};
+const HISTORICAL_RULES={san:'yuanbai-v5-san',previous:'yuanbai-v3',reconstruction:'yuanbai-v4',legacy:'yuanbai-v2'};
 const uid=()=>crypto.randomUUID();
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
 function db(env){if(!env.DB)throw new Error('排行榜数据库尚未连接');return env.DB;}
