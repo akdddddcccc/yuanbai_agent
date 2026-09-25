@@ -1,0 +1,53 @@
+{
+  "root": "YB_Perception_Mark_Root",
+  "blender_axes": "XY plan; Z thickness",
+  "gltf_axes": "XZ plan; Y thickness; Blender +Y becomes glTF -Z",
+  "blender_camera": [
+    0.15,
+    -7.4,
+    11.8
+  ],
+  "blender_target": [
+    0.15,
+    -0.04,
+    0
+  ],
+  "gltf_camera": [
+    0.15,
+    11.8,
+    7.4
+  ],
+  "gltf_target": [
+    0.15,
+    0,
+    0.04
+  ],
+  "orthographic_width": 8.149999618530273,
+  "blender_bounds_min": [
+    -3.6517839431762695,
+    -2.402697801589966,
+    -0.3389407694339752
+  ],
+  "blender_bounds_max": [
+    3.917400598526001,
+    2.207876205444336,
+    0.3499999940395355
+  ],
+  "gltf_bounds_min": [
+    -3.6517839431762695,
+    -0.3389407694339752,
+    -2.207876205444336
+  ],
+  "gltf_bounds_max": [
+    3.917400598526001,
+    0.3499999940395355,
+    2.402697801589966
+  ],
+  "mesh_count": 63,
+  "clearance_audit": {
+    "distinct_parts": 14,
+    "overlapping_pairs": [],
+    "minimum_separating_axis_clearance": 0.00319
+  },
+  "material_note": "Derived from user photos with AI-cleaned tiles; normal and roughness artist estimated"
+}

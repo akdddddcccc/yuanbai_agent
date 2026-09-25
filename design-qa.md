@@ -1,57 +1,55 @@
-# 元白工作台 Design QA
+# 元白感知实验室：本地视觉与交互复查
 
-- Source visual truth: `C:\Users\27851\.codex\generated_images\01a0c8c8-e6b7-7402-8a79-0d1643a6b314\exec-fbf00ce5-838f-4ef5-a5c8-54c9999c84cd.png`
-- Desktop implementation screenshot: `D:\codex\yuanbai_agent\qa-desktop.png`
-- Mobile implementation board: `D:\codex\yuanbai_agent\qa-mobile-board.png`
-- Combined comparison: `D:\codex\yuanbai_agent\design-qa-comparison-normalized.png`
-- Desktop viewport: 1280 × 720 CSS px, device scale factor 1.5
-- Mobile viewports: three 390 × 844 CSS px same-origin frames for the portal, dialogue, and game
-- State: portal idle; dialogue idle; game start and first explored tile
+日期：2026-09-25。范围：实拍衍生材质 GLB、首页顶光/扫描光束/投影、入口卡片、移动端留白。此报告不代表已部署，也不代表用户已完成美术验收。
 
-## Normalization
+## 比较资料
 
-The source is 1584 × 992 px. The in-app browser returned a 1280 × 720 bitmap while drawing the 1280 × 720 CSS viewport into a 853 × 480 CSS-scale region because of its 1.5 density behavior. The implementation region was cropped to 853 × 480 and resized to 1440 × 810 for the combined comparison. The source was scaled to the same 810 px comparison height. Browser chrome was excluded.
+- 页面参考：`C:\Users\27851\AppData\Local\Temp\codex-clipboard-a70db5fc-c355-42fd-a9f8-61f7383637ec.png`
+- 形体/材质方向：`C:\Users\27851\AppData\Local\Temp\codex-clipboard-ce4a06b1-c4ae-4ca8-900e-8e94d588c680.png`，以及用户随后提供的元白楼实拍照片；实拍来源见 `public/models/textures/yuanbai-site/SOURCE.md`。
+- 最终桌面截图：`qa-lab-desktop-reference-size.png`。
+- 最终手机截图：`qa-lab-mobile.png`。
+- 全页并列比较：`design-qa-comparison-lab.png`；局部并列比较：`design-qa-comparison-lab-focus.png`。
+- 全页源图和最终截图均为 1765 × 891 像素，CSS 视口 1765 × 891，设备密度约 1；未裁切网页或拉伸截图。上下排列时仅增加文字标题条。
+- 局部图：667 × 499 的材质参考，与实际页面中央区域等尺寸裁切并列，不对模型局部进行美化。
+- 手机视口 390 × 844；另检查过 1440 × 900 和 1024 × 768。平板截图 `qa-lab-tablet.png` 记录布局修复，材质颜色以最终桌面/手机图为准。
+- 状态：首页待机、模型加载完成。参考图选中探索卡，最终截图选中对话卡，中心副文案因此不同。名称按用户要求改为“元白感知实验室”。
 
-## Full-view comparison evidence
+## 五项视觉检查
 
-The implementation preserves the selected option's primary composition: black command-console field, two large concrete-colored numbered cards, central floating angular building, red accent rules, technical status strip, and narrow project footer. The actual Three.js building replaces the mock's rendered building so the page retains the requested live model, voice animation, and future GLB replacement path.
+- 字体：保留黑体标题、紧凑英文标签与数字层级。中文使用系统字体；不是把图中文字栅格化。新版名称比旧版长，平板状态栏已移到右侧。
+- 布局：桌面中央模型不会进入两侧卡片；手机顺序为品牌、状态、模型、中心文案、两张卡片。文案与第一卡在浮动过程中保留约 42–46px 空隙；未发现横向溢出。
+- 色彩：黑色背景、暖灰卡片、砖红提示色保留。实拍衍生 GLB 使用灰色混凝土、红砖、暗钢架；网页材质压色避免灯光下泛白与浅粉。
+- 图像质量：当前中心为加载成功的真实 GLB，纹理、UV 和几何有效。顶光使用用户指定的 CSS 渐变/噪点；投影复制当前 WebGL 画面，256px、约 6fps，压扁模糊并漂移。扫描光束有亮芯、近场辉光和宽幅弱光带。
+- 文案：保留探索/对话两个入口；子页面返回名称与首页一致。
 
-The mobile board confirms a natural vertical sequence for the portal, a fully visible persistent press-and-hold control on the dialogue page, and reachable game HUD and direction controls after starting the game.
+## 迭代与证据
 
-## Focused-region evidence
+1. 桌面模型两端被卡片遮挡：收窄 `.portal-stage` 并取消画布横向外扩。最终全页截图完整显示模型与刻度。
+2. 1024px 标题与状态栏重叠：1180px 以下状态栏靠右。`qa-lab-tablet.png` 显示两者分离，中央文案保留。
+3. 暗钢架轮廓弱、混凝土泛白：增加仅作用于材质的环境反射，降低曝光和环境漫射，分别压低混凝土/砖色；最终局部比较显示灰与砖红区分，钢架轮廓可见。
+4. 扫描辉光过弱：扩大近场阴影半径和弱光带透明度，提升呼吸周期的最低亮度；最终图可见上下柔光，不再只有一条孤立红线。
+5. 手机文案贴卡：中央区增加 44px 下间距，复查时测得 45.31px；后续仅调整材质颜色，没有改布局。
 
-Separate crops were not needed. The full desktop comparison keeps the card typography, icons, actions, central building, status strip, and footer readable. The mobile board keeps each 390 × 844 frame large enough to inspect the persistent controls and first-screen hierarchy.
+## 交互与资产验证
 
-## Required fidelity surfaces
+- 桌面鼠标从上到下移动，两侧刻度由 +16.76/-13.07px 变为 -14.44/+11.27px；方向相反且有过渡。顶光与扫描透明度随时间变化。
+- 探索入口与返回、对话入口与返回通过；手机第二张卡片可进入对话页。
+- 没有启动游戏音效，没有启用麦克风，没有发起语音合成。
+- GLB 约 2.25MB，63 个网格、14 个构件、3 种材质、9 张内嵌贴图；无外部纹理依赖。独立导出几何平面凸包检查为零相交，最小净距约 0.00346。动画只移动整组，以保留接缝。
+- 10MB 的源材质样片已移到非 public 目录；旧混凝土资源也已从 public 归档。构建不携带这些源文件。
+- 生产构建通过；构建后 4 项路由/打包检查通过；Git 差异空白检查通过。
+- 浏览器没有 error 级日志。开发热更新曾产生 Three.js 重复实例提示；完整重载后没有新重复实例提示。当前 Windows 图形驱动对环境反射着色器有浮点精度 warning，未阻止模型加载或显示。
+- 生产包仍有超过 500KB 的主图形模块体积提示；未把这次首页工作扩展为全站拆包重构。
 
-- Fonts and typography: heavy Chinese sans headings, compact technical labels, and high-contrast action copy reproduce the source hierarchy. System fallbacks keep Chinese rendering reliable without a font download.
-- Spacing and layout rhythm: cards remain balanced around the central model on desktop and become one-column blocks on mobile. Touch targets meet or exceed 44 px.
-- Colors and visual tokens: near-black, warm concrete, brick red, and warm window light are centralized in CSS and Three.js palettes.
-- Image quality and asset fidelity: the central visual is live WebGL geometry rather than a placeholder. The game texture is stored locally at full resolution. No rasterized UI text is used.
-- Copy and content: the page contains only the two requested experiences, with clear Chinese descriptions and consistent Yuanbai naming.
+## 剩余差异与边界
 
-## Interaction and browser checks
+- P3：实拍墙面是较细的砂粒/孔隙，当前网页不会等同于早期效果图夸张的破损大坑。几何轮廓仍较干净，法线和粗糙度属于照片推算，不能称为真实扫描。
+- P3：CSS 顶光和复制投影是用户指定的轻量视觉方案，不是体积散射或物理投影；不会产生效果图中的真实遮挡、光束切割和环境反弹。未承诺逐像素复原。
+- 减少动态效果分支已实现；本次未切换操作系统偏好实测。手机为浏览器视口验证，未声称在实体手机上测试。
+- 本地技术与布局检查通过；素材和整体美术仍交给用户查看本地版本后确认，不自动发布。
 
-- Portal → Explore → return to portal passed.
-- Portal → Dialogue → return to portal passed.
-- Mobile portal card navigation passed.
-- Mobile game start, HUD, and direction controls passed.
-- Dialogue long-press control was inspected but not activated, so no microphone or audio was used during QA.
-- Browser console errors: none.
+## 2026-09-25 扫描光束发布复查
 
-## Comparison history
-
-1. Initial implementation used a map icon and lacked the source's technical red grid cue. The exploration icon was changed to a target/maze-like symbol and a low-opacity Three.js grid was added behind the portal model.
-2. The game originally depended on a remote texture and `/explore/` did not resolve in Vite development. The texture was localized and the entry now loads `index.html` before cleaning the address to `/explore/`.
-3. The frontend exposed an unhelpful JSON parse error when the local API returned an empty response. Local development now proxies to the deployed service, and empty or invalid responses produce a readable HTTP error.
-
-## Findings
-
-No actionable P0, P1, or P2 visual or interaction differences remain.
-
-## Follow-up polish
-
-- P3: the source mock has richer concrete grain and environmental rocks. The implementation keeps flatter card surfaces for text contrast and a smaller payload.
-- P3: the current procedural building is more diagrammatic than the concept render; `MODEL_REPLACEMENT.md` documents how to replace it with a future GLB without rewriting interaction logic.
+用户明确要求本轮修改后上线。扫描光束取消整条等宽阴影，亮芯形状、透明度和亮度以左侧 36% 为焦点，右侧保留渐弱长尾；主元素和宽光带使用椭圆径向渐变。最终复查截图为 `qa-scan-left-desktop.png`（1440 × 900）和 `qa-scan-left-mobile.png`（390 × 844）。实际浏览器模型状态 ready，手机无横向溢出，未启动录音或播放。使用 /yuanbai/ 生产子路径构建通过，四项打包/路由检查通过。部署状态以任务最终公网验证为准。
 
 final result: passed

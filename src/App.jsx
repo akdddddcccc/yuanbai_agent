@@ -372,7 +372,7 @@ export function App() {
       </header>
       <a className="back-to-portal" href={import.meta.env.BASE_URL}>
         <ArrowLeft size={14} weight="bold" />
-        <span>返回元白工作台</span>
+        <span>返回元白感知实验室</span>
       </a>
       <KnowledgePanel onDocumentsChange={onKnowledgeDocumentsChange} />
       <section className="copy-panel" aria-live="polite">

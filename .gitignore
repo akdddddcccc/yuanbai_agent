@@ -6,3 +6,4 @@ dist/
 .env.*
 qa-*.png
 design-qa-comparison*.png
+*.blend1

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, Target, Waveform } from "@phosphor-icons/react";
+import { PortalSculpture } from "./PortalSculpture";
 
 const YUANBAI_MARK_URL = `${import.meta.env.BASE_URL}brand/yuanbai-mark.svg`;
 
@@ -61,6 +62,8 @@ function PortalCard({ experience, onActivate }) {
 }
 
 export function Portal() {
+  const portalRef = useRef(null);
+  const projectionRef = useRef(null);
   const [active, setActive] = useState("dialogue");
   const [now, setNow] = useState(() => new Date());
   const activeExperience = useMemo(
@@ -69,8 +72,16 @@ export function Portal() {
   );
 
   useEffect(() => {
-    document.title = "元白工作台 · YUANBAI DESK";
+    document.title = "元白感知实验室 · YUANBAI PERCEPTION LAB";
     const timer = window.setInterval(() => setNow(new Date()), 1000);
+
+    // 两侧刻度随鼠标纵向位置反向滑动；CSS transition 负责消除手部细小抖动。
+    const onPointerMove = (event) => {
+      const amount = (event.clientY / window.innerHeight - .5) * -52;
+      portalRef.current?.style.setProperty("--scale-left-y", `${amount.toFixed(2)}px`);
+      portalRef.current?.style.setProperty("--scale-right-y", `${(-amount * .78).toFixed(2)}px`);
+    };
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
 
     // 数字键是桌面端快速入口；手机端仍使用整张大卡片点击。
     const onKeyDown = (event) => {
@@ -82,17 +93,27 @@ export function Portal() {
     return () => {
       window.clearInterval(timer);
       window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("pointermove", onPointerMove);
     };
   }, []);
 
+  const scaleTicks = Array.from({ length: 13 }, (_, index) => {
+    if (index === 0) return "+3.0";
+    if (index === 3) return "+1.5";
+    if (index === 6) return "0.0";
+    if (index === 9) return "-1.5";
+    if (index === 12) return "-3.0";
+    return "";
+  });
+
   return (
-    <main className={`portal portal-active-${active}`}>
+    <main ref={portalRef} className={`portal portal-active-${active}`}>
       <header className="portal-header">
         <div className="portal-brand">
           <img src={YUANBAI_MARK_URL} alt="元白楼标志" />
           <span className="portal-brand-copy">
-            <strong>元白工作台</strong>
-            <span>YUANBAI DESK</span>
+            <strong>元白感知实验室</strong>
+            <span>YUANBAI PERCEPTION LAB</span>
           </span>
         </div>
         <p>让建筑<br />再次与人相遇</p>
@@ -108,8 +129,25 @@ export function Portal() {
         </time>
       </div>
 
-      <section className="portal-stage" aria-label="元白楼建筑人格模型">
-        <img className="portal-identity-mark" src={YUANBAI_MARK_URL} alt="元白楼建筑标志" />
+      <section className="portal-stage" aria-label="元白感知实验装置">
+        {/* 顶光由纯 CSS 绘制：锥形亮度、噪点尘埃和缓慢呼吸互相独立，便于后续调色。 */}
+        <span className="portal-top-light" aria-hidden="true" />
+        <PortalSculpture projectionRef={projectionRef} />
+        {/* 使用同一标志制作远处投影；压扁和模糊后只保留形态，不与实体模型重叠。 */}
+        <span className="portal-floor-projection" aria-hidden="true">
+          <canvas ref={projectionRef} width="256" height="160" />
+        </span>
+        <span className="portal-scan-line" aria-hidden="true" />
+        <div className="portal-scale portal-scale-left" aria-hidden="true">
+          <div className="portal-scale-strip">
+            {scaleTicks.map((label, index) => <span key={`left-${index}`}><b>{label}</b><i /></span>)}
+          </div>
+        </div>
+        <div className="portal-scale portal-scale-right" aria-hidden="true">
+          <div className="portal-scale-strip">
+            {scaleTicks.map((label, index) => <span key={`right-${index}`}><i /><b>{label}</b></span>)}
+          </div>
+        </div>
         <div className="portal-model-copy">
           <span>元白与你</span>
           <strong>{activeExperience.eyebrow}</strong>
@@ -124,7 +162,7 @@ export function Portal() {
       </nav>
 
       <footer className="portal-footer">
-        <span>YUANBAI DESK · ARCHITECTURE × PEOPLE × MEMORY</span>
+        <span>YUANBAI PERCEPTION LAB · ARCHITECTURE × PEOPLE × MEMORY</span>
         <span>从空间出发，抵达更好的生活</span>
       </footer>
     </main>
