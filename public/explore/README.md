@@ -1,7 +1,7 @@
 # 探索元白
 
-`index.html` 是实验室 `/yuanbai/explore/` 的游戏入口。这里存放完整的 SAN 版前端：`core.js` 负责 9×9 棋盘与游戏规则，`game.js` 负责画面、操作、环境感知与排行榜交互，`style.css` 和 `yuanbai-art.webp` 是配套视觉素材。
+`index.html` 为 SAN 游戏入口；`core.js` 负责规则，`game.js` 负责画面、操作与云端排行榜。通关后可填写名字并在结束页“已通关”名单中看到排名、用时和日期。
 
-共享成绩需要同域的 `/api/yuanbai/game/{runs,finish,scores,leaderboard}`。这四个接口在 `portfolio-app-demos` 的 `edge-functions/` 中转发到原游戏服务，沿用其服务器回放、排行榜与数据库。先合并发布仓库的 `game/leaderboard-proxy`，再合并此分支；发布仓库会定时同步本仓库 `main` 的子模块指针。预览时如果没有这些接口，游戏仍能以练习模式游玩，但不会记入共享排行。
+前端使用同域 `/api/yuanbai/game/{runs,finish,scores,leaderboard}`。发布仓库的 EdgeOne 函数转发到用户 VPS，服务与持久化 SQLite 部署见 `services/leaderboard/README.md`。断网时可以练习但不入榜；已有成绩不会因刷新或重启丢失。
 
-本目录保留旧 `assets/yuanbai-floor.jpg`，因为现有项目的构建检查仍引用该文件；新版画面使用 `yuanbai-art.webp`。
+游戏仍默认静音。保留旧 assets/yuanbai-floor.jpg 供现有构建检查使用；新版画面为 yuanbai-art.webp。

@@ -104,4 +104,4 @@
   }
   const api={Game,SIZE,SAFE_COUNT,START,CLIFFS,DIRS,PICKUPS,TOOL_NAMES,RULE_VERSION,PANORAMA_MS,SAN_PER_SECOND,SAN_PICKUP,SAN_FALL,id,inside,replay};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.YuanbaiCore=api;
-})(typeof window!=='undefined'?window:this);
+})(typeof window!=='undefined'?window:globalThis);

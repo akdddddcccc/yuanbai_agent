@@ -13,7 +13,12 @@
   let width = 0, height = 0, tile = 190, camera = { x: 0, y: 0 }, lastTime = 0;
   let walking=null,falling=null,winning=null,sweep=null,echoCue=null,hover=-1,overview=null,boundary=null;
   let starting=false,started=false,runId=null,practice=false,actions=[],startTick=0,endElapsed=null,verified=null,verifying=false,submitting=false,generation=0,lastClock=0,toastUntil=0;
-  let boardPage=1,boardPages=1,boardRequest=0,boardSeason='current';
+  let boardPage=1,boardPages=1,boardRequest=0,boardSeason='current',boardKind='normal';
+  // 公共 API 地址不是密钥。身份令牌由服务端生成，保存在本机浏览器中。
+  const leaderboardBase='/api/yuanbai/game';
+  const tokenStorageKey='yuanbai-player-v1';
+  let playerToken=null;
+  try{playerToken=localStorage.getItem(tokenStorageKey);}catch{}
   let soundEnabled = false, hapticsEnabled=true, audio = null, artReady = false;
   let lastSanTick=0,lastSanUI=0,wasRestricted=false,lastStrainTone=0;
   let renderShift={x:0,y:0};
@@ -24,6 +29,8 @@
   const fallOrder = Array.from({ length: 81 }, (_, i) => ({ index: i, delay: random(i + 90) * .6, spin: random(i + 170) - .5 }));
   function random(seed) { const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
   function plane(r, c, size = tile) { return { x: (c - r) * size / 2, y: (c + r) * size / 4 }; }
+  // Figma 的完整舞台把棋盘留在左中部，右侧为状态和独立的实体按键。
+  function stageFocusX(){return width>900?width*.42:width*.5;}
   function resize() {
     const rect = canvas.getBoundingClientRect(); width = rect.width; height = rect.height;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -216,7 +223,7 @@
       if(t>=1) walking=null;
     }
     const follow=1-Math.exp(-dt/125);camera.x=lerp(camera.x,player.x,follow);camera.y=lerp(camera.y,player.y,follow);
-    let origin={x:width/2-camera.x,y:height*.48-camera.y},size=tile;
+    let origin={x:stageFocusX()-camera.x,y:height*.48-camera.y},size=tile;
     renderShift={x:0,y:0};
     if(!reduced&&!falling&&!winning&&!overview){renderShift={x:Math.sin(time/1100)*3*game.effectLevel,y:Math.sin(time/830)*1.8*game.effectLevel};origin.x+=renderShift.x;origin.y+=renderShift.y;}
     let progress=0;
@@ -224,7 +231,7 @@
       progress=(time-falling.start)/1000;
       if(!reduced){
         const k=ease(progress/.75);size=lerp(tile,Math.min(width/9.5,(height-130)/5.2),k);
-        const mid=plane(4,4,size);origin={x:lerp(origin.x,width/2-mid.x,k),y:lerp(origin.y,height*.43-mid.y,k)};
+        const mid=plane(4,4,size);origin={x:lerp(origin.x,stageFocusX()-mid.x,k),y:lerp(origin.y,height*.43-mid.y,k)};
         if(progress<1.4){const force=(1-progress/1.4)*15;origin.x+=(random(Math.floor(time/19))*2-1)*force;origin.y+=(random(Math.floor(time/13))*2-1)*force;}
       }
       updateFall(time);
@@ -234,7 +241,7 @@
       const total=PANORAMA_MS+transition*2;
       const k=transition===0?1:(age<transition?ease(age/transition):age<=transition+PANORAMA_MS?1:1-ease((age-transition-PANORAMA_MS)/transition));
       size=lerp(tile,Math.max(17,Math.min(width/9.7,(height-102)/5.1)),k);
-      const mid=plane(4,4,size);origin={x:lerp(origin.x,width/2-mid.x,k),y:lerp(origin.y,height*.5-mid.y,k)};
+      const mid=plane(4,4,size);origin={x:lerp(origin.x,stageFocusX()-mid.x,k),y:lerp(origin.y,height*.5-mid.y,k)};
       if(age>=total){overview=null;updateUI();say('全景已经消退。','危险标记随全景消失；记住路线，继续走遍安全格。');}
     }
     if(time>toastUntil)ui['center-toast'].classList.remove('visible');
@@ -242,7 +249,7 @@
     let finale=0;
     if(winning){
       finale=ease((time-winning.start-450)/(reduced?100:2100));
-      size=Math.min(width/9.9,(height-140)/5.5);const mid=plane(4,4,size);origin={x:width/2-mid.x,y:height*.48-mid.y};
+      size=Math.min(width/9.9,(height-140)/5.5);const mid=plane(4,4,size);origin={x:stageFocusX()-mid.x,y:height*.48-mid.y};
     }
     ctx.save();
     let cells=falling || winning || overview ? Array.from({length:81},(_,i)=>({r:Math.floor(i/9),c:i%9})) : game.visibleCells();
@@ -295,8 +302,16 @@
     canvas.setAttribute('aria-label',`位置第${game.r+1}行第${game.c+1}列，走过${game.count}/${SAFE_COUNT}个安全格，坠落${game.falls}次，面朝${DIRS[game.direction].name}。道具：提示${game.stock.companion}、探测${game.stock.probe}、全景${game.stock.panorama}。WASD移动，123使用道具。`);
   }
   async function api(path,data){
-    const response=await fetch('/api/yuanbai/game'+path.slice(4),{method:data===undefined?'GET':'POST',credentials:'same-origin',headers:data===undefined?{}:{'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data),signal:AbortSignal.timeout(12000)});
-    const result=await response.json();if(!response.ok)throw new Error(result.error||'暂时无法连接，请重试。');return result;
+    const headers=data===undefined?{}:{'Content-Type':'application/json'};
+    if(playerToken)headers.Authorization='Bearer '+playerToken;
+    const response=await fetch(leaderboardBase+path.slice(4),{method:data===undefined?'GET':'POST',headers,body:data===undefined?undefined:JSON.stringify(data),signal:AbortSignal.timeout(12000)});
+    let result;try{result=await response.json();}catch{throw new Error('成绩服务暂时不可用，请稍后重试。');}if(!response.ok)throw new Error(result.error||'暂时无法连接，请重试。');
+    if(path==='/api/runs'&&result.playerToken){
+      if(!/^[a-f0-9]{64}$/.test(result.playerToken))throw new Error('服务器返回的身份信息无效。');
+      playerToken=result.playerToken;
+      try{localStorage.setItem(tokenStorageKey,playerToken);}catch{}
+    }
+    return result;
   }
   async function beginRun(){
     if(started)return true;starting=true;const current=generation;updateUI();
@@ -349,7 +364,7 @@
     winning={start:performance.now()};walking=null;sweep=null;endElapsed=elapsed();document.body.classList.add('won');
     ui['play-controls'].hidden=true;ui['win-controls'].hidden=false;ui['end-label'].hidden=false;ui['opening-hint'].hidden=true;
     ui['progress-note'].innerHTML='走过66个安全格，81块建筑记忆重新拼合。<br>这是你走出来的元白。';ui['stage-note'].lastElementChild.textContent='元白楼 · 艺术化重构';
-    updateUI();tone('win');verifyFinish();
+    updateUI();tone('win');verifyFinish();loadFinishers();
   }
   async function verifyFinish(){
     if(verifying)return;if(practice||!runId){ui['verification-status'].textContent='练习已完成。本局未连接共享成绩，无法入榜。';ui['score-form'].hidden=true;return;}
@@ -362,25 +377,51 @@
     event.preventDefault();if(!verified||submitting)return;
     const nickname=ui.nickname.value.normalize('NFC').trim();if(!nickname||Array.from(nickname).length>16||/[\u0000-\u001f\u007f<>]/.test(nickname)){ui['score-result'].textContent='昵称请输入1—16个字符，不含尖括号。';return;}
     submitting=true;const current=generation;ui['submit-score'].disabled=true;ui['submit-score'].textContent='正在保存…';
-    try{const result=await api('/api/scores',{runId,nickname});if(current!==generation)return;ui['score-result'].textContent=result.personalBest?`已入榜，当前第 ${result.rank} 名。`:`已保留更好的历史成绩，当前第 ${result.rank} 名。`;ui['submit-score'].textContent='已提交';ui.nickname.readOnly=true;}
+    try{const result=await api('/api/scores',{runId,nickname});if(current!==generation)return;ui['score-result'].textContent=result.personalBest?`已入榜，当前第 ${result.rank} 名。`:`已保留更好的历史成绩，当前第 ${result.rank} 名。`;ui['submit-score'].textContent='已提交';ui.nickname.readOnly=true;loadFinishers();}
     catch(error){if(current!==generation)return;ui['score-result'].textContent=error.message||'保存失败，昵称已保留，请再试。';ui['submit-score'].disabled=false;ui['submit-score'].textContent='重试提交';}
     finally{if(current===generation)submitting=false;}
   }
+  // 结束页直接读取云端榜单；使用 textContent 展示昵称，避免把用户输入当 HTML。
+  let finishersRequest=0;
+  function formatDate(value){return value?new Date(value).toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit'}):'—';}
+  async function loadFinishers(){
+    const request=++finishersRequest,current=generation;
+    ui['finishers-status'].textContent='正在读取已通关名单…';
+    ui['finishers-refresh'].disabled=true;
+    try{
+      const data=await api('/api/leaderboard?page=1&season=current');
+      if(request!==finishersRequest||current!==generation)return;
+      ui['finishers-body'].replaceChildren();
+      for(const row of data.items){
+        const tr=document.createElement('tr');if(row.isYou)tr.className='is-you';
+        for(const value of [row.rank,row.nickname+(row.isYou?' · 你':''),formatTime(row.durationMs)+'.'+Math.floor(row.durationMs%1000/100),formatDate(row.completedAt)]){
+          const td=document.createElement('td');td.textContent=value;tr.append(td);
+        }
+        ui['finishers-body'].append(tr);
+      }
+      ui['finishers-table'].hidden=!data.items.length;
+      ui['finishers-status'].textContent=data.total?`共 ${data.total} 位已通关 · 显示前 20 名`:'还没有通关记录，留下第一个名字吧。';
+    }catch(error){
+      if(request!==finishersRequest||current!==generation)return;
+      ui['finishers-table'].hidden=true;ui['finishers-status'].textContent='名单读取失败，点击刷新重试。已保存的成绩不会丢失。';
+    }finally{if(request===finishersRequest&&current===generation)ui['finishers-refresh'].disabled=false;}
+  }
   async function loadLeaderboard(page=1){
     const request=++boardRequest;ui['ranking-state'].hidden=false;ui['ranking-state'].textContent='正在读取…';ui['ranking-table'].hidden=true;ui['ranking-retry'].hidden=true;ui['ranking-prev'].disabled=ui['ranking-next'].disabled=true;
-    try{const data=await api('/api/leaderboard?page='+page+'&season='+boardSeason);if(request!==boardRequest)return;boardPage=data.page;boardPages=Math.max(1,Math.ceil(data.total/data.pageSize));ui['ranking-body'].replaceChildren();
-      for(const row of data.items){const tr=document.createElement('tr');if(row.isYou)tr.className='is-you';for(const text of [row.rank,row.nickname+(row.isYou?' · 你':''),row.deaths,formatTime(row.durationMs)+'.'+Math.floor(row.durationMs%1000/100)]){const td=document.createElement('td');td.textContent=text;tr.append(td);}ui['ranking-body'].append(tr);}
+    try{const data=await api('/api/leaderboard?page='+page+'&season='+boardSeason+'&board='+boardKind);if(request!==boardRequest)return;boardPage=data.page;boardPages=Math.max(1,Math.ceil(data.total/data.pageSize));ui['ranking-body'].replaceChildren();
+      for(const row of data.items){const tr=document.createElement('tr');if(row.isYou)tr.className='is-you';for(const text of [row.rank,row.nickname+(row.isYou?' · 你':''),row.deaths,formatTime(row.durationMs)+'.'+Math.floor(row.durationMs%1000/100),formatDate(row.completedAt)]){const td=document.createElement('td');td.textContent=text;tr.append(td);}ui['ranking-body'].append(tr);}
       ui['ranking-state'].hidden=data.total>0;ui['ranking-state'].textContent=boardSeason==='previous'?'上一版还没有通关记录。':'还没有通关记录，成为第一个留下名字的人。';ui['ranking-table'].hidden=data.total===0;ui['ranking-page'].textContent=`${data.total} 位探索者 · ${boardPage} / ${boardPages}`;ui['ranking-prev'].disabled=boardPage<=1;ui['ranking-next'].disabled=boardPage>=boardPages;
     }catch(error){if(request!==boardRequest)return;ui['ranking-state'].textContent='排行榜暂时无法连接。已提交的记录不会因此消失。';ui['ranking-page'].textContent='';ui['ranking-retry'].hidden=false;}
   }
   function selectSeason(season){boardSeason=season;for(const name of ['current','previous','reconstruction','legacy'])ui['ranking-'+name].setAttribute('aria-pressed',season===name);loadLeaderboard(1);}
-  function openRanking(){ui['ranking-dialog'].showModal();selectSeason('current');}
+  function selectBoard(kind){boardKind=kind;for(const name of ['normal','deaths'])ui['ranking-'+name].setAttribute('aria-pressed',kind===name);ui['ranking-rule'].textContent=kind==='deaths'?'这是一张有点荒诞的榜：已通关玩家按坠落次数从多到少排列，每人保留最多坠落的一局。':'先比坠落次数，再比通关用时，最后比移动步数；完全相同按首次提交时间。每人保留最好的一局。';loadLeaderboard(1);}
+  function openRanking(){ui['ranking-dialog'].showModal();boardSeason='current';for(const name of ['current','previous','reconstruction','legacy'])ui['ranking-'+name].setAttribute('aria-pressed',name==='current');selectBoard('normal');}
   function restart(){
-    generation++;game.reset();falling=walking=winning=sweep=echoCue=overview=boundary=null;camera=plane(game.r,game.c);
+    generation++;finishersRequest++;ui['finishers-refresh'].disabled=false;ui['finishers-body'].replaceChildren();ui['finishers-table'].hidden=true;game.reset();falling=walking=winning=sweep=echoCue=overview=boundary=null;camera=plane(game.r,game.c);
     starting=started=practice=verifying=submitting=false;runId=null;actions=[];startTick=lastSanTick=lastSanUI=lastStrainTone=0;wasRestricted=false;endElapsed=null;verified=null;document.body.classList.remove('won');
     ui['play-controls'].hidden=false;ui['win-controls'].hidden=true;ui['end-label'].hidden=true;ui['opening-hint'].hidden=false;ui['opening-hint'].style.opacity=1;
     ui['progress-note'].innerHTML='走过的安全格，留下建筑的片段。<br>悬崖不用踩踏，也不计入进度。';ui['stage-note'].lastElementChild.textContent='光所及之处，只有一步。';
-    ui['score-form'].hidden=false;ui['score-form'].reset();ui.nickname.readOnly=false;ui['score-result'].textContent='';ui['submit-score'].textContent='加入排行榜';ui['submit-score'].disabled=true;ui['retry-verify'].hidden=true;
+    ui['score-form'].hidden=false;ui['score-form'].reset();ui.nickname.readOnly=false;ui['score-result'].textContent='';ui['submit-score'].textContent='加入已通关名单';ui['submit-score'].disabled=true;ui['retry-verify'].hidden=true;
     ui.fade.style.opacity=ui['fall-caption'].style.opacity=0;ui['center-toast'].classList.remove('visible');say('自由移动，沿途拾取道具。','道具在安全格上，每处只能拿一次。步数不限。');updateUI();
   }
   function tone(kind){
@@ -396,18 +437,30 @@
     }
     if(kind==='strain'){play(62,42,.38,.018);play(52,36,.44,.012,'sine',.24);}if(kind==='step')play(105,38,.17,.2,'triangle');if(kind==='companion'){play(440,415,.35,.04);play(330,310,.45,.035,'sine',.16);}if(kind==='probe'||kind==='pickup'){play(740,910,.3,.035);play(1110,1110,.45,.018,'sine',.2);}if(kind==='panorama'){play(220,880,.7,.035);play(550,550,1.3,.02);}if(kind==='fall'){play(160,19,1.8,.17,'sawtooth');play(60,20,1.4,.15);}if(kind==='edge')play(80,70,.12,.045,'triangle');if(kind==='turn')play(420,400,.06,.009);if(kind==='win')[261.63,329.63,392,523.25].forEach((f,i)=>play(f,f,1.8,.035,'sine',i*.23));
   }
-  function hit(event){if(game.restrictedVision||busy())return null;const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;const origin={x:width/2-camera.x+renderShift.x,y:height*.48-camera.y+renderShift.y};return game.neighbors().find(p=>{const z=plane(p.r,p.c);return Math.abs(x-origin.x-z.x)/(tile*.5)+Math.abs(y-origin.y-z.y)/(tile*.25)<=.96;});}
+  function hit(event){if(game.restrictedVision||busy())return null;const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;const origin={x:stageFocusX()-camera.x+renderShift.x,y:height*.48-camera.y+renderShift.y};return game.neighbors().find(p=>{const z=plane(p.r,p.c);return Math.abs(x-origin.x-z.x)/(tile*.5)+Math.abs(y-origin.y-z.y)/(tile*.25)<=.96;});}
   canvas.addEventListener('pointermove',e=>{const p=hit(e);hover=p?id(p.r,p.c):-1;canvas.style.cursor=p?'pointer':'default';});canvas.addEventListener('pointerleave',()=>{hover=-1;});
   canvas.addEventListener('pointerup',e=>{const p=hit(e);if(p)step(p.direction);canvas.focus({preventScroll:true});});
-  document.querySelectorAll('[data-direction]').forEach(button=>button.addEventListener('click',()=>step(Number(button.dataset.direction))));
+  // 屏幕键与物理键盘共用同一入口，避免两套映射逐渐偏离。
+  const keyDirections={w:0,d:1,s:2,a:3};
+  const arrowKeys={arrowup:'w',arrowright:'d',arrowdown:'s',arrowleft:'a'};
+  function performControl(key){if(key in keyDirections)return step(keyDirections[key]);if(key==='q')return turn(-1);if(key==='e')return turn(1);}
+  function markKey(key,pressed){ui['turn-left']?.classList.toggle('is-active',key==='q'&&pressed);ui['turn-right']?.classList.toggle('is-active',key==='e'&&pressed);document.querySelectorAll('[data-game-key="'+key+'"]').forEach(button=>button.classList.toggle('is-active',pressed));}
+  document.querySelectorAll('[data-game-key]').forEach(button=>{
+    const key=button.dataset.gameKey;
+    button.addEventListener('pointerdown',()=>markKey(key,true));
+    for(const type of ['pointerup','pointercancel','pointerleave'])button.addEventListener(type,()=>markKey(key,false));
+    button.addEventListener('click',()=>performControl(key));
+  });
   for(const type of Object.keys(TOOL_NAMES))ui[type].addEventListener('click',()=>tool(type));
-  ui['turn-left'].addEventListener('click',()=>turn(-1));ui['turn-right'].addEventListener('click',()=>turn(1));
   ui['new-game'].addEventListener('click',()=>{if(starting||falling||overview)return;ui['restart-dialog'].showModal();});ui['cancel-restart'].addEventListener('click',()=>ui['restart-dialog'].close());ui['confirm-restart'].addEventListener('click',()=>{ui['restart-dialog'].close();restart();});ui.restart.addEventListener('click',restart);
   ui.help.addEventListener('click',()=>ui['help-dialog'].showModal());ui['close-help'].addEventListener('click',()=>ui['help-dialog'].close());ui.begin.addEventListener('click',()=>ui['help-dialog'].close());ui['reduce-motion'].addEventListener('change',e=>{reduced=e.target.checked;});ui.haptics.addEventListener('change',e=>{hapticsEnabled=e.target.checked;});
-  ui['leaderboard-open'].addEventListener('click',openRanking);ui['win-ranking'].addEventListener('click',openRanking);ui['close-ranking'].addEventListener('click',()=>ui['ranking-dialog'].close());ui['ranking-current'].addEventListener('click',()=>selectSeason('current'));ui['ranking-previous'].addEventListener('click',()=>selectSeason('previous'));ui['ranking-reconstruction'].addEventListener('click',()=>selectSeason('reconstruction'));ui['ranking-legacy'].addEventListener('click',()=>selectSeason('legacy'));ui['ranking-prev'].addEventListener('click',()=>loadLeaderboard(boardPage-1));ui['ranking-next'].addEventListener('click',()=>loadLeaderboard(boardPage+1));ui['ranking-retry'].addEventListener('click',()=>loadLeaderboard(boardPage));
+  ui['leaderboard-open'].addEventListener('click',openRanking);ui['win-ranking'].addEventListener('click',openRanking);ui['close-ranking'].addEventListener('click',()=>ui['ranking-dialog'].close());ui['ranking-normal'].addEventListener('click',()=>selectBoard('normal'));ui['ranking-deaths'].addEventListener('click',()=>selectBoard('deaths'));ui['ranking-current'].addEventListener('click',()=>selectSeason('current'));ui['ranking-previous'].addEventListener('click',()=>selectSeason('previous'));ui['ranking-reconstruction'].addEventListener('click',()=>selectSeason('reconstruction'));ui['ranking-legacy'].addEventListener('click',()=>selectSeason('legacy'));ui['ranking-prev'].addEventListener('click',()=>loadLeaderboard(boardPage-1));ui['ranking-next'].addEventListener('click',()=>loadLeaderboard(boardPage+1));ui['ranking-retry'].addEventListener('click',()=>loadLeaderboard(boardPage));
+  ui['finishers-refresh'].addEventListener('click',loadFinishers);
   ui['score-form'].addEventListener('submit',submitScore);ui['retry-verify'].addEventListener('click',verifyFinish);
   ui.sound.addEventListener('click',()=>{try{if(!audio)audio=new(window.AudioContext||window.webkitAudioContext)();soundEnabled=!soundEnabled;ui.sound.textContent='声音 '+(soundEnabled?'开':'关');ui.sound.setAttribute('aria-pressed',soundEnabled);if(soundEnabled)tone('probe');}catch{say('当前浏览器未能开启声音。','可以继续无声探索。');}});
-  document.addEventListener('keydown',event=>{if(event.altKey||event.ctrlKey||event.metaKey||document.querySelector('dialog[open]')||['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName))return;const key=event.key.toLowerCase(),move={w:0,arrowup:0,d:1,arrowright:1,s:2,arrowdown:2,a:3,arrowleft:3};if(key in move){event.preventDefault();if(!event.repeat)step(move[key]);}else if(['1','2','3','q','e'].includes(key)){event.preventDefault();if(event.repeat)return;if(key==='1')tool('companion');if(key==='2')tool('probe');if(key==='3')tool('panorama');if(key==='q')turn(-1);if(key==='e')turn(1);}});
+  document.addEventListener('keydown',event=>{if(event.altKey||event.ctrlKey||event.metaKey||document.querySelector('dialog[open]')||['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName))return;const raw=event.key.toLowerCase(),key=arrowKeys[raw]||raw;if(key in keyDirections||key==='q'||key==='e'){event.preventDefault();markKey(key,true);if(!event.repeat)performControl(key);}else if(['1','2','3'].includes(key)){event.preventDefault();if(event.repeat)return;tool({1:'companion',2:'probe',3:'panorama'}[key]);}});
+  document.addEventListener('keyup',event=>{const key=arrowKeys[event.key.toLowerCase()]||event.key.toLowerCase();if(key in keyDirections||key==='q'||key==='e')markKey(key,false);});
+  window.addEventListener('blur',()=>{for(const key of ['w','a','s','d','q','e'])markKey(key,false);});
   art.onload=()=>{artReady=true;textures.clear();};art.onerror=()=>say('建筑图像加载失败。','请刷新页面后重试。',true);art.src='yuanbai-art.webp';
   resize();camera=plane(game.r,game.c);updateUI();requestAnimationFrame(draw);
   if(document.modelContext?.registerTool){const lifecycle=new AbortController();addEventListener('pagehide',()=>lifecycle.abort(),{once:true});try{Promise.resolve(document.modelContext.registerTool({name:'explore_yuanbai',title:'探索元白楼',description:'通过与界面相同的操作探索元白楼，不泄露未知格。道具需要先拾取。',inputSchema:{type:'object',properties:{action:{type:'string',enum:['read','move_ne','move_se','move_sw','move_nw','turn_left','turn_right','companion','probe','panorama']}},required:['action'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},async execute(input){const choices=['read','move_ne','move_se','move_sw','move_nw','turn_left','turn_right','companion','probe','panorama'];if(!input||Object.keys(input).some(k=>k!=='action')||!choices.includes(input.action))throw Error('无效操作');if(input.action!=='read'){if(busy())throw Error('请等待动画或关闭弹窗');const d=choices.slice(1,5).indexOf(input.action);if(d>=0)await step(d);else if(input.action.startsWith('turn_'))await turn(input.action==='turn_left'?-1:1);else tool(input.action);await new Promise(resolve=>{function done(){if(!starting&&!walking&&!falling&&!overview&&(!winning||performance.now()-winning.start>2700))resolve();else requestAnimationFrame(done);}done();});}return {position:{row:game.r+1,column:game.c+1},collected:game.count,san:Number(game.san.toFixed(1)),visibleTiles:game.visibleCells().length,deaths:game.falls,stock:{...game.stock},facing:DIRS[game.direction].name,mode:game.mode,message:ui['message-title'].textContent};}},{signal:lifecycle.signal})).catch(()=>{});}catch{}}
