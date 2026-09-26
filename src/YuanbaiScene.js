@@ -686,16 +686,16 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     renderer.setClearColor(0x180506, 0);
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = false;
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = .88;
+    renderer.toneMappingExposure = 1.08;
     mount.appendChild(renderer.domElement);
 
-    const ambient = new THREE.HemisphereLight(0xffddc7, 0x120304, 1.08);
+    const ambient = new THREE.HemisphereLight(0xffddc7, 0x120304, 1.55);
     scene.add(ambient);
-    const key = new THREE.DirectionalLight(0xffd3b9, 2.15);
+    const key = new THREE.DirectionalLight(0xffd3b9, 3.1);
     key.position.set(8, 13, 10);
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
@@ -779,6 +779,7 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
               }
           cameraScale = 1;
           cameraHome.copy(lookAt).addScaledVector(direction, distance);
+          scene.fog.density = .22 / distance;
           camera.position.copy(cameraHome);
           camera.lookAt(lookAt);
         } else {
@@ -854,8 +855,8 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
 
       // 常态保持克制；只有元白开口时，主光、边缘光和远处投影才一起抬升。
       const speechGlow = Math.min(1, smoothedLevel * 1.35 + afterglow * .36);
-      ambient.intensity += ((1.08 + speechGlow * .42) - ambient.intensity) * .08;
-      key.intensity += ((2.15 + speechGlow * 2.8) - key.intensity) * .09;
+      ambient.intensity += ((1.55 + speechGlow * .42) - ambient.intensity) * .08;
+      key.intensity += ((3.1 + speechGlow * 2.8) - key.intensity) * .09;
       rim.intensity += ((17 + speechGlow * 54) - rim.intensity) * .1;
       fill.intensity += ((9 + speechGlow * 31) - fill.intensity) * .1;
       projectionMaterial.opacity += ((.06 + speechGlow * .19) - projectionMaterial.opacity) * .08;

@@ -73,6 +73,10 @@ export async function loadPreciseModel(makeParticles) {
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
   if (offset !== manifest.bytes) throw new Error('Incomplete model');
   const { scene: source } = await new GLTFLoader().parseAsync(bytes.buffer, base);
+  return preparePreciseModel(source, makeParticles);
+}
+
+export function preparePreciseModel(source, makeParticles) {
   const building = new THREE.Group();
   const bounds = new THREE.Box3().setFromObject(source);
   const size = bounds.getSize(new THREE.Vector3());
