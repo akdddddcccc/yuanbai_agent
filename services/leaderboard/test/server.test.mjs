@@ -133,3 +133,37 @@ test('重复提交保持唯一记录和首次完成时间，修改回放被拒�
   assert.equal((await s.request('/leaderboard?page=-1')).status,400);
   assert.equal((await s.request('/leaderboard?season=unknown')).status,400);
 });
+
+test('开局限流按一屋子人给余量，只挡脚本刷库',async t=>{
+  const s=await setup(t);
+  let allowed=0;
+  for(let i=0;i<121;i++){
+    const response=await s.request('/runs',{});
+    if(response.status===201){allowed++;continue;}
+    assert.equal(response.status,429);
+    break;
+  }
+  assert.equal(allowed,120,'一屋子人同时扫码开局不该被挡');
+});
+
+test('入榜按成功次数限流，失败提交不占名额，被挡住仍保留已通关成绩',async t=>{
+  const s=await setup(t);
+  const first=await s.request('/runs',{}),token=first.data.playerToken;
+  // 昵称不合法或本局还没校验通关的提交会 4xx，不应消耗入榜名额。
+  for(let i=0;i<5;i++)assert.equal((await s.request('/scores',{runId:'missing',nickname:'<bad>'},token)).status,400);
+  async function verifiedRun(){
+    const started=await s.request('/runs',{},token);
+    assert.equal(started.status,201);
+    s.DB.sqlite.prepare('UPDATE runs SET started_at=? WHERE id=?').run(Date.now()-100000,started.data.runId);
+    assert.equal((await s.request('/finish',{runId:started.data.runId,actions:solve().actions},token)).status,200);
+    return started.data.runId;
+  }
+  for(let i=0;i<20;i++)assert.equal((await s.request('/scores',{runId:await verifiedRun(),nickname:'入榜'+i},token)).status,200);
+  const blocked=await s.request('/scores',{runId:await verifiedRun(),nickname:'第二十一'},token);
+  assert.equal(blocked.status,429);
+  assert.match(blocked.data.error,/入榜提交过于频繁/);
+  const board=await s.request('/leaderboard?board=normal',undefined,token);
+  assert.equal(board.status,200);
+  assert.equal(board.data.total,1);
+  assert.equal(board.data.items[0].isYou,true);
+});
