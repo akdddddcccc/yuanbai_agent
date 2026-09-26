@@ -740,6 +740,8 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
         scene.add(model.building);
         mount.dataset.model = "precise";
         mount.dataset.blocks = String(model.blocks.length);
+        mount.dataset.connectors = String(model.bindings?.length || 0);
+        resize();
       }).catch(error => {
         if (disposed) return;
         mount.dataset.model = "fallback";
@@ -757,9 +759,32 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
       renderer.setSize(width, height, false);
       camera.aspect = width / Math.max(1, height);
       if (variant === "dialogue") {
-        // 以常见笔记本窗口为基准，让大屏楼体更饱满，较矮窗口仍保留完整轮廓。
-        cameraScale = 1 / THREE.MathUtils.clamp(Math.min(width / 960, height / 680), .78, 1.18);
-        camera.position.copy(cameraHome).multiplyScalar(cameraScale);
+        if (model.viewBounds) {
+          const bounds = model.viewBounds.clone();
+          bounds.translate(new THREE.Vector3(0, buildingHomeY, 0)).expandByScalar(.55);
+          bounds.getCenter(lookAt);
+          const direction = new THREE.Vector3(11.8, 8.7, 17.5).normalize();
+          const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), direction).normalize();
+          const up = new THREE.Vector3().crossVectors(direction, right).normalize();
+          const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+          const tanX = tanY * camera.aspect;
+          let distance = 0;
+          for (const x of [bounds.min.x, bounds.max.x])
+            for (const y of [bounds.min.y, bounds.max.y])
+              for (const z of [bounds.min.z, bounds.max.z]) {
+                const relative = new THREE.Vector3(x, y, z).sub(lookAt);
+                distance = Math.max(distance, relative.dot(direction) + Math.max(
+                  Math.abs(relative.dot(right)) / (tanX * .9),
+                  Math.abs(relative.dot(up)) / (tanY * .9)));
+              }
+          cameraScale = 1;
+          cameraHome.copy(lookAt).addScaledVector(direction, distance);
+          camera.position.copy(cameraHome);
+          camera.lookAt(lookAt);
+        } else {
+          cameraScale = 1 / THREE.MathUtils.clamp(Math.min(width / 960, height / 680), .78, 1.18);
+          camera.position.copy(cameraHome).multiplyScalar(cameraScale);
+        }
       }
       camera.updateProjectionMatrix();
     };
@@ -875,7 +900,7 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
       model.particles.visible = particleOpacity > .01;
       model.particles.rotation.y = Math.sin(t * .19) * .055 * (1 - particleFormation);
       model.building.traverse((child) => {
-        if (!child.material || child === model.particles) return;
+        if (!child.material || child === model.particles || child.userData.voiceEffect) return;
         [].concat(child.material).forEach(material => {
           material.userData.baseOpacity ??= material.opacity;
           material.userData.baseTransparent ??= material.transparent;
@@ -886,6 +911,7 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
         child.visible = entityOpacity > .001;
       });
 
+      model.coreLight?.update(t, Math.min(1, smoothedLevel * 1.5 + afterglow * .25), entityOpacity);
       model.building.rotation.y += ((-.12 + pointer.x * .17) - model.building.rotation.y) * .032;
       model.building.rotation.x += ((pointer.y * -.058) - model.building.rotation.x) * .032;
       model.building.position.y += ((buildingHomeY + Math.sin(t * .31) * .062) - model.building.position.y) * .045;

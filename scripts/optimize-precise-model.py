@@ -25,10 +25,16 @@ def read(i):
         strides=(v.get('byteStride',width*dtype.itemsize),dtype.itemsize)).copy()
 
 buckets=collections.defaultdict(list); names=collections.defaultdict(list)
+removed=[]
 for node in doc['nodes']:
     assert not any(k in node for k in ['matrix','translation','rotation','scale','children'])
-    name=node.get('name',''); match=re.match(r'YB_(A\d{2})_',name)
-    group=match[1] if match else 'stable'
+    name=node.get('name','')
+    if name == 'YB_V004_CLOSED_THICK_GROUND':
+        removed.append(name)
+        continue
+    match=re.match(r'YB_(A\d{2})_',name)
+    connector=re.match(r'(YB_ROUTE_.+?)_(?:STRINGER|TREAD|RAIL|POST)',name) or re.match(r'(YB_EXT_STAIR_A\d{2})_',name) or re.match(r'(YB_ATRIUM_(?:LEFT|RIGHT))_',name)
+    group=match[1] if match else ('connector_'+connector[1] if connector else 'stable')
     names[group].append(name)
     for p in doc['meshes'][node['mesh']]['primitives']:
         assert p.get('mode',4)==4
@@ -65,7 +71,7 @@ for group in names:
         out['nodes'].append({'name':f'{group}_{doc["materials"][material]["name"]}','mesh':len(out['meshes'])})
         out['meshes'].append({'primitives':[primitive]})
     out['scenes'][0]['nodes'].append(len(out['nodes']))
-    out['nodes'].append({'name':'YB_stable_stairs_and_bridges' if group=='stable' else f'YB_mass_{group}',
+    out['nodes'].append({'name':'YB_stable_stairs_and_bridges' if group=='stable' else (f'YB_{group}' if group.startswith('connector_') else f'YB_mass_{group}'),
                          'children':children})
 out['buffers']=[{'byteLength':len(blob)}]
 j=json.dumps(out,separators=(',',':')).encode();j+=b' '*((-len(j))%4);blob+=b'\0'*((-len(blob))%4)
@@ -74,6 +80,14 @@ target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(result)
 report={'sourceSHA256':hashlib.sha256(raw).hexdigest(),'sourceBytes':len(raw),'optimizedBytes':len(result),
         'sourceNodes':len(doc['nodes']),'sourcePrimitives':sum(len(m['primitives']) for m in doc['meshes']),
         'optimizedPrimitives':len(out['meshes']),'triangles':triangles,'materials':len(doc['materials']),
-        'textures':0,'groups':{k:len(v) for k,v in names.items()},'sourceNodeNames':names}
+        'textures':0,'removedNodes':removed,'groups':{k:len(v) for k,v in names.items()},'sourceNodeNames':names}
 target.with_suffix('.report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps({k:v for k,v in report.items() if k!='sourceNodeNames'},ensure_ascii=False))
+
+# Small versioned chunks retain compatibility with the existing static deployment.
+chunkdir=target.parent/'yuanbai-precise-v3'
+chunkdir.mkdir(exist_ok=True)
+chunks=[]
+for i,start in enumerate(range(0,len(result),688128)):
+    data=result[start:start+688128];name=f'part-{i:02}.bin';(chunkdir/name).write_bytes(data);chunks.append({'name':name,'bytes':len(data)})
+(chunkdir/'manifest.json').write_text(json.dumps({'bytes':len(result),'parts':chunks}),encoding='utf-8')
