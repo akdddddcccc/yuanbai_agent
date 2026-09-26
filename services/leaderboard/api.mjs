@@ -56,16 +56,20 @@ export async function handleApi(request,env){
       if(!name||Array.from(name).length>16||/[\u0000-\u001f\u007f<>]/.test(name))return json({error:'昵称请输入1—16个字符，不含控制符或尖括号。'},400);
       const run=await db(env).prepare('SELECT * FROM runs WHERE id=? AND player_id=? AND rule_version=? AND finished_at IS NOT NULL').bind(String(data.runId||''),owner,RULE_VERSION).first();
       if(!run)return json({error:'请先完成本局成绩校验。'},400);
+      // 每人只能起一次名：已有名字后换昵称会被拒绝。
+      const existing=await db(env).prepare('SELECT nickname FROM scores WHERE player_id=? AND rule_version=?').bind(owner,RULE_VERSION).first();
+      if(existing&&existing.nickname!==name)return json({error:'昵称已固定，无法更换。'},400);
       // 原子择优，重复点击或较慢的旧请求不会覆盖更好的成绩。
-      await db(env).prepare(`INSERT INTO scores (id,player_id,run_id,rule_version,nickname,deaths,duration_ms,steps,created_at)
-        VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(player_id,rule_version) DO UPDATE SET
-        run_id=excluded.run_id,nickname=excluded.nickname,deaths=excluded.deaths,duration_ms=excluded.duration_ms,steps=excluded.steps,created_at=excluded.created_at
+      // 首次上榜记 is_newbie=1（新手标）；之后成绩进步被替换时置 0。
+      await db(env).prepare(`INSERT INTO scores (id,player_id,run_id,rule_version,nickname,deaths,duration_ms,steps,created_at,is_newbie)
+        VALUES (?,?,?,?,?,?,?,?,?,1) ON CONFLICT(player_id,rule_version) DO UPDATE SET
+        run_id=excluded.run_id,nickname=excluded.nickname,deaths=excluded.deaths,duration_ms=excluded.duration_ms,steps=excluded.steps,created_at=excluded.created_at,is_newbie=0
         WHERE (excluded.deaths,excluded.duration_ms,excluded.steps)<(scores.deaths,scores.duration_ms,scores.steps)`)
         .bind(uid(),owner,run.id,RULE_VERSION,name,run.deaths,run.duration_ms,run.steps,now).run();
       // 搞笑榜独立记录该玩家已验证通关中坠落最多的一局，不影响正常榜的最好成绩。
-      await db(env).prepare(`INSERT INTO death_scores (id,player_id,run_id,rule_version,nickname,deaths,duration_ms,steps,created_at)
-        VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(player_id,rule_version) DO UPDATE SET
-        run_id=excluded.run_id,nickname=excluded.nickname,deaths=excluded.deaths,duration_ms=excluded.duration_ms,steps=excluded.steps,created_at=excluded.created_at
+      await db(env).prepare(`INSERT INTO death_scores (id,player_id,run_id,rule_version,nickname,deaths,duration_ms,steps,created_at,is_newbie)
+        VALUES (?,?,?,?,?,?,?,?,?,1) ON CONFLICT(player_id,rule_version) DO UPDATE SET
+        run_id=excluded.run_id,nickname=excluded.nickname,deaths=excluded.deaths,duration_ms=excluded.duration_ms,steps=excluded.steps,created_at=excluded.created_at,is_newbie=0
         WHERE excluded.deaths>death_scores.deaths OR
         (excluded.deaths=death_scores.deaths AND (excluded.duration_ms,excluded.steps)<(death_scores.duration_ms,death_scores.steps))`)
         .bind(uid(),owner,run.id,RULE_VERSION,name,run.deaths,run.duration_ms,run.steps,now).run();
@@ -81,8 +85,8 @@ export async function handleApi(request,env){
       const order=board==='deaths'?'deaths DESC,duration_ms ASC,steps ASC,created_at ASC,id ASC':'deaths ASC,duration_ms ASC,steps ASC,created_at ASC,id ASC';
       const total=await db(env).prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE rule_version=?`).bind(version).first();
       const page=Math.min(raw,Math.max(1,Math.ceil(total.n/20))),offset=(page-1)*20;
-      const rows=await db(env).prepare(`SELECT id,player_id,nickname,deaths,duration_ms,steps,created_at FROM ${table} WHERE rule_version=? ORDER BY ${order} LIMIT 20 OFFSET ?`).bind(version,offset).all();
-      return json({season:'current',board,page,pageSize:20,total:total.n,items:rows.results.map((r,i)=>({rank:offset+i+1,nickname:r.nickname,completedAt:r.created_at,isYou:!!owner&&r.player_id===owner,...publicScore(r)}))});
+      const rows=await db(env).prepare(`SELECT id,player_id,nickname,deaths,duration_ms,steps,created_at,is_newbie FROM ${table} WHERE rule_version=? ORDER BY ${order} LIMIT 20 OFFSET ?`).bind(version,offset).all();
+      return json({season:'current',board,page,pageSize:20,total:total.n,items:rows.results.map((r,i)=>({rank:offset+i+1,nickname:r.nickname,completedAt:r.created_at,isYou:!!owner&&r.player_id===owner,newbie:!!r.is_newbie,...publicScore(r)}))});
     }
     return json({error:'接口不存在'},404);
   }catch(error){console.error('Leaderboard request failed:',error);return json({error:'排行榜暂时无法连接，请稍后重试。'},503);}

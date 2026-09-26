@@ -5,8 +5,11 @@
 // 公共 API 地址不是密钥。身份令牌由服务端生成，保存在本机浏览器中。
   const leaderboardBase='/api/yuanbai/game';
   const tokenStorageKey='yuanbai-player-v1';
+  const nameStorageKey='yuanbai-player-name-v1';
   let playerToken=null;
   try{playerToken=localStorage.getItem(tokenStorageKey);}catch{}
+  let lockedName='';
+  try{lockedName=localStorage.getItem(nameStorageKey)||'';}catch{}
   let runId=null,practice=false,actions=[],verified=null,verifying=false,submitting=false,generation=0;
   let boardPage=1,boardPages=1,boardRequest=0,boardKind='normal',finishersRequest=0;
   const game = new Game(), $ = s => document.querySelector(s);
@@ -565,11 +568,14 @@ async function api(path,data){
     event.preventDefault();if(!verified||submitting)return;
     const nickname=ui.nickname.value.normalize('NFC').trim();if(!nickname||Array.from(nickname).length>16||/[\u0000-\u001f\u007f<>]/.test(nickname)){ui['score-result'].textContent='昵称请输入1—16个字符，不含尖括号。';return;}
     submitting=true;const current=generation;ui['submit-score'].disabled=true;ui['submit-score'].textContent='正在保存…';
-    try{const result=await api('/api/scores',{runId,nickname});if(current!==generation)return;ui['score-result'].textContent=result.personalBest?`已入榜，当前第 ${result.rank} 名。`:`已保留更好的历史成绩，当前第 ${result.rank} 名。`;ui['submit-score'].textContent='已提交';ui.nickname.readOnly=true;loadFinishers();}
+    try{const result=await api('/api/scores',{runId,nickname});if(current!==generation)return;lockedName=result.nickname;try{localStorage.setItem(nameStorageKey,result.nickname);}catch{}ui['score-result'].textContent=result.personalBest?`已入榜，当前第 ${result.rank} 名。`:`已保留更好的历史成绩，当前第 ${result.rank} 名。`;ui['submit-score'].textContent='已提交';ui.nickname.readOnly=true;loadFinishers();}
     catch(error){if(current!==generation)return;ui['score-result'].textContent=error.message||'保存失败，昵称已保留，请再试。';ui['submit-score'].disabled=false;ui['submit-score'].textContent='重试提交';}
     finally{if(current===generation)submitting=false;}
   }
   function formatDate(value){return value?new Date(value).toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit'}):'—';}
+  function newbieBadge(){const badge=document.createElement('span');badge.className='newbie-badge';badge.textContent='新手';return badge;}
+  function fillNameCell(cell,row){cell.textContent=row.nickname+(row.isYou?' · 你':'');if(row.newbie){cell.append(' ');cell.append(newbieBadge());}}
+  function applyLockedName(){if(lockedName){ui.nickname.value=lockedName;ui.nickname.readOnly=true;}}
   async function loadFinishers(){
     const request=++finishersRequest,current=generation;
     ui['finishers-status'].textContent='正在读取已通关名单…';
@@ -580,9 +586,12 @@ async function api(path,data){
       ui['finishers-body'].replaceChildren();
       for(const row of data.items){
         const tr=document.createElement('tr');if(row.isYou)tr.className='is-you';
-        for(const value of [row.rank,row.nickname+(row.isYou?' · 你':''),formatTime(row.durationMs)+'.'+Math.floor(row.durationMs%1000/100),formatDate(row.completedAt)]){
-          const td=document.createElement('td');td.textContent=value;tr.append(td);
-        }
+        const values=[row.rank,row.nickname+(row.isYou?' · 你':''),formatTime(row.durationMs)+'.'+Math.floor(row.durationMs%1000/100),formatDate(row.completedAt)];
+        values.forEach((value,idx)=>{
+          const td=document.createElement('td');
+          if(idx===1){fillNameCell(td,row);}else{td.textContent=value;}
+          tr.append(td);
+        });
         ui['finishers-body'].append(tr);
       }
       ui['finishers-table'].hidden=!data.items.length;
@@ -595,7 +604,7 @@ async function api(path,data){
   async function loadLeaderboard(page=1){
     const request=++boardRequest;ui['ranking-state'].hidden=false;ui['ranking-state'].textContent='正在读取…';ui['ranking-table'].hidden=true;ui['ranking-retry'].hidden=true;ui['ranking-prev'].disabled=ui['ranking-next'].disabled=true;
     try{const data=await api('/api/leaderboard?page='+page+'&board='+boardKind);if(request!==boardRequest)return;boardPage=data.page;boardPages=Math.max(1,Math.ceil(data.total/data.pageSize));ui['ranking-body'].replaceChildren();
-      for(const row of data.items){const tr=document.createElement('tr');if(row.isYou)tr.className='is-you';for(const text of [row.rank,row.nickname+(row.isYou?' · 你':''),row.deaths,formatTime(row.durationMs)+'.'+Math.floor(row.durationMs%1000/100),formatDate(row.completedAt)]){const td=document.createElement('td');td.textContent=text;tr.append(td);}ui['ranking-body'].append(tr);}
+      for(const row of data.items){const tr=document.createElement('tr');if(row.isYou)tr.className='is-you';const texts=[row.rank,row.nickname+(row.isYou?' · 你':''),row.deaths,formatTime(row.durationMs)+'.'+Math.floor(row.durationMs%1000/100),formatDate(row.completedAt)];texts.forEach((text,idx)=>{const td=document.createElement('td');if(idx===1){fillNameCell(td,row);}else{td.textContent=text;}tr.append(td);});ui['ranking-body'].append(tr);}
       ui['ranking-state'].hidden=data.total>0;ui['ranking-state'].textContent='还没有通关记录，成为第一个留下名字的人。';ui['ranking-table'].hidden=data.total===0;const multi=boardPages>1;ui['ranking-page'].textContent=multi?`${data.total} 位探索者 · ${boardPage} / ${boardPages}`:`共 ${data.total} 位探索者`;ui['ranking-prev'].hidden=!multi;ui['ranking-next'].hidden=!multi;ui['ranking-prev'].disabled=boardPage<=1;ui['ranking-next'].disabled=boardPage>=boardPages;
     }catch(error){if(request!==boardRequest)return;ui['ranking-state'].textContent='排行榜暂时无法连接。已提交的记录不会因此消失。';ui['ranking-page'].textContent='';ui['ranking-retry'].hidden=false;}
   }
@@ -609,7 +618,7 @@ async function api(path,data){
     generation++;finishersRequest++;ui['finishers-refresh'].disabled=false;ui['finishers-body'].replaceChildren();ui['finishers-table'].hidden=true;practice=verifying=submitting=false;runId=null;actions=[];verified=null;
     ui['play-controls'].hidden=false;ui['win-controls'].hidden=true;ui['end-label'].hidden=true;ui['opening-hint'].hidden=false;ui['opening-hint'].style.opacity=1;
     ui['progress-note'].innerHTML='走过的安全格，留下建筑的片段。<br>悬崖不用踩踏，也不计入进度。';ui['stage-note'].lastElementChild.textContent='光所及之处，只有一步。';
-    ui.fade.style.opacity=ui['fall-caption'].style.opacity=0;ui['center-toast'].classList.remove('visible');ui['score-form'].hidden=false;ui['score-form'].reset();ui.nickname.readOnly=false;ui['score-result'].textContent='';ui['submit-score'].textContent='加入已通关名单';ui['submit-score'].disabled=true;ui['retry-verify'].hidden=true;say('自由移动，沿途拾取道具。','道具在安全格上，每处只能拿一次。步数不限。');updateUI();resize();
+    ui.fade.style.opacity=ui['fall-caption'].style.opacity=0;ui['center-toast'].classList.remove('visible');ui['score-form'].hidden=false;ui['score-form'].reset();ui.nickname.readOnly=false;applyLockedName();ui['score-result'].textContent='';ui['submit-score'].textContent='加入已通关名单';ui['submit-score'].disabled=true;ui['retry-verify'].hidden=true;say('自由移动，沿途拾取道具。','道具在安全格上，每处只能拿一次。步数不限。');updateUI();resize();
   }
   const MUSIC_DATA={}; // 音乐已拆分为 assets/audio/*.mp3，按需 fetch。
   // All recordings are embedded and loudness-matched to -22 LUFS.
@@ -766,7 +775,7 @@ async function api(path,data){
 
 
   art.onload=()=>{artReady=true;textures.clear();warmFloorTextures();};art.onerror=()=>say('建筑图像加载失败。','请刷新页面后重试。',true);art.src='yuanbai-art.webp';
-  resize();camera=plane(game.r,game.c);resetViewOpacity();updateUI();requestAnimationFrame(draw);openGuide(true);ensureMusic();unlockAudio();
+  resize();camera=plane(game.r,game.c);resetViewOpacity();updateUI();requestAnimationFrame(draw);applyLockedName();openGuide(true);ensureMusic();unlockAudio();
   if(document.modelContext?.registerTool){const lifecycle=new AbortController();addEventListener('pagehide',()=>lifecycle.abort(),{once:true});try{Promise.resolve(document.modelContext.registerTool({name:'explore_yuanbai',title:'探索元白楼',description:'通过与界面相同的操作探索元白楼，不泄露未知格。道具需要先拾取。',inputSchema:{type:'object',properties:{action:{type:'string',enum:['read','move_ne','move_se','move_sw','move_nw','turn_left','turn_right','companion','probe','panorama']}},required:['action'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},async execute(input){const choices=['read','move_ne','move_se','move_sw','move_nw','turn_left','turn_right','companion','probe','panorama'];if(!input||Object.keys(input).some(k=>k!=='action')||!choices.includes(input.action))throw Error('无效操作');if(input.action!=='read'){if(busy())throw Error('请等待动画或关闭弹窗');const d=choices.slice(1,5).indexOf(input.action);if(d>=0)await step(d);else if(input.action.startsWith('turn_'))await turn(input.action==='turn_left'?-1:1);else tool(input.action);await new Promise(resolve=>{function done(){if(!starting&&!walking&&!falling&&!overview&&(!winning||performance.now()-winning.start>2700))resolve();else requestAnimationFrame(done);}done();});}return {position:{row:game.r+1,column:game.c+1},collected:game.count,san:Number(game.san.toFixed(1)),visibleTiles:game.visibleCells().length,deaths:game.falls,stock:{...game.stock},facing:DIRS[game.direction].name,mode:game.mode,message:ui['message-title'].textContent};}},{signal:lifecycle.signal})).catch(()=>{});}catch{}}
 })();
 

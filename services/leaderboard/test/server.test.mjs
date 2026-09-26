@@ -40,7 +40,7 @@ test('正常榜先比坠落再比用时，同一玩家保留最好成绩',async 
   const slow=await s.complete({name:'慢而稳',duration:100000});
   await s.complete({name:'快但坠落',fall:true,duration:30000});
   const fast=await s.complete({name:'零坠落',duration:40000});
-  const worse=await s.complete({name:'更慢的一局',duration:180000,token:fast.token});
+  const worse=await s.complete({name:'零坠落',duration:180000,token:fast.token});
   assert.equal(worse.saved.data.personalBest,false);
   const board=await s.request('/leaderboard?season=current',undefined,slow.token);
   assert.equal(board.status,200);
@@ -54,14 +54,14 @@ test('死亡榜记录每位玩家已校验通关中坠落最多的一局，不�
   const s=await setup(t);
   const steady=await s.complete({name:'稳稳',duration:40000});
   const fallen=await s.complete({name:'先掉两次',fall:2,duration:70000});
-  await s.complete({name:'后来零坠落',duration:90000,token:fallen.token});
+  await s.complete({name:'先掉两次',duration:90000,token:fallen.token});
   const deathBoard=await s.request('/leaderboard?board=deaths',undefined,fallen.token);
   assert.equal(deathBoard.status,200);
   assert.deepEqual(deathBoard.data.items.map(item=>item.nickname),['先掉两次','稳稳']);
   assert.deepEqual(deathBoard.data.items.map(item=>item.deaths),[2,0]);
   assert.equal(deathBoard.data.items[0].isYou,true);
   const normal=await s.request('/leaderboard?board=normal',undefined,steady.token);
-  assert.deepEqual(normal.data.items.map(item=>item.nickname),['稳稳','后来零坠落']);
+  assert.deepEqual(normal.data.items.map(item=>item.nickname),['稳稳','先掉两次']);
   assert.equal((await s.request('/leaderboard?board=invalid')).status,400);
 });
 
@@ -158,7 +158,7 @@ test('入榜按成功次数限流，失败提交不占名额，被挡住仍保�
     assert.equal((await s.request('/finish',{runId:started.data.runId,actions:solve().actions},token)).status,200);
     return started.data.runId;
   }
-  for(let i=0;i<20;i++)assert.equal((await s.request('/scores',{runId:await verifiedRun(),nickname:'入榜'+i},token)).status,200);
+  for(let i=0;i<20;i++)assert.equal((await s.request('/scores',{runId:await verifiedRun(),nickname:'入榜'},token)).status,200);
   const blocked=await s.request('/scores',{runId:await verifiedRun(),nickname:'第二十一'},token);
   assert.equal(blocked.status,429);
   assert.match(blocked.data.error,/入榜提交过于频繁/);
@@ -166,4 +166,19 @@ test('入榜按成功次数限流，失败提交不占名额，被挡住仍保�
   assert.equal(board.status,200);
   assert.equal(board.data.total,1);
   assert.equal(board.data.items[0].isYou,true);
+});
+
+test('每人只能起一次名：首次上榜带新手标，成绩进步后消失',async t=>{
+  const s=await setup(t);
+  const first=await s.complete({name:'第一个名字',duration:100000});
+  let board=await s.request('/leaderboard?board=normal',undefined,first.token);
+  assert.equal(board.data.items.find(i=>i.nickname==='第一个名字').newbie,true);
+  // 换名字被拒绝
+  assert.equal((await s.request('/scores',{runId:first.started.data.runId,nickname:'第二个名字'},first.token)).status,400);
+  // 用原名提交更好的成绩 → 新手标消失
+  const better=await s.complete({name:'第一个名字',duration:50000,token:first.token});
+  assert.equal(better.saved.data.personalBest,true);
+  board=await s.request('/leaderboard?board=normal',undefined,first.token);
+  assert.equal(board.data.items.find(i=>i.nickname==='第一个名字').newbie,false);
+  assert.equal(board.data.total,1);
 });
