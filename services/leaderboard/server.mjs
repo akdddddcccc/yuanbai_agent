@@ -3,6 +3,7 @@ import {createRequire} from 'node:module';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {handleApi} from './api.mjs';
+import {createVoiceQueue} from './voice-queue.mjs';
 
 const require=createRequire(import.meta.url);
 const {localDB}=require('./sqlite.cjs');
@@ -11,6 +12,8 @@ const MAX_BODY=200000;
 export function createLeaderboardServer({database=':memory:',origin='https://apps-demo.muyang23333.top'}={}){
   if(!/^https:\/\/[^/]+$/.test(origin))throw new Error('APP_ORIGIN 须为完整 HTTPS 来源（不带路径或结尾斜杠）');
   const DB=localDB(database);
+  const configuredCapacity=Math.floor(Number(process.env.YUANBAI_VOICE_CONCURRENCY)||2);
+  const voiceQueue=createVoiceQueue({capacity:Math.max(1,Math.min(5,configuredCapacity))});
   // nginx 覆盖 X-Real-IP，服务只监听 loopback；限制匿名创建身份/新局刷写磁盘。
   const starts=new Map();
   const server=http.createServer(async(req,res)=>{
@@ -23,6 +26,24 @@ export function createLeaderboardServer({database=':memory:',origin='https://app
       res.writeHead(204,{...cors,'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Max-Age':'600'});return res.end();
     }
     if(req.method==='GET'&&req.url==='/health')return send(200,{ok:true});
+    const queueRoute=req.url?.match(/^\/api\/yuanbai\/voice-queue\/(join|status|release|claim)$/);
+    if(queueRoute){
+      if(req.method!=='POST')return send(405,{error:'请求方式不支持'});
+      try{
+        let size=0,chunks=[];
+        for await(const chunk of req){size+=chunk.length;if(size>4096)return send(413,{error:'请求内容过大'});chunks.push(chunk);}
+        const data=chunks.length?JSON.parse(Buffer.concat(chunks).toString('utf8')):{};
+        const ticket=typeof data.ticket==='string'?data.ticket:'';
+        const result=queueRoute[1]==='join'?voiceQueue.join():
+          queueRoute[1]==='status'?voiceQueue.status(ticket):
+          queueRoute[1]==='claim'?voiceQueue.claim(ticket):voiceQueue.release(ticket);
+        if(queueRoute[1]==='claim'&&result.expired)return send(410,{ok:false,expired:true,error:'等候时间太久了，请重新排队。'});
+        if(queueRoute[1]==='claim'&&result.waiting)return send(429,{ok:false,error:'还没轮到你，请稍候。'});
+        if(queueRoute[1]==='claim'&&result.busy)return send(409,{ok:false,error:'这次对话已经开始，请不要重复提交。'});
+        if(result.expired)return send(410,{ok:false,expired:true,error:'等候时间太久了，请重新排队。'});
+        return send(result.ok===false?429:200,result);
+      }catch{return send(400,{ok:false,error:'排队请求无效'});}
+    }
     if(req.method==='POST'&&req.url==='/api/yuanbai/game/runs'){
       const now=Date.now(),ip=req.headers['x-real-ip']||req.socket.remoteAddress;
       for(const [key,value] of starts)if(now-value.at>60000)starts.delete(key);

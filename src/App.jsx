@@ -7,6 +7,7 @@ const PHASE_COPY = {
   idle: ["在这里，慢慢说", "按住下方按钮，松开发送"],
   listening: ["我在听", "松开后，我会认真想一想"],
   thinking: ["正在组织语言", "正在识别、思考并生成声音"],
+  queued: ["前面还有人，我在等候", "轮到后就继续听你说"],
   speaking: ["元白正在回答", "灯光会跟着语气明暗起伏"],
 };
 
@@ -17,6 +18,7 @@ const MAX_AUDIO_BASE64_LENGTH = 800_000;
 const API_CHAT_URL = import.meta.env.VITE_YUANBAI_API_URL || (
   globalThis.location?.pathname?.startsWith("/yuanbai/") ? "/api/yuanbai/chat" : "/api/chat"
 );
+const API_QUEUE_URL = import.meta.env.VITE_YUANBAI_QUEUE_URL || "/api/yuanbai/voice-queue";
 
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
@@ -46,6 +48,7 @@ export function App() {
   const [answer, setAnswer] = useState("");
   const [transcript, setTranscript] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [queuePosition, setQueuePosition] = useState(0);
 
   useEffect(() => {
     document.title = "对话元白 · YUANBAI";
@@ -66,6 +69,50 @@ export function App() {
   const sessionIdRef = useRef(
     globalThis.crypto?.randomUUID?.() || `yuanbai-${Date.now()}`,
   );
+  const queueTicketRef = useRef("");
+  const queueCancelledRef = useRef(false);
+  const queueHeartbeatRef = useRef(0);
+
+  const releaseQueueTicket = useCallback(async () => {
+    const ticket = queueTicketRef.current;
+    queueTicketRef.current = "";
+    window.clearInterval(queueHeartbeatRef.current);
+    setQueuePosition(0);
+    if (!ticket) return;
+    try {
+      await fetch(`${API_QUEUE_URL}/release`, {
+        method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket}),keepalive:true,
+      });
+    } catch {}
+  }, []);
+
+  const waitForQueueTurn = useCallback(async () => {
+    queueCancelledRef.current = false;
+    const joinedResponse = await fetch(`${API_QUEUE_URL}/join`, {
+      method:"POST",headers:{"Content-Type":"application/json"},body:"{}",
+    });
+    const joined = await joinedResponse.json();
+    if (!joinedResponse.ok || !joined.ok || !joined.ticket) throw new Error(joined.error || "暂时进不了队列，请稍后再试。");
+    queueTicketRef.current = joined.ticket;
+    queueHeartbeatRef.current = window.setInterval(() => {
+      fetch(`${API_QUEUE_URL}/status`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:joined.ticket})}).catch(()=>{});
+    }, 20_000);
+    setQueuePosition(joined.position || 0);
+    let status = joined;
+    while (status.state !== "active") {
+      setPhase("queued");
+      await new Promise((resolve) => window.setTimeout(resolve, 1800 + Math.random() * 500));
+      if (queueCancelledRef.current) throw new Error("已取消等候。");
+      const response = await fetch(`${API_QUEUE_URL}/status`, {
+        method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:joined.ticket}),
+      });
+      status = await response.json();
+      if (!response.ok || !status.ok || status.expired) throw new Error(status.error || "等候中断了，请重新试一次。");
+      setQueuePosition(status.position || 0);
+    }
+    setPhase("thinking");
+    return joined.ticket;
+  }, []);
 
   const ensureAudioContext = useCallback(async () => {
     if (!audioContextRef.current || audioContextRef.current.state === "closed") {
@@ -145,15 +192,17 @@ export function App() {
         responseObjectUrlRef.current = "";
       }
       setPhase("idle");
+      releaseQueueTicket();
     }, { once: true });
     audio.addEventListener("error", () => {
       stopMeter();
       setErrorMessage("声音加载失败，请再试一次。");
       setPhase("idle");
+      releaseQueueTicket();
     }, { once: true });
     setPhase("speaking");
     await audio.play();
-  }, [connectMeter, ensureAudioContext, stopMeter]);
+  }, [connectMeter, ensureAudioContext, releaseQueueTicket, stopMeter]);
 
   const submitRecording = useCallback(async (blob) => {
     try {
@@ -164,6 +213,7 @@ export function App() {
       if (audioBase64.length > MAX_AUDIO_BASE64_LENGTH) {
         throw new Error("这段话比较长，云端一次接收不了，请分成两段再说。");
       }
+      const queueTicket = await waitForQueueTurn();
       // 原文件留在浏览器，只把提取后的文字交给服务端做相关片段检索。
       // API 密钥始终留在服务端函数中。
       const response = await fetch(API_CHAT_URL, {
@@ -173,6 +223,7 @@ export function App() {
           audio_base64: audioBase64,
           mime_type: blob.type || "audio/webm",
           session_id: sessionIdRef.current,
+          voice_queue_ticket: queueTicket,
           history: historyRef.current,
         }),
       });
@@ -217,8 +268,14 @@ export function App() {
       setErrorMessage(error?.message || "这次没有回答成功，请再试一次。");
       stopMeter();
       setPhase("idle");
+      releaseQueueTicket();
     }
-  }, [playResponse, stopMeter]);
+  }, [playResponse, releaseQueueTicket, stopMeter, waitForQueueTurn]);
+
+  const cancelQueue = useCallback(() => {
+    queueCancelledRef.current = true;
+    releaseQueueTicket();
+  }, [releaseQueueTicket]);
 
   const startListening = useCallback(async (event) => {
     event.preventDefault();
@@ -304,6 +361,9 @@ export function App() {
     if (recorderRef.current?.state === "recording") recorderRef.current.stop();
     mediaRef.current?.getTracks().forEach((track) => track.stop());
     responseRef.current?.pause();
+    const ticket = queueTicketRef.current;
+    window.clearInterval(queueHeartbeatRef.current);
+    if (ticket) fetch(`${API_QUEUE_URL}/release`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket}),keepalive:true}).catch(()=>{});
     if (responseObjectUrlRef.current) URL.revokeObjectURL(responseObjectUrlRef.current);
     audioContextRef.current?.close();
   }, []);
@@ -314,9 +374,9 @@ export function App() {
   })), []);
   const [headline, defaultSubline] = PHASE_COPY[phase];
   const visibleAnswer = answer || INTRO;
-  const subline = errorMessage || (transcript ? `你刚才说：${transcript}` : defaultSubline);
+  const subline = errorMessage || (phase === "queued" ? `你排在第 ${Math.max(1, queuePosition)} 位，名额一空出来就到你。` : transcript ? `你刚才说：${transcript}` : defaultSubline);
   const buttonTitle = phase === "listening" ? `正在聆听 ${elapsed.toFixed(1)}s` : (
-    phase === "thinking" ? "正在生成回答" : phase === "speaking" ? "元白正在说话" : "按住说话"
+    phase === "thinking" ? "正在生成回答" : phase === "queued" ? "正在等候" : phase === "speaking" ? "元白正在说话" : "按住说话"
   );
 
   return (
@@ -355,7 +415,7 @@ export function App() {
         onPointerUp={stopListening}
         onPointerCancel={stopListening}
         onContextMenu={(event) => event.preventDefault()}
-        disabled={phase === "thinking" || phase === "speaking"}
+        disabled={phase === "thinking" || phase === "queued" || phase === "speaking"}
         aria-pressed={phase === "listening"}
         aria-label="按住说话，松开发送"
       >
@@ -370,6 +430,7 @@ export function App() {
           ))}
         </span>
       </button>
+      {phase === "queued" && <button className="queue-cancel" type="button" onClick={cancelQueue}>取消等候</button>}
 
       <footer>
         <span>建筑记忆正在生长</span>

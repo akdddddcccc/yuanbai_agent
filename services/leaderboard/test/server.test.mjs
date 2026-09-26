@@ -133,3 +133,19 @@ test('重复提交保持唯一记录和首次完成时间，修改回放被拒�
   assert.equal((await s.request('/leaderboard?page=-1')).status,400);
   assert.equal((await s.request('/leaderboard?season=unknown')).status,400);
 });
+
+test('共享语音队列按先来顺序放行并验证语音请求票据',async t=>{
+  const s=await setup(t);
+  const base=s.base+'/api/yuanbai/voice-queue/';
+  const call=async(action,ticket)=>fetch(base+action,{method:'POST',headers:{Origin:ORIGIN,'Content-Type':'application/json'},body:JSON.stringify(ticket?{ticket}:{})});
+  const a=await call('join'),b=await call('join'),c=await call('join');
+  const first=await a.json(),second=await b.json(),third=await c.json();
+  assert.equal(first.state,'active');assert.equal(second.state,'active');
+  assert.equal(third.state,'waiting');assert.equal(third.position,1);
+  assert.equal((await call('claim',third.ticket)).status,429);
+  await call('release',first.ticket);
+  const promoted=await call('status',third.ticket).then(r=>r.json());
+  assert.equal(promoted.state,'active');
+  assert.equal((await call('claim',third.ticket)).status,200);
+  assert.equal((await call('claim',third.ticket)).status,409);
+});
