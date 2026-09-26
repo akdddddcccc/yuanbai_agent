@@ -608,7 +608,9 @@ function makeBuilding(scene) {
     group.userData.phase = index * .73;
     const radial = new THREE.Vector3(mass.position[0], .22 + (index % 3) * .04, mass.position[2]);
     if (radial.lengthSq() < .2) radial.set(-.4, .25, -.6);
-    group.userData.axis = radial.normalize();
+    group.userData.axis = mass.id === "central-tower"
+      ? new THREE.Vector3(0, 1, 0)
+      : radial.normalize();
     group.userData.impulse = 0;
 
     const body = new THREE.Mesh(bodyGeometry(mass), materials[mass.finish]);
@@ -649,18 +651,18 @@ function makeBuilding(scene) {
 
   const stairRoot = new THREE.Group();
   stairRoot.name = "YB_stable_stairs_and_bridges";
-  const stairs = YUANBAI_CONNECTIONS.map((connection) => {
+  building.add(stairRoot);
+  building.updateMatrixWorld(true);
+  YUANBAI_CONNECTIONS.forEach((connection) => {
     const stair = addStairConnection(stairRoot, connection, materials);
     const anchorBlock = blocksById.get(connection.anchor);
-    stair.userData.anchorBlock = anchorBlock;
-    stair.userData.anchorHome = anchorBlock?.userData.home.clone();
-    return stair;
+    // 保留初始位置，并完整继承所属楼体的位移和转动。
+    anchorBlock?.attach(stair);
   });
-  building.add(stairRoot);
   addCourtyard(building, materials);
   const { particles, particleMaterial } = makeStructureParticleCloud(building);
 
-  return { building, blocks, stairRoot, stairs, windowMaterials, particles, particleMaterial };
+  return { building, blocks, stairRoot, stairs: [], windowMaterials, particles, particleMaterial };
 }
 
 export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
@@ -842,11 +844,6 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
         block.rotation.y += (data.baseRotation + smoothedLevel * data.axis.x * .025 - block.rotation.y) * .07;
       });
 
-      model.stairs.forEach((stair) => {
-        const { anchorBlock, anchorHome } = stair.userData;
-        if (!anchorBlock || !anchorHome) return;
-        stair.position.copy(anchorBlock.position).sub(anchorHome);
-      });
       const lightPulse = .035 + smoothedLevel * 8.4 + afterglow * 1.8;
       model.windowMaterials.forEach((material, index) => {
         const uneven = .72 + Math.sin(t * 4.0 + index * 1.47) * .18;

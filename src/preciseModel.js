@@ -99,23 +99,34 @@ export function preparePreciseModel(source, makeParticles) {
     child.position.copy(pivot);
     child.userData = {
       home: pivot.clone(), baseRotation: 0, phase: blocks.length * .73,
-      axis: new THREE.Vector3(pivot.x, .25, pivot.z).normalize(), impulse: 0,
+      // 中央白楼只沿竖直方向随声音起伏，避免向画面左侧滑出。
+      axis: child.name === 'YB_mass_A08'
+        ? new THREE.Vector3(0, 1, 0)
+        : new THREE.Vector3(pivot.x, .25, pivot.z).normalize(), impulse: 0,
     };
     blocks.push(child);
   }
   building.updateMatrixWorld(true);
   const blockBounds = blocks.map(block => new THREE.Box3().setFromObject(block));
+  const core = blocks.find(block => block.name === 'YB_mass_A08');
   const bindings = [];
-  for (const connector of [...building.children].filter(child => child.name.startsWith('YB_connector_'))) {
+  const connectors = [...building.children].filter(child =>
+    child.name.startsWith('YB_connector_') || child.name === 'YB_stable_stairs_and_bridges');
+  for (const connector of connectors) {
     const center = new THREE.Box3().setFromObject(connector).getCenter(new THREE.Vector3());
     let nearest = 0, distance = Infinity;
     blockBounds.forEach((box, index) => {
       const score = box.distanceToPoint(center) + .001 * box.getCenter(new THREE.Vector3()).distanceTo(center);
       if (score < distance) { distance = score; nearest = index; }
     });
+    // 外楼梯跟随名称指定的楼体；合并的中庭台阶、平台和顶棚跟随中央楼。
+    const stairMass = connector.name.match(/^YB_connector_YB_EXT_STAIR_(A\d{2})$/)?.[1];
+    const anchor = (connector.name === 'YB_stable_stairs_and_bridges' ? core
+      : blocks.find(block => block.name === `YB_mass_${stairMass}`)) || blocks[nearest];
+    if (!anchor) continue;
     // Parenting preserves the original world transform and follows both translation and rotation.
-    blocks[nearest].attach(connector);
-    bindings.push({ connector: connector.name, anchor: blocks[nearest].name });
+    anchor.attach(connector);
+    bindings.push({ connector: connector.name, anchor: anchor.name });
   }
   building.traverse(object => {
     for (const material of [].concat(object.material || [])) {
@@ -131,7 +142,6 @@ export function preparePreciseModel(source, makeParticles) {
   building.position.z = .15;
   const viewBounds = new THREE.Box3().setFromObject(building);
   const particles = makeParticles(building, true);
-  const core = blocks.find(block => block.name === 'YB_mass_A08');
   const coreLight = core ? makeCoreLight(core) : null;
   if (coreLight) viewBounds.max.y += 1.6;
   return { building, viewBounds, blocks, bindings, coreLight, stairs: [], windowMaterials: [...windowMaterials], ...particles };

@@ -33,7 +33,13 @@ test('stair binding preserves rest positions and follows full anchor transforms'
   });
   const model = preparePreciseModel(scene, () => ({}));
   assert.equal(model.blocks.length, 15);
-  assert.equal(model.bindings.length, 20);
+  assert.equal(model.bindings.length, 21);
+  const core = model.building.getObjectByName('YB_mass_A08');
+  assert.deepEqual(core.userData.axis.toArray(), [0, 1, 0]);
+  assert.equal(model.building.getObjectByName('YB_stable_stairs_and_bridges').parent, core);
+  for (const id of ['A04', 'A10']) {
+    assert.equal(model.building.getObjectByName(`YB_connector_YB_EXT_STAIR_${id}`).parent.name, `YB_mass_${id}`);
+  }
   model.building.updateMatrixWorld(true);
   const inverse = model.building.matrixWorld.clone().invert();
   for (const { object, expected } of probes) {
@@ -51,6 +57,18 @@ test('stair binding preserves rest positions and follows full anchor transforms'
     model.building.updateMatrixWorld(true);
     assert.ok(connector.getWorldPosition(new THREE.Vector3()).distanceTo(before) > .01);
     assert.ok(connector.matrix.equals(local), 'connector must retain its rigid local transform');
+  }
+  // Speech displacement and its return keep the entire central assembly together.
+  const stable = model.building.getObjectByName('YB_stable_stairs_and_bridges');
+  const rest = stable.position.clone();
+  const home = core.userData.home;
+  for (const amount of [0, .25, .8, .3, 0]) {
+    core.position.copy(home).addScaledVector(core.userData.axis, amount);
+    model.building.updateMatrixWorld(true);
+    assert.equal(core.position.x, home.x);
+    assert.equal(core.position.z, home.z);
+    const expected = core.localToWorld(rest.clone());
+    assert.ok(stable.getWorldPosition(new THREE.Vector3()).distanceTo(expected) < 1e-6);
   }
   model.coreLight.update(1, 1, 1);
   assert.ok(model.coreLight.light.intensity > 10);
