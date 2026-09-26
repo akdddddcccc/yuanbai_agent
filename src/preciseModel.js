@@ -77,6 +77,14 @@ export async function loadPreciseModel(makeParticles) {
 }
 
 export function preparePreciseModel(source, makeParticles) {
+  // These two stair flights run through the solid A03/A09 facades in the source model.
+  // Remove their complete tread/stringer/railing groups before particle sampling.
+  for (const name of ['YB_connector_YB_ROUTE_SOUTH_03_04', 'YB_connector_YB_ROUTE_EAST_09_10']) {
+    const stair = source.getObjectByName(name);
+    if (!stair) continue;
+    stair.removeFromParent();
+    stair.traverse(object => object.geometry?.dispose());
+  }
   const building = new THREE.Group();
   const bounds = new THREE.Box3().setFromObject(source);
   const size = bounds.getSize(new THREE.Vector3());

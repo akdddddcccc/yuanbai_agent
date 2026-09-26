@@ -1,6 +1,7 @@
 import { createElement, useEffect, useRef } from "react";
 import * as THREE from "three";
 import { loadPreciseModel, disposeModel } from "./preciseModel.js";
+import { createSpeechMotion } from "./speechMotion.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { YUANBAI_CONNECTIONS, YUANBAI_COURTYARD, YUANBAI_MASSES } from "./yuanbaiModelSpec.js";
 
@@ -586,6 +587,49 @@ function makeStructureParticleCloud(building, bounded = false) {
   return { particles, particleMaterial };
 }
 
+function makeTurnGlow(scene) {
+  const count = 900;
+  const positions = new Float32Array(count * 3);
+  const random = makeParticleRandom(92831);
+  for (let i = 0; i < count; i += 1) {
+    const angle = random() * Math.PI * 2;
+    const radius = 6 + random() * 1.2;
+    positions.set([Math.cos(angle) * radius, .2 + random() * 3.4, Math.sin(angle) * radius], i * 3);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  const material = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 } },
+    vertexShader: `
+      uniform float uTime;
+      varying float vLight;
+      void main() {
+        vec3 p = position;
+        float angle = uTime * .8 + p.y * .2;
+        p.xz = mat2(cos(angle), -sin(angle), sin(angle), cos(angle)) * p.xz;
+        p.y += sin(uTime * 2. + position.x) * .15;
+        vec4 mv = modelViewMatrix * vec4(p, 1.);
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = clamp(300. / max(1., -mv.z), 3., 9.);
+        vLight = .7 + .3 * sin(uTime * 3. + position.z * 5.);
+      }`,
+    fragmentShader: `
+      uniform float uOpacity;
+      varying float vLight;
+      void main() {
+        float radius = length(gl_PointCoord - .5) * 2.;
+        if (radius > 1.) discard;
+        gl_FragColor = vec4(2., 1.3, .55, pow(1. - radius, 1.2) * vLight * uOpacity);
+      }`,
+  });
+  const particles = new THREE.Points(geometry, material);
+  particles.name = "YB_speech_turn_glow";
+  particles.visible = false;
+  scene.add(particles);
+  return { particles, material };
+}
+
 function makeBuilding(scene) {
   const materials = makeMaterials();
   const building = new THREE.Group();
@@ -763,6 +807,13 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
       if (variant === "dialogue") {
         if (model.viewBounds) {
           const bounds = model.viewBounds.clone();
+          // Frame the full swept volume, including the side view during the answer's turn.
+          const radius = Math.max(...[bounds.min.x, bounds.max.x].flatMap(x =>
+            [bounds.min.z - .15, bounds.max.z - .15].map(z => Math.hypot(x, z))));
+          bounds.min.x = -radius;
+          bounds.max.x = radius;
+          bounds.min.z = .15 - radius;
+          bounds.max.z = .15 + radius;
           bounds.translate(new THREE.Vector3(0, buildingHomeY, 0)).expandByScalar(.55);
           bounds.getCenter(lookAt);
           const direction = new THREE.Vector3(11.8, 8.7, 17.5).normalize();
@@ -813,17 +864,21 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
     let wasThinking = false;
     let thinkingStartedAt = 0;
     let metricsStartedAt = performance.now(), metricsFrames = 0;
+    const speechMotion = createSpeechMotion();
+    const turnGlow = makeTurnGlow(scene);
+    let pointerYaw = -.12;
 
     const animate = (now) => {
       frame = requestAnimationFrame(animate);
       const t = (now - startedAt) / 1000;
       const { phase: currentPhase, level: rawLevel } = stateRef.current;
       const voiceLevel = currentPhase === "speaking" ? rawLevel : 0;
+      const motion = speechMotion.update(currentPhase, t);
       smoothedLevel += (voiceLevel - smoothedLevel) * (voiceLevel > smoothedLevel ? .24 : .075);
       afterglow = Math.max(smoothedLevel, afterglow * .974);
 
       const onset = voiceLevel - previousLevel;
-      if (currentPhase === "speaking" && onset > .085 && voiceLevel > .15) {
+      if (motion.stretch > 0 && onset > .085 && voiceLevel > .15) {
         model.blocks.forEach((block, index) => {
           block.userData.impulse += onset * (1.05 + (index % 4) * .13);
         });
@@ -832,16 +887,17 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
 
       model.blocks.forEach((block, index) => {
         const data = block.userData;
-        data.impulse *= .91;
+        data.impulse = motion.turning ? 0 : data.impulse * .91;
         const idle = Math.sin(t * .43 + data.phase) * .082
           + Math.cos(t * .21 + data.phase * 1.7) * .018;
-        const outward = (smoothedLevel * .62 + data.impulse * 2.0) * (.78 + (index % 5) * .055);
+        const responseLevel = smoothedLevel * motion.stretch;
+        const outward = (responseLevel * .62 + data.impulse * 2.0 * motion.stretch) * (.78 + (index % 5) * .055);
         const target = data.home.clone().addScaledVector(data.axis, outward);
         target.y += idle;
         block.position.lerp(target, .08);
-        block.rotation.x = Math.sin(t * .31 + index) * .006 + smoothedLevel * data.axis.z * .018;
-        block.rotation.z = Math.cos(t * .29 + index * .7) * .004 + smoothedLevel * data.axis.x * .016;
-        block.rotation.y += (data.baseRotation + smoothedLevel * data.axis.x * .025 - block.rotation.y) * .07;
+        block.rotation.x = Math.sin(t * .31 + index) * .006 + responseLevel * data.axis.z * .018;
+        block.rotation.z = Math.cos(t * .29 + index * .7) * .004 + responseLevel * data.axis.x * .016;
+        block.rotation.y += (data.baseRotation + responseLevel * data.axis.x * .025 - block.rotation.y) * .07;
       });
 
       const lightPulse = .035 + smoothedLevel * 8.4 + afterglow * 1.8;
@@ -881,6 +937,10 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
           particleOpacity = 0;
           particleFormation = 0;
         }
+      } else if (motion.turning) {
+        // Keep the complete building visible while the separate orbiting glow plays.
+        particleOpacity *= .8;
+        entityOpacity += (1 - entityOpacity) * .16;
       } else {
         particleOpacity += (0 - particleOpacity) * .095;
         particleFormation += (0 - particleFormation) * .08;
@@ -910,9 +970,16 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
       });
 
       model.coreLight?.update(t, Math.min(1, smoothedLevel * 1.5 + afterglow * .25), entityOpacity);
-      model.building.rotation.y += ((-.12 + pointer.x * .17) - model.building.rotation.y) * .032;
+      if (!motion.turning) pointerYaw += ((-.12 + pointer.x * .17) - pointerYaw) * .032;
+      // Separate pointer yaw from the accumulated turn so completion never unwinds backwards.
+      model.building.rotation.y = pointerYaw + motion.angle;
       model.building.rotation.x += ((pointer.y * -.058) - model.building.rotation.x) * .032;
       model.building.position.y += ((buildingHomeY + Math.sin(t * .31) * .062) - model.building.position.y) * .045;
+      turnGlow.particles.position.copy(model.building.position);
+      turnGlow.particles.quaternion.copy(model.building.quaternion);
+      turnGlow.material.uniforms.uTime.value = t;
+      turnGlow.material.uniforms.uOpacity.value = motion.glow * 1.5;
+      turnGlow.particles.visible = motion.glow > .001;
       camera.position.x += ((cameraHome.x * cameraScale + pointer.x * .62 * cameraScale) - camera.position.x) * .024;
       camera.position.y += ((cameraHome.y * cameraScale - pointer.y * .38 * cameraScale) - camera.position.y) * .024;
       camera.lookAt(lookAt);
@@ -922,6 +989,9 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
         mount.dataset.drawCalls = String(renderer.info.render.calls);
         mount.dataset.triangles = String(renderer.info.render.triangles);
         mount.dataset.phase = currentPhase;
+        mount.dataset.motion = motion.turning ? "turn" : motion.stretch > 0 ? "stretch" : "idle";
+        mount.dataset.turnAngle = motion.angle.toFixed(4);
+        mount.dataset.turnGlow = motion.glow.toFixed(3);
         mount.dataset.fps = String(Math.round(metricsFrames * 1000 / (now - metricsStartedAt)));
         mount.dataset.firstBlockOffset = model.blocks[0]?.position.distanceTo(model.blocks[0].userData.home).toFixed(4) || "0";
         mount.dataset.particleOpacity = particleOpacity.toFixed(3);

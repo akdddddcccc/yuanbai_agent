@@ -28,12 +28,16 @@ test('stair binding preserves rest positions and follows full anchor transforms'
   const scale = 11.5 / Math.max(size.x, size.z);
   const probes = [];
   scene.traverse(object => {
+    if (['YB_connector_YB_ROUTE_SOUTH_03_04', 'YB_connector_YB_ROUTE_EAST_09_10'].includes(object.parent?.name)) return;
     if (object.isMesh) probes.push({ object, expected: new THREE.Vector3().fromBufferAttribute(object.geometry.attributes.position, 0)
       .sub(new THREE.Vector3(rawCenter.x, rawBounds.min.y, rawCenter.z)).multiplyScalar(scale) });
   });
   const model = preparePreciseModel(scene, () => ({}));
   assert.equal(model.blocks.length, 15);
-  assert.equal(model.bindings.length, 21);
+  assert.equal(model.bindings.length, 19);
+  for (const name of ['YB_connector_YB_ROUTE_SOUTH_03_04', 'YB_connector_YB_ROUTE_EAST_09_10']) {
+    assert.equal(model.building.getObjectByName(name), undefined, 'intersecting stair must be removed');
+  }
   const core = model.building.getObjectByName('YB_mass_A08');
   assert.deepEqual(core.userData.axis.toArray(), [0, 1, 0]);
   assert.equal(model.building.getObjectByName('YB_stable_stairs_and_bridges').parent, core);
