@@ -15,6 +15,47 @@ export function disposeModel(root) {
   textures.forEach(item => item.dispose());
 }
 
+function tuneMaterial(material) {
+  if (!material || material.userData?.ybTuned) return;
+  material.userData.ybTuned = true;
+  material.userData.ybBaseOpacity = material.opacity ?? 1;
+  material.userData.ybBaseTransparent = Boolean(material.transparent);
+
+  const name = String(material.name || "").toUpperCase();
+  if (name.includes("CONCRETE") || name.includes("GRC")) {
+    material.roughness = .92;
+    material.metalness = 0;
+  } else if (name.includes("BRICK") || name.includes("PAVING")) {
+    material.roughness = .9;
+    material.metalness = 0;
+  } else if (name.includes("METAL")) {
+    material.roughness = .58;
+    material.metalness = .36;
+  } else if (name.includes("WOOD")) {
+    material.roughness = .78;
+    material.metalness = 0;
+  } else if (name.includes("GRASS")) {
+    material.roughness = 1;
+    material.metalness = 0;
+  }
+
+  if (name.includes("GLASS")) {
+    material.transparent = true;
+    material.depthWrite = false;
+    material.opacity = name.includes("DARK") ? .46 : .34;
+    material.userData.ybBaseOpacity = material.opacity;
+    material.userData.ybBaseTransparent = true;
+    material.roughness = name.includes("U_GLASS") ? .42 : .24;
+    material.metalness = 0;
+    if ("transmission" in material) material.transmission = name.includes("DARK") ? .1 : .28;
+    if ("ior" in material) material.ior = 1.42;
+    if (material.emissive) material.emissive.copy(new THREE.Color("#ff8b4a"));
+    material.emissiveIntensity = .055;
+  }
+  material.needsUpdate = true;
+}
+
+
 export async function loadPreciseModel(makeParticles) {
   const base = `${import.meta.env.BASE_URL}models/yuanbai-precise-v3/`;
   const response = await fetch(`${base}manifest.json`);
@@ -74,6 +115,7 @@ export async function loadPreciseModel(makeParticles) {
   }
   building.traverse(object => {
     for (const material of [].concat(object.material || [])) {
+      tuneMaterial(material);
       if (/GLASS/.test(material.name)) {
         material.emissive.set('#ff9c55');
         windowMaterials.add(material);
