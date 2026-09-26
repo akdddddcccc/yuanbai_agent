@@ -344,7 +344,7 @@ export function App() {
         <YuanbaiScene phase={phase} level={level} />
         <div className="scene-caption">
           <span>VOICE ARCHITECTURE · 01</span>
-          <span>{phase === "thinking" ? "PARTICLE MEMORY" : "15 LIVING MASSES · PRECISE GLB"}</span>
+          <span>{phase === "thinking" ? "PARTICLE MEMORY" : "VOICE-REACTIVE ARCHITECTURE"}</span>
         </div>
       </section>
 

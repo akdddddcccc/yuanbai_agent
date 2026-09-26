@@ -6,6 +6,7 @@ export default defineConfig({
   build: {
     outDir: "dist/client",
     rollupOptions: {
+      input: { app: "index.html", modelCheck: "model-check.html" },
       output: {
         // The static host serves .mjs as application/octet-stream, which browsers
         // reject when PDF.js loads its module worker. Keep the worker content but
