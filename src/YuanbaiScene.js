@@ -1,5 +1,6 @@
 import { createElement, useEffect, useRef } from "react";
 import * as THREE from "three";
+import { loadPreciseModel, disposeModel } from "./preciseModel.js";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { YUANBAI_CONNECTIONS, YUANBAI_COURTYARD, YUANBAI_MASSES } from "./yuanbaiModelSpec.js";
 
@@ -378,7 +379,7 @@ function makeParticleRandom(seed = 41729) {
   };
 }
 
-function makeStructureParticleCloud(building) {
+function makeStructureParticleCloud(building, bounded = false) {
   const random = makeParticleRandom();
   const triangles = [];
   const edgeSegments = [];
@@ -398,7 +399,8 @@ function makeStructureParticleCloud(building) {
     const index = geometry.index;
     const triangleCount = index ? index.count / 3 : positions.count / 3;
 
-    for (let triangleIndex = 0; triangleIndex < triangleCount; triangleIndex += 1) {
+    const stride = bounded ? Math.max(1, Math.ceil(triangleCount / 180)) : 1;
+    for (let triangleIndex = 0; triangleIndex < triangleCount; triangleIndex += stride) {
       const aIndex = index ? index.getX(triangleIndex * 3) : triangleIndex * 3;
       const bIndex = index ? index.getX(triangleIndex * 3 + 1) : triangleIndex * 3 + 1;
       const cIndex = index ? index.getX(triangleIndex * 3 + 2) : triangleIndex * 3 + 2;
@@ -406,11 +408,16 @@ function makeStructureParticleCloud(building) {
       const b = new THREE.Vector3().fromBufferAttribute(positions, bIndex).applyMatrix4(transform);
       const c = new THREE.Vector3().fromBufferAttribute(positions, cIndex).applyMatrix4(transform);
       const area = new THREE.Triangle(a, b, c).getArea();
-      if (area > 1e-7) triangles.push({ a, b, c, area });
+      if (area > 1e-7) triangles.push({ a, b, c, area: area * stride });
     }
 
     // EdgesGeometry 只保留达到阈值的折线，避免把三角剖分的内部对角线误当成建筑结构。
-    const hardEdges = new THREE.EdgesGeometry(geometry, 32);
+    // Bound edge extraction to a low-detail silhouette proxy for the high-detail GLB.
+    geometry.computeBoundingBox();
+    const proxy = bounded ? new THREE.BoxGeometry(...geometry.boundingBox.getSize(new THREE.Vector3()).toArray()) : null;
+    if (proxy) proxy.translate(...geometry.boundingBox.getCenter(new THREE.Vector3()).toArray());
+    const hardEdges = new THREE.EdgesGeometry(proxy || geometry, 32);
+    proxy?.dispose();
     const edgePositions = hardEdges.attributes.position;
     for (let edgeIndex = 0; edgeIndex < edgePositions.count; edgeIndex += 2) {
       const a = new THREE.Vector3().fromBufferAttribute(edgePositions, edgeIndex).applyMatrix4(transform);
@@ -718,7 +725,27 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
     projection.position.set(.2, -2.45, .45);
     scene.add(projection);
 
-    const model = makeBuilding(scene);
+    let model = makeBuilding(scene);
+    let disposed = false;
+    mount.dataset.model = "procedural";
+    const legacy = new URLSearchParams(window.location.search).get("model") === "legacy";
+    if (!legacy && variant === "dialogue") {
+      mount.dataset.model = "loading";
+      loadPreciseModel(makeStructureParticleCloud).then(next => {
+        if (disposed) { disposeModel(next.building); return; }
+        scene.remove(model.building);
+        disposeModel(model.building);
+        model = next;
+        model.building.position.y = buildingHomeY;
+        scene.add(model.building);
+        mount.dataset.model = "precise";
+        mount.dataset.blocks = String(model.blocks.length);
+      }).catch(error => {
+        if (disposed) return;
+        mount.dataset.model = "fallback";
+        console.error("Precise model loading failed; using original architecture", error);
+      });
+    }
     if (variant === "portal") model.building.scale.setScalar(1.04);
     const buildingHomeY = variant === "portal" ? .48 : .72;
     model.building.position.y = buildingHomeY;
@@ -757,6 +784,7 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
     let particleFormation = 0;
     let wasThinking = false;
     let thinkingStartedAt = 0;
+    let metricsStartedAt = performance.now(), metricsFrames = 0;
 
     const animate = (now) => {
       frame = requestAnimationFrame(animate);
@@ -848,8 +876,13 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
       model.particles.rotation.y = Math.sin(t * .19) * .055 * (1 - particleFormation);
       model.building.traverse((child) => {
         if (!child.material || child === model.particles) return;
-        child.material.opacity = entityOpacity;
-        child.material.transparent = entityOpacity < .999;
+        [].concat(child.material).forEach(material => {
+          material.userData.baseOpacity ??= material.opacity;
+          material.userData.baseTransparent ??= material.transparent;
+          material.opacity = material.userData.baseOpacity * entityOpacity;
+          const transparent = material.userData.baseTransparent || entityOpacity < .999;
+          if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
+        });
         child.visible = entityOpacity > .001;
       });
 
@@ -860,10 +893,21 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
       camera.position.y += ((cameraHome.y * cameraScale - pointer.y * .38 * cameraScale) - camera.position.y) * .024;
       camera.lookAt(lookAt);
       renderer.render(scene, camera);
+      metricsFrames += 1;
+      if (now - metricsStartedAt >= 500) {
+        mount.dataset.drawCalls = String(renderer.info.render.calls);
+        mount.dataset.triangles = String(renderer.info.render.triangles);
+        mount.dataset.phase = currentPhase;
+        mount.dataset.fps = String(Math.round(metricsFrames * 1000 / (now - metricsStartedAt)));
+        mount.dataset.firstBlockOffset = model.blocks[0]?.position.distanceTo(model.blocks[0].userData.home).toFixed(4) || "0";
+        mount.dataset.particleOpacity = particleOpacity.toFixed(3);
+        metricsStartedAt = now; metricsFrames = 0;
+      }
     };
     frame = requestAnimationFrame(animate);
 
     return () => {
+      disposed = true;
       cancelAnimationFrame(frame);
       observer.disconnect();
       window.removeEventListener("pointermove", onPointerMove);

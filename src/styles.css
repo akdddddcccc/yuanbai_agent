@@ -178,6 +178,8 @@ h1 {
   z-index: 1;
 }
 
+.scene-panel .scene-mount { width: 100%; height: 100%; }
+
 .scene-panel canvas { display: block; width: 100%; height: 100%; }
 
 .scene-caption {
