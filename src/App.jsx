@@ -12,6 +12,7 @@ const PHASE_COPY = {
 
 const INTRO = "我记得这座楼、学院和大家的故事。设计卡住了，也可以慢慢说给我听。";
 const YUANBAI_MARK_URL = `${import.meta.env.BASE_URL}brand/yuanbai-mark.svg`;
+const MAX_AUDIO_BASE64_LENGTH = 800_000;
 // 本地 Python 服务使用 /api/chat；发布到共享域名的 /yuanbai/ 后自动切换到 EdgeOne 函数。
 const API_CHAT_URL = import.meta.env.VITE_YUANBAI_API_URL || (
   globalThis.location?.pathname?.startsWith("/yuanbai/") ? "/api/yuanbai/chat" : "/api/chat"
@@ -207,6 +208,9 @@ export function App() {
       // 各浏览器会产生不同的 WebM/MP4 封装；统一转成 16kHz 单声道 WAV，避免云端 DECODE_ERROR。
       const normalizedBlob = await normalizeRecordingToWav(blob);
       const audioBase64 = await blobToBase64(normalizedBlob);
+      if (audioBase64.length > MAX_AUDIO_BASE64_LENGTH) {
+        throw new Error("这段话比较长，云端一次接收不了，请分成两段再说。");
+      }
       // 原文件留在浏览器，只把提取后的文字交给服务端做相关片段检索。
       // API 密钥始终留在服务端函数中。
       const response = await fetch(API_CHAT_URL, {
@@ -225,6 +229,9 @@ export function App() {
       try {
         result = rawResponse ? JSON.parse(rawResponse) : null;
       } catch {
+        if (response.status === 545) {
+          throw new Error("云端语音处理暂时出了点问题。这段话可能太长，请分短一点再试；如果仍然报错，稍后再试一次。");
+        }
         throw new Error(`语音服务返回了无法识别的响应（HTTP ${response.status}）。`);
       }
       if (!result) {
