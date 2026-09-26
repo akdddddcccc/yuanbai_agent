@@ -6,6 +6,10 @@ import { spawn } from 'node:child_process';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../dist/client');
 const port = Number(process.env.YUANBAI_LOCAL_PORT || 5187);
+const startPath = process.env.YUANBAI_START_PATH === '/model-check.html' ? '/model-check.html' : '/dialogue/';
+const openPage = () => {
+  if(process.platform==='win32' && process.env.YUANBAI_NO_BROWSER!=='1') spawn('explorer.exe', [`http://127.0.0.1:${port}${startPath}`], {windowsHide:true});
+};
 const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.glb':'model/gltf-binary','.json':'application/json','.png':'image/png','.jpg':'image/jpeg','.svg':'image/svg+xml','.woff2':'font/woff2','.mp3':'audio/mpeg','.wasm':'application/wasm'};
 const server = http.createServer(async (req, res) => {
   try {
@@ -30,9 +34,17 @@ const server = http.createServer(async (req, res) => {
     if(req.method==='HEAD') res.end();else fs.createReadStream(file).pipe(res);
   } catch(error) { console.error(error.message); if(!res.headersSent) res.writeHead(502);res.end('Local request failed'); }
 });
-server.on('error',error=>{console.error(error.message);process.exitCode=1;});
+server.on('error',async error=>{
+  if(error.code==='EADDRINUSE') {
+    try {
+      const response=await fetch(`http://127.0.0.1:${port}/model-check.html`,{signal:AbortSignal.timeout(3000)});
+      if(response.ok && (await response.text()).includes('元白模型状态检查')) { openPage(); console.log('Opened the existing Yuanbai local server.'); return; }
+    } catch {}
+  }
+  console.error(error.message);process.exitCode=1;
+});
 server.listen(port,'127.0.0.1',()=>{
-  const url=`http://127.0.0.1:${port}/dialogue/`;
+  const url=`http://127.0.0.1:${port}${startPath}`;
   console.log(`Yuanbai local backup: ${url}\nKeep this window open. AI voice requires an internet connection.`);
-  if(process.platform==='win32' && process.env.YUANBAI_NO_BROWSER!=='1') spawn('explorer.exe',[url],{windowsHide:true});
+  openPage();
 });
