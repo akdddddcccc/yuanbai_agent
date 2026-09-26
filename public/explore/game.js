@@ -8,7 +8,7 @@
   let playerToken=null;
   try{playerToken=localStorage.getItem(tokenStorageKey);}catch{}
   let runId=null,practice=false,actions=[],verified=null,verifying=false,submitting=false,generation=0;
-  let boardPage=1,boardPages=1,boardRequest=0,boardSeason='current',boardKind='normal',finishersRequest=0;
+  let boardPage=1,boardPages=1,boardRequest=0,boardKind='normal',finishersRequest=0;
   const game = new Game(), $ = s => document.querySelector(s);
   const uiFont='"Yuanbai Sans","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif';
   const canvas = $('#world'), ctx = canvas.getContext('2d', { alpha: false });
@@ -575,7 +575,7 @@ async function api(path,data){
     ui['finishers-status'].textContent='正在读取已通关名单…';
     ui['finishers-refresh'].disabled=true;
     try{
-      const data=await api('/api/leaderboard?page=1&season=current');
+      const data=await api('/api/leaderboard?page=1');
       if(request!==finishersRequest||current!==generation)return;
       ui['finishers-body'].replaceChildren();
       for(const row of data.items){
@@ -594,14 +594,13 @@ async function api(path,data){
   }
   async function loadLeaderboard(page=1){
     const request=++boardRequest;ui['ranking-state'].hidden=false;ui['ranking-state'].textContent='正在读取…';ui['ranking-table'].hidden=true;ui['ranking-retry'].hidden=true;ui['ranking-prev'].disabled=ui['ranking-next'].disabled=true;
-    try{const data=await api('/api/leaderboard?page='+page+'&season='+boardSeason+'&board='+boardKind);if(request!==boardRequest)return;boardPage=data.page;boardPages=Math.max(1,Math.ceil(data.total/data.pageSize));ui['ranking-body'].replaceChildren();
+    try{const data=await api('/api/leaderboard?page='+page+'&board='+boardKind);if(request!==boardRequest)return;boardPage=data.page;boardPages=Math.max(1,Math.ceil(data.total/data.pageSize));ui['ranking-body'].replaceChildren();
       for(const row of data.items){const tr=document.createElement('tr');if(row.isYou)tr.className='is-you';for(const text of [row.rank,row.nickname+(row.isYou?' · 你':''),row.deaths,formatTime(row.durationMs)+'.'+Math.floor(row.durationMs%1000/100),formatDate(row.completedAt)]){const td=document.createElement('td');td.textContent=text;tr.append(td);}ui['ranking-body'].append(tr);}
-      ui['ranking-state'].hidden=data.total>0;ui['ranking-state'].textContent=boardSeason==='previous'?'上一版还没有通关记录。':'还没有通关记录，成为第一个留下名字的人。';ui['ranking-table'].hidden=data.total===0;ui['ranking-page'].textContent=`${data.total} 位探索者 · ${boardPage} / ${boardPages}`;ui['ranking-prev'].disabled=boardPage<=1;ui['ranking-next'].disabled=boardPage>=boardPages;
+      ui['ranking-state'].hidden=data.total>0;ui['ranking-state'].textContent='还没有通关记录，成为第一个留下名字的人。';ui['ranking-table'].hidden=data.total===0;const multi=boardPages>1;ui['ranking-page'].textContent=multi?`${data.total} 位探索者 · ${boardPage} / ${boardPages}`:`共 ${data.total} 位探索者`;ui['ranking-prev'].hidden=!multi;ui['ranking-next'].hidden=!multi;ui['ranking-prev'].disabled=boardPage<=1;ui['ranking-next'].disabled=boardPage>=boardPages;
     }catch(error){if(request!==boardRequest)return;ui['ranking-state'].textContent='排行榜暂时无法连接。已提交的记录不会因此消失。';ui['ranking-page'].textContent='';ui['ranking-retry'].hidden=false;}
   }
-  function selectSeason(season){boardSeason=season;for(const name of ['current','previous','reconstruction','legacy'])ui['ranking-'+name].setAttribute('aria-pressed',season===name);loadLeaderboard(1);}
   function selectBoard(kind){boardKind=kind;for(const name of ['normal','deaths'])ui['ranking-'+name].setAttribute('aria-pressed',kind===name);ui['ranking-rule'].textContent=kind==='deaths'?'这是一张有点荒诞的榜：已通关玩家按坠落次数从多到少排列，每人保留最多坠落的一局。':'先比坠落次数，再比通关用时，最后比移动步数；完全相同按首次提交时间。每人保留最好的一局。';loadLeaderboard(1);}
-  function openRanking(){ui['ranking-dialog'].showModal();boardSeason='current';for(const name of ['current','previous','reconstruction','legacy'])ui['ranking-'+name].setAttribute('aria-pressed',name==='current');selectBoard('normal');}
+  function openRanking(){ui['ranking-dialog'].showModal();selectBoard('normal');}
 
 
   function restart(){
@@ -761,7 +760,6 @@ async function api(path,data){
   ui['guide-next'].addEventListener('click',()=>showGuidePage(guidePage+1));
   ui['leaderboard-open'].addEventListener('click',openRanking);ui['win-ranking'].addEventListener('click',openRanking);ui['close-ranking'].addEventListener('click',()=>ui['ranking-dialog'].close());
   ui['ranking-normal'].addEventListener('click',()=>selectBoard('normal'));ui['ranking-deaths'].addEventListener('click',()=>selectBoard('deaths'));
-  ui['ranking-current'].addEventListener('click',()=>selectSeason('current'));ui['ranking-previous'].addEventListener('click',()=>selectSeason('previous'));ui['ranking-reconstruction'].addEventListener('click',()=>selectSeason('reconstruction'));ui['ranking-legacy'].addEventListener('click',()=>selectSeason('legacy'));
   ui['ranking-prev'].addEventListener('click',()=>loadLeaderboard(boardPage-1));ui['ranking-next'].addEventListener('click',()=>loadLeaderboard(boardPage+1));ui['ranking-retry'].addEventListener('click',()=>loadLeaderboard(boardPage));
   ui['finishers-refresh'].addEventListener('click',loadFinishers);
   ui['score-form'].addEventListener('submit',submitScore);ui['retry-verify'].addEventListener('click',verifyFinish);
