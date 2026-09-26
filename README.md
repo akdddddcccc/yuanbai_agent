@@ -2,7 +2,7 @@
 
 元白楼人格化 AI Demo 的网页端。长按麦克风说话后，页面会调用部署端的语音识别、DeepSeek 对话和 CosyVoice 语音合成服务，并用声音能量驱动楼体灯光与体块动画。
 
-对话页右上角提供临时资料入口，可读取 PDF、DOCX、PPTX、TXT、Markdown、CSV 和 JSON。文件保存在当前浏览器，语音提问时由服务端检索相关文字片段；公开长期知识则在发布仓库中版本化维护。资料收集格式见 [KNOWLEDGE_INTAKE.md](KNOWLEDGE_INTAKE.md)。
+对话页不提供临时文件上传。长期语料由项目维护者整理后版本化更新；资料收集和隐私边界见 [KNOWLEDGE_INTAKE.md](KNOWLEDGE_INTAKE.md)。
 
 线上入口：`https://apps-demo.muyang23333.top/yuanbai/`
 

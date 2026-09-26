@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Microphone } from "@phosphor-icons/react";
 import { CursorLightTrail } from "./CursorLightTrail";
-import { KnowledgePanel } from "./KnowledgePanel";
 import { YuanbaiScene } from "./YuanbaiScene";
 
 const PHASE_COPY = {
@@ -13,6 +12,7 @@ const PHASE_COPY = {
 
 const INTRO = "我记得这座楼、学院和大家的故事。设计卡住了，也可以慢慢说给我听。";
 const YUANBAI_MARK_URL = `${import.meta.env.BASE_URL}brand/yuanbai-mark.svg`;
+const MAX_AUDIO_BASE64_LENGTH = 800_000;
 // 本地 Python 服务使用 /api/chat；发布到共享域名的 /yuanbai/ 后自动切换到 EdgeOne 函数。
 const API_CHAT_URL = import.meta.env.VITE_YUANBAI_API_URL || (
   globalThis.location?.pathname?.startsWith("/yuanbai/") ? "/api/yuanbai/chat" : "/api/chat"
@@ -25,53 +25,6 @@ function blobToBase64(blob) {
     reader.onerror = () => reject(new Error("录音读取失败"));
     reader.readAsDataURL(blob);
   });
-}
-
-function encodeMonoPcmWav(samples, sampleRate) {
-  const buffer = new ArrayBuffer(44 + samples.length * 2);
-  const view = new DataView(buffer);
-  const writeAscii = (offset, value) => {
-    for (let index = 0; index < value.length; index += 1) view.setUint8(offset + index, value.charCodeAt(index));
-  };
-  writeAscii(0, "RIFF");
-  view.setUint32(4, 36 + samples.length * 2, true);
-  writeAscii(8, "WAVE");
-  writeAscii(12, "fmt ");
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  writeAscii(36, "data");
-  view.setUint32(40, samples.length * 2, true);
-  samples.forEach((sample, index) => {
-    const clamped = Math.max(-1, Math.min(1, sample));
-    view.setInt16(44 + index * 2, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
-  });
-  return buffer;
-}
-
-async function normalizeRecordingToWav(blob) {
-  if (blob.type.toLowerCase().startsWith("audio/wav")) return blob;
-  const decodeContext = new AudioContext();
-  try {
-    const decoded = await decodeContext.decodeAudioData(await blob.arrayBuffer());
-    const sampleRate = 16000;
-    const frameCount = Math.max(1, Math.ceil(decoded.duration * sampleRate));
-    const offline = new OfflineAudioContext(1, frameCount, sampleRate);
-    const source = offline.createBufferSource();
-    source.buffer = decoded;
-    source.connect(offline.destination);
-    source.start();
-    const rendered = await offline.startRendering();
-    return new Blob([encodeMonoPcmWav(rendered.getChannelData(0), sampleRate)], { type: "audio/wav" });
-  } catch {
-    throw new Error("浏览器录音格式转换失败，请换用最新版 Chrome 或 Edge 再试一次。");
-  } finally {
-    await decodeContext.close();
-  }
 }
 
 function preferredMimeType() {
@@ -109,15 +62,10 @@ export function App() {
   const responseRef = useRef(null);
   const responseObjectUrlRef = useRef("");
   const historyRef = useRef([]);
-  const knowledgeDocumentsRef = useRef([]);
   const pressedRef = useRef(false);
   const sessionIdRef = useRef(
     globalThis.crypto?.randomUUID?.() || `yuanbai-${Date.now()}`,
   );
-
-  const onKnowledgeDocumentsChange = useCallback((documents) => {
-    knowledgeDocumentsRef.current = documents.map(({ name, content }) => ({ name, content }));
-  }, []);
 
   const ensureAudioContext = useCallback(async () => {
     if (!audioContextRef.current || audioContextRef.current.state === "closed") {
@@ -210,9 +158,12 @@ export function App() {
   const submitRecording = useCallback(async (blob) => {
     try {
       if (blob.size < 800) throw new Error("录音太短了，请多说一点。 ");
-      // 各浏览器会产生不同的 WebM/MP4 封装；统一转成 16kHz 单声道 WAV，避免云端 DECODE_ERROR。
-      const normalizedBlob = await normalizeRecordingToWav(blob);
-      const audioBase64 = await blobToBase64(normalizedBlob);
+      // MediaRecorder 已将麦克风音频压缩为 Opus/AAC；直接上传压缩流，
+      // 避免转成 PCM WAV 后体积膨胀数十倍。识别只需要语音内容。
+      const audioBase64 = await blobToBase64(blob);
+      if (audioBase64.length > MAX_AUDIO_BASE64_LENGTH) {
+        throw new Error("这段话比较长，云端一次接收不了，请分成两段再说。");
+      }
       // 原文件留在浏览器，只把提取后的文字交给服务端做相关片段检索。
       // API 密钥始终留在服务端函数中。
       const response = await fetch(API_CHAT_URL, {
@@ -220,10 +171,9 @@ export function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           audio_base64: audioBase64,
-          mime_type: normalizedBlob.type,
+          mime_type: blob.type || "audio/webm",
           session_id: sessionIdRef.current,
           history: historyRef.current,
-          knowledge_documents: knowledgeDocumentsRef.current,
         }),
       });
       // 先读取文本再解析，避免网关返回空响应时只看到“Unexpected end of JSON input”。
@@ -232,6 +182,9 @@ export function App() {
       try {
         result = rawResponse ? JSON.parse(rawResponse) : null;
       } catch {
+        if (response.status === 545) {
+          throw new Error("云端语音处理暂时出了点问题。这段话可能太长，请分短一点再试；如果仍然报错，稍后再试一次。");
+        }
         throw new Error(`语音服务返回了无法识别的响应（HTTP ${response.status}）。`);
       }
       if (!result) {
@@ -293,7 +246,10 @@ export function App() {
       connectMeter(context.createMediaStreamSource(stream), context, false);
 
       const mimeType = preferredMimeType();
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const recorder = new MediaRecorder(stream, {
+        ...(mimeType ? { mimeType } : {}),
+        audioBitsPerSecond: 24_000,
+      });
       recorderRef.current = recorder;
       chunksRef.current = [];
       recorder.addEventListener("dataavailable", (dataEvent) => {
@@ -374,7 +330,6 @@ export function App() {
         <ArrowLeft size={14} weight="bold" />
         <span>返回元白感知实验室</span>
       </a>
-      <KnowledgePanel onDocumentsChange={onKnowledgeDocumentsChange} />
       <section className="copy-panel" aria-live="polite">
         <div className="status-row">
           <span className="status-dot" />
