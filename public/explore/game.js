@@ -15,7 +15,7 @@
   let starting=false,started=false,runId=null,practice=false,actions=[],startTick=0,endElapsed=null,verified=null,verifying=false,submitting=false,generation=0,lastClock=0,toastUntil=0;
   let boardPage=1,boardPages=1,boardRequest=0,boardSeason='current',boardKind='normal';
   // 公共 API 地址不是密钥。身份令牌由服务端生成，保存在本机浏览器中。
-  const leaderboardBase='/api/yuanbai/game';
+  const leaderboardBase=location.protocol==='https:'?'/api/yuanbai/game':'http://123.56.162.88/yuanbai-game/api/yuanbai/game';
   const tokenStorageKey='yuanbai-player-v1';
   let playerToken=null;
   try{playerToken=localStorage.getItem(tokenStorageKey);}catch{}
