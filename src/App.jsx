@@ -27,53 +27,6 @@ function blobToBase64(blob) {
   });
 }
 
-function encodeMonoPcmWav(samples, sampleRate) {
-  const buffer = new ArrayBuffer(44 + samples.length * 2);
-  const view = new DataView(buffer);
-  const writeAscii = (offset, value) => {
-    for (let index = 0; index < value.length; index += 1) view.setUint8(offset + index, value.charCodeAt(index));
-  };
-  writeAscii(0, "RIFF");
-  view.setUint32(4, 36 + samples.length * 2, true);
-  writeAscii(8, "WAVE");
-  writeAscii(12, "fmt ");
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  writeAscii(36, "data");
-  view.setUint32(40, samples.length * 2, true);
-  samples.forEach((sample, index) => {
-    const clamped = Math.max(-1, Math.min(1, sample));
-    view.setInt16(44 + index * 2, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
-  });
-  return buffer;
-}
-
-async function normalizeRecordingToWav(blob) {
-  if (blob.type.toLowerCase().startsWith("audio/wav")) return blob;
-  const decodeContext = new AudioContext();
-  try {
-    const decoded = await decodeContext.decodeAudioData(await blob.arrayBuffer());
-    const sampleRate = 16000;
-    const frameCount = Math.max(1, Math.ceil(decoded.duration * sampleRate));
-    const offline = new OfflineAudioContext(1, frameCount, sampleRate);
-    const source = offline.createBufferSource();
-    source.buffer = decoded;
-    source.connect(offline.destination);
-    source.start();
-    const rendered = await offline.startRendering();
-    return new Blob([encodeMonoPcmWav(rendered.getChannelData(0), sampleRate)], { type: "audio/wav" });
-  } catch {
-    throw new Error("浏览器录音格式转换失败，请换用最新版 Chrome 或 Edge 再试一次。");
-  } finally {
-    await decodeContext.close();
-  }
-}
-
 function preferredMimeType() {
   const candidates = [
     "audio/webm;codecs=opus",
@@ -205,9 +158,9 @@ export function App() {
   const submitRecording = useCallback(async (blob) => {
     try {
       if (blob.size < 800) throw new Error("录音太短了，请多说一点。 ");
-      // 各浏览器会产生不同的 WebM/MP4 封装；统一转成 16kHz 单声道 WAV，避免云端 DECODE_ERROR。
-      const normalizedBlob = await normalizeRecordingToWav(blob);
-      const audioBase64 = await blobToBase64(normalizedBlob);
+      // MediaRecorder 已将麦克风音频压缩为 Opus/AAC；直接上传压缩流，
+      // 避免转成 PCM WAV 后体积膨胀数十倍。识别只需要语音内容。
+      const audioBase64 = await blobToBase64(blob);
       if (audioBase64.length > MAX_AUDIO_BASE64_LENGTH) {
         throw new Error("这段话比较长，云端一次接收不了，请分成两段再说。");
       }
@@ -218,7 +171,7 @@ export function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           audio_base64: audioBase64,
-          mime_type: normalizedBlob.type,
+          mime_type: blob.type || "audio/webm",
           session_id: sessionIdRef.current,
           history: historyRef.current,
         }),
@@ -293,7 +246,10 @@ export function App() {
       connectMeter(context.createMediaStreamSource(stream), context, false);
 
       const mimeType = preferredMimeType();
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const recorder = new MediaRecorder(stream, {
+        ...(mimeType ? { mimeType } : {}),
+        audioBitsPerSecond: 24_000,
+      });
       recorderRef.current = recorder;
       chunksRef.current = [];
       recorder.addEventListener("dataavailable", (dataEvent) => {
