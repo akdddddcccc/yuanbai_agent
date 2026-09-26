@@ -11,6 +11,8 @@ const MAX_BODY=200000;
 export function createLeaderboardServer({database=':memory:',origin='https://apps-demo.muyang23333.top'}={}){
   if(!/^https:\/\/[^/]+$/.test(origin))throw new Error('APP_ORIGIN 须为完整 HTTPS 来源（不带路径或结尾斜杠）');
   const DB=localDB(database);
+  // nginx 覆盖 X-Real-IP，服务只监听 loopback；限制匿名创建身份/新局刷写磁盘。
+  const starts=new Map();
   const server=http.createServer(async(req,res)=>{
     const requestOrigin=req.headers.origin;
     const cors={'Vary':'Origin','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
@@ -21,6 +23,13 @@ export function createLeaderboardServer({database=':memory:',origin='https://app
       res.writeHead(204,{...cors,'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Max-Age':'600'});return res.end();
     }
     if(req.method==='GET'&&req.url==='/health')return send(200,{ok:true});
+    if(req.method==='POST'&&req.url==='/api/yuanbai/game/runs'){
+      const now=Date.now(),ip=req.headers['x-real-ip']||req.socket.remoteAddress;
+      for(const [key,value] of starts)if(now-value.at>60000)starts.delete(key);
+      const entry=starts.get(ip)||{at:now,count:0};
+      if(entry.count>=20||(!starts.has(ip)&&starts.size>=10000))return send(429,{error:'新局创建过于频繁，请一分钟后再试。'});
+      entry.count++;starts.set(ip,entry);
+    }
     try{
       let size=0,chunks=[];
       for await(const chunk of req){size+=chunk.length;if(size>MAX_BODY)return send(413,{error:'提交内容过大'});chunks.push(chunk);}

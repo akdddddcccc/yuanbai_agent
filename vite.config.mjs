@@ -26,6 +26,12 @@ export default defineConfig({
     // 本地预览没有 Python 服务时，把 /api/chat 安全转发到已部署的同一套云端链路。
     // 这里只在 Vite 开发服务器生效，API 密钥仍保留在云端函数环境变量中。
     proxy: {
+      "/api/yuanbai/game": {
+        target: process.env.YUANBAI_GAME_API_ORIGIN || "http://123.56.162.88",
+        changeOrigin: true,
+        rewrite: (path) => process.env.YUANBAI_GAME_API_ORIGIN ? path : `/yuanbai-game${path}`,
+        configure: (proxy) => proxy.on("proxyReq", (req) => req.setHeader("Origin", "https://apps-demo.muyang23333.top")),
+      },
       "/api/chat": {
         target: "https://apps-demo.muyang23333.top",
         changeOrigin: true,

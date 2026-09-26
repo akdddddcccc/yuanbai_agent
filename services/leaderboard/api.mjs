@@ -63,6 +63,13 @@ export async function handleApi(request,env){
         run_id=excluded.run_id,nickname=excluded.nickname,deaths=excluded.deaths,duration_ms=excluded.duration_ms,steps=excluded.steps,created_at=excluded.created_at
         WHERE (excluded.deaths,excluded.duration_ms,excluded.steps)<(scores.deaths,scores.duration_ms,scores.steps)`)
         .bind(uid(),owner,run.id,RULE_VERSION,name,run.deaths,run.duration_ms,run.steps,now).run();
+      // 搞笑榜独立记录该玩家已验证通关中坠落最多的一局，不影响正常榜的最好成绩。
+      await db(env).prepare(`INSERT INTO death_scores (id,player_id,run_id,rule_version,nickname,deaths,duration_ms,steps,created_at)
+        VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(player_id,rule_version) DO UPDATE SET
+        run_id=excluded.run_id,nickname=excluded.nickname,deaths=excluded.deaths,duration_ms=excluded.duration_ms,steps=excluded.steps,created_at=excluded.created_at
+        WHERE excluded.deaths>death_scores.deaths OR
+        (excluded.deaths=death_scores.deaths AND (excluded.duration_ms,excluded.steps)<(death_scores.duration_ms,death_scores.steps))`)
+        .bind(uid(),owner,run.id,RULE_VERSION,name,run.deaths,run.duration_ms,run.steps,now).run();
       const best=await db(env).prepare('SELECT * FROM scores WHERE player_id=? AND rule_version=?').bind(owner,RULE_VERSION).first();
       const rank=await db(env).prepare('SELECT COUNT(*)+1 AS rank FROM scores WHERE rule_version=? AND (deaths,duration_ms,steps,created_at,id)<(?,?,?,?,?)').bind(RULE_VERSION,best.deaths,best.duration_ms,best.steps,best.created_at,best.id).first();
       return json({saved:true,personalBest:best.run_id===run.id,rank:rank.rank,nickname:best.nickname,...publicScore(best)});
@@ -70,11 +77,14 @@ export async function handleApi(request,env){
     if(path==='/api/leaderboard'&&request.method==='GET'){
       const raw=Number(url.searchParams.get('page')||1);if(!Number.isInteger(raw)||raw<1||raw>10000)return json({error:'页码无效'},400);
       const season=url.searchParams.get('season')||'current';if(!['current',...Object.keys(HISTORICAL_RULES)].includes(season))return json({error:'榜单版本无效'},400);
+      const board=url.searchParams.get('board')||'normal';if(!['normal','deaths'].includes(board))return json({error:'榜单类型无效'},400);
       const version=season==='current'?RULE_VERSION:HISTORICAL_RULES[season];
-      const total=await db(env).prepare('SELECT COUNT(*) AS n FROM scores WHERE rule_version=?').bind(version).first();
+      const table=board==='deaths'?'death_scores':'scores';
+      const order=board==='deaths'?'deaths DESC,duration_ms ASC,steps ASC,created_at ASC,id ASC':'deaths ASC,duration_ms ASC,steps ASC,created_at ASC,id ASC';
+      const total=await db(env).prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE rule_version=?`).bind(version).first();
       const page=Math.min(raw,Math.max(1,Math.ceil(total.n/20))),offset=(page-1)*20;
-      const rows=await db(env).prepare('SELECT id,player_id,nickname,deaths,duration_ms,steps FROM scores WHERE rule_version=? ORDER BY deaths ASC,duration_ms ASC,steps ASC,created_at ASC,id ASC LIMIT 20 OFFSET ?').bind(version,offset).all();
-      return json({season,page,pageSize:20,total:total.n,items:rows.results.map((r,i)=>({rank:offset+i+1,nickname:r.nickname,isYou:!!owner&&r.player_id===owner,...publicScore(r)}))});
+      const rows=await db(env).prepare(`SELECT id,player_id,nickname,deaths,duration_ms,steps,created_at FROM ${table} WHERE rule_version=? ORDER BY ${order} LIMIT 20 OFFSET ?`).bind(version,offset).all();
+      return json({season,board,page,pageSize:20,total:total.n,items:rows.results.map((r,i)=>({rank:offset+i+1,nickname:r.nickname,completedAt:r.created_at,isYou:!!owner&&r.player_id===owner,...publicScore(r)}))});
     }
     return json({error:'接口不存在'},404);
   }catch(error){console.error('Leaderboard request failed:',error);return json({error:'排行榜暂时无法连接，请稍后重试。'},503);}
