@@ -46,8 +46,9 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // Fit the scene between the HUD and the tool dock, including small phones.
     const top=document.querySelector('.san-block').getBoundingClientRect().bottom-rect.top+18;
-    const noteTop=document.querySelector('.stage-note').getBoundingClientRect().top;
-    const limit=ui['vision-status'].hidden?noteTop:Math.min(noteTop,ui['vision-status'].getBoundingClientRect().top);
+    const note=document.querySelector('.stage-note');
+    const noteTop=(getComputedStyle(note).display==='none'?document.querySelector('.tools-dock'):note).getBoundingClientRect().top;
+    const limit=(ui['vision-status'].hidden||getComputedStyle(ui['vision-status']).display==='none')?noteTop:Math.min(noteTop,ui['vision-status'].getBoundingClientRect().top);
     const bottom=limit-rect.top-14;
     tile=Math.max(35,Math.min(width*.36,(bottom-top)/1.5,242));
     viewY=(top+bottom)/2;
@@ -127,12 +128,12 @@
   function diamond(x, y, size) { return [{x,y:y-size/4},{x:x+size/2,y},{x,y:y+size/4},{x:x-size/2,y}]; }
   function drawTile(r, c, center, size, opacity, finale = 0, time = 0) {
     const index = id(r,c), current = game.r === r && game.c === c;
-    const revealed=game.safeVisited.has(index),cliff=game.isCliff(r,c)&&(!!overview||game.visited.has(index)||game.inspected.has(index))&&!winning;
+    const revealed=game.safeVisited.has(index),cliff=game.isCliff(r,c)&&(!!overview||game.visited.has(index)||inspectedForDisplay(index))&&!winning;
     let points = diamond(center.x, center.y, size * .95);
     if (winning) {
-      const mosaic = Math.max(90,Math.min(width-42,height-(width<700?104:176),680)), cell = mosaic / 9;
-      const x = width / 2 - mosaic / 2 + c * cell + .75;
-      const y = height / 2 - mosaic / 2 + (width<700?27:39) + r * cell + .75;
+      const cell=winMosaic.size/9;
+      const x=winMosaic.left+c*cell+.75;
+      const y=winMosaic.top+r*cell+.75;
       const square = [{x,y},{x:x+cell-1.5,y},{x:x+cell-1.5,y:y+cell-1.5},{x,y:y+cell-1.5}];
       points = points.map((p,i) => ({x:lerp(p.x,square[i].x,finale),y:lerp(p.y,square[i].y,finale)}));
     }
@@ -145,6 +146,7 @@
     if (!current && !winning) polygon(points,cliff?'#0008':'#00000026');
     if(!cliff&&!falling&&!winning)lightSurface(points,center,size);
     polygon(points,null,current&&!winning?'#f0d4b3':cliff?'#c08356':overview&&revealed?'#ad8d6e':'#77797c',current?2:.85);
+    drawPanoramaSeam(points,r,c,time);
     // 侧面只保留整块明暗，去除竖向装饰线和侧面竖边描线。
     if(current && boundary && !winning && !overview){
       const edges=[[a,b],[b,d],[d,e],[e,a]],edge=edges[boundary.direction];
@@ -154,7 +156,7 @@
     }
     if (cliff) {
       ctx.fillStyle='#231209';ctx.beginPath();ctx.arc(center.x,center.y,overview?6:10,0,Math.PI*2);ctx.fill();ctx.fillStyle='#ffc293';ctx.font=(overview?'bold 13px':'bold 18px')+' '+uiFont;ctx.textAlign='center';ctx.fillText('×',center.x,center.y+(overview?4:6));
-    } else if ((game.inspected.has(index) || game.safeSignals.has(index)) && !revealed && !winning) {
+    } else if ((inspectedForDisplay(index) || signalForDisplay(index)) && !revealed && !winning) {
       ctx.fillStyle='#bcbcbc'; ctx.beginPath();ctx.arc(center.x,center.y+2,2.5,0,Math.PI*2);ctx.fill();
     }
     const pickup=game.pickupAt(index);
@@ -255,7 +257,7 @@
     ctx.fillStyle='#f7f0df';ctx.beginPath();ctx.arc(x,headY,headR,0,Math.PI*2);ctx.fill();
     const face=plane(d.dr,d.dc,headR*1.3);
     ctx.fillStyle='#8e7558';ctx.beginPath();ctx.arc(x+face.x,headY+face.y,Math.max(1.3,headR*.19),0,Math.PI*2);ctx.fill();
-    if (!walking && !falling && !winning && game.totalSteps < 2) {ctx.textAlign='center';ctx.fillStyle='#b4b4b4';ctx.font='12px '+uiFont;ctx.fillText('你在这里',x,headY-headR-16);}
+    if (!walking && !falling && !winning && !overview && game.totalSteps < 2) {ctx.textAlign='center';ctx.fillStyle='#b4b4b4';ctx.font='12px '+uiFont;ctx.fillText('你在这里',x,headY-headR-16);}
     ctx.restore();
   }
   function drawEcho(x,y,size,time) {
@@ -350,6 +352,7 @@
   function draw(time) {
     advanceSan(time);
     if(falling)updateFall(time);
+    updateToolFx(time);
     syncMusic(time);
     const dt=Math.min((time-lastTime)||16,60);lastTime=time;
     ctx.fillStyle='#000';ctx.fillRect(0,0,width,height);
@@ -375,9 +378,9 @@
       }
     }
     if(overview){
-      const age=time-overview.start,transition=220;
-      const total=PANORAMA_MS+transition*2;
-      const k=transition===0?1:(age<transition?ease(age/transition):age<=transition+PANORAMA_MS?1:1-ease((age-transition-PANORAMA_MS)/transition));
+      const age=time-overview.start;
+      const total=PANORAMA_IN+PANORAMA_MS+PANORAMA_OUT;
+      const k=age<PANORAMA_IN?smooth(age/PANORAMA_IN):age<=PANORAMA_IN+PANORAMA_MS?1:1-smooth((age-PANORAMA_IN-PANORAMA_MS)/PANORAMA_OUT);
       size=lerp(tile,overviewSize,k);
       const mid=plane(4,4,size);origin={x:lerp(origin.x,width/2-mid.x,k),y:lerp(origin.y,overviewY-mid.y,k)};
       if(age>=total){overview=null;updateUI();say('全景已经消退。','危险标记随全景消失；记住路线，继续走遍安全格。');}
@@ -386,12 +389,19 @@
     if(time-lastClock>200){lastClock=time;ui.timer.textContent=formatTime(elapsed());}
     let finale=0;
     if(winning){
+      const canvasTop=canvas.getBoundingClientRect().top;
+      const labelBottom=ui['end-label'].getBoundingClientRect().bottom-canvasTop;
+      const top=Math.max(24,labelBottom+16),available=Math.max(72,height-top-18);
+      const mosaic=Math.min(width-36,available,680);
+      winMosaic={size:mosaic,left:(width-mosaic)/2,top:top+(available-mosaic)/2};
       finale=ease((time-winning.start-450)/(reduced?100:2100));
       size=Math.min(width/9.9,(height-140)/5.5);const mid=plane(4,4,size);origin={x:width/2-mid.x,y:height*.48-mid.y};
     }
     ctx.save();
     if(!falling&&!winning&&!overview)animateVision(dt);
     let cells=(falling&&!falling.reset) || winning || overview ? Array.from({length:81},(_,i)=>({r:Math.floor(i/9),c:i%9})) : [...viewOpacity].map(([index,opacity])=>({r:Math.floor(index/9),c:index%9,opacity}));
+    if(overview)cells=cells.map(cell=>({...cell,opacity:panoramaOpacity(cell.r,cell.c,time)}));
+    else if(!falling&&!winning)cells=toolRevealedCells(cells,time);
     canvas.dataset.visibleTiles=cells.filter(cell=>(cell.opacity??1)>.35).length;
     pickupFlashes=pickupFlashes.filter(fx=>time-fx.start<fx.duration);
     if(falling||winning||overview)pickupFlashes=[];
@@ -420,6 +430,7 @@
       const inFall=falling&&!falling.reset;
       const p=overview||inFall&&!walking?plane(game.r,game.c,size):player;
       const shared=inFall?fallTransform(falling.index,progress):{x:0,y:0,alpha:1};
+      drawToolFx(time,origin,size,'back');
       avatar(origin.x+p.x+shared.x,origin.y+p.y+shared.y,size,time,shared.alpha);
       if(overview){
         const x=origin.x+p.x,y=origin.y+p.y;
@@ -430,6 +441,7 @@
       }
     }
     if(!falling&&!winning&&!overview)drawPickupFlashes(time,origin,player,size);
+    drawToolFx(time,origin,size);
     if(sweep && !falling && !winning && !overview){
       const t=(time-sweep.start)/1000;
       if(t>4.5)sweep=null;
@@ -437,7 +449,7 @@
         const p=plane(sweep.target.r,sweep.target.c,size),x=origin.x+p.x,y=origin.y+p.y;
         ctx.globalAlpha=clamp(4.5-t);ctx.strokeStyle='#bebebe';ctx.lineWidth=1.2;ctx.setLineDash([4,5]);
         ctx.beginPath();ctx.ellipse(x,y,21+Math.sin(t*4)*3,10,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
-        ctx.fillStyle='#cecece';ctx.font='12px '+uiFont;ctx.textAlign='center';ctx.fillText('安全落点',x,y-23);
+        ctx.fillStyle='#cecece';ctx.font='12px '+uiFont;ctx.textAlign='center';if(toolFx?.type!=='probe')ctx.fillText('安全落点',x,y-23);
       }
     }
     ctx.restore();
@@ -446,7 +458,7 @@
   }
   function formatTime(ms){const seconds=Math.max(0,Math.floor(ms/1000));return pad(Math.floor(seconds/60))+':'+pad(seconds%60);}
   function elapsed(){return endElapsed!==null?endElapsed:started?performance.now()-startTick:0;}
-  function busy(){return starting||falling||walking||winning||overview||document.querySelector('dialog[open]');}
+  function busy(){return starting||falling||walking||winning||overview||toolFx||document.querySelector('dialog[open]');}
   function say(title,detail='',warning=false){ui['message-title'].textContent=title;ui['message-detail'].textContent=detail;ui['message-title'].parentElement.classList.toggle('warning',warning);}
   function toast(text,duration=1200){ui['center-toast'].textContent=text;ui['center-toast'].classList.add('visible');toastUntil=performance.now()+duration;}
   function updateUI(){
@@ -454,7 +466,7 @@
     ui['panorama-legend'].hidden=!overview;document.querySelector('.stage').classList.toggle('is-overview',!!overview);
     ui.count.textContent=pad(game.count);ui.percentage.textContent=Math.floor(game.count/SAFE_COUNT*100)+'%';ui.progress.setAttribute('aria-valuenow',game.count);ui['progress-fill'].style.width=game.count/SAFE_COUNT*100+'%';
     ui.coordinate.textContent=`位置 ${pad(game.r+1)} · ${pad(game.c+1)}`;ui['picked-count'].textContent=game.picked.size;
-    for(const type of Object.keys(TOOL_NAMES)){ui[type+'-stock'].textContent=game.stock[type];ui[type].disabled=game.mode!=='playing'||game.stock[type]===0||!!falling||!!overview||starting;}
+    for(const type of Object.keys(TOOL_NAMES)){ui[type+'-stock'].textContent=game.stock[type];ui[type].disabled=game.mode!=='playing'||game.stock[type]===0||!!falling||!!overview||!!toolFx||starting;}
     ui.direction.textContent=DIRS[game.direction].name+' '+arrow[game.direction];ui['compass-facing'].textContent='面朝 '+DIRS[game.direction].name;
     document.querySelectorAll('[data-face]').forEach(el=>el.classList.toggle('active',Number(el.dataset.face)===game.direction));
     document.querySelectorAll('[data-direction]').forEach(el=>{const facing=Number(el.dataset.direction)===game.direction;el.classList.toggle('is-facing',facing);el.title=el.getAttribute('aria-label')+(facing?' · 当前朝向':'');});
@@ -481,19 +493,220 @@
     const signal=game.environment();
     if(signal&&!wasNear){echoCue={start:performance.now()+180};tone('echo');vibrate([16,45,20]);if(!result.pickup){say('附近似乎不太对劲。','空气与光发生了变化；用道具确认准确的悬崖位置。');toast('附近似乎不太对劲',1400);}}
   }
+  // Tool presentation is separate from the core rules. Stock/action is recorded once.
+  const PANORAMA_IN=450,PANORAMA_OUT=350;
+  let toolFx=null,toolCallBuffer=null,toolCallLoading=false,toolVoice=null;
+  let winMosaic={left:0,top:0,size:100};
+  function inspectedForDisplay(index){return toolFx&&!toolFx.revealed?toolFx.beforeInspected.has(index):game.inspected.has(index);}
+  function signalForDisplay(index){return toolFx&&!toolFx.revealed?toolFx.beforeSignals.has(index):game.safeSignals.has(index);}
+  function prepareToolAudio(){
+    if(!audio||toolCallBuffer||toolCallLoading)return;toolCallLoading=true;
+    fetch('assets/audio/companion-call.mp3').then(r=>{if(!r.ok)throw Error(r.status);return r.arrayBuffer();})
+      .then(b=>audio.decodeAudioData(b)).then(b=>{toolCallBuffer=b;}).catch(()=>{}).finally(()=>{toolCallLoading=false;});
+  }
+  function stopToolVoice(){if(!toolVoice)return;try{toolVoice.stop();}catch{}toolVoice=null;}
+  function playToolVoice(type){
+    if(!soundEnabled||!audio||audio.state!=='running'||document.hidden)return;
+    stopToolVoice();
+    if(type==='companion'&&toolCallBuffer){
+      const source=audio.createBufferSource();source.buffer=toolCallBuffer;source.connect(musicMaster||audio.destination);source.start();toolVoice=source;
+      source.onended=()=>{source.disconnect();if(toolVoice===source)toolVoice=null;};return;
+    }
+    // A short voiced meow, with moving formants rather than the probe's old chime.
+    const o=audio.createOscillator(),g=audio.createGain(),filter=audio.createBiquadFilter(),now=audio.currentTime;
+    o.type='sawtooth';o.frequency.setValueAtTime(type==='probe'?610:420,now);
+    o.frequency.exponentialRampToValueAtTime(type==='probe'?910:610,now+.10);
+    o.frequency.exponentialRampToValueAtTime(type==='probe'?420:380,now+.48);
+    filter.type='bandpass';filter.Q.value=2.6;filter.frequency.setValueAtTime(1650,now);filter.frequency.exponentialRampToValueAtTime(780,now+.5);
+    g.gain.setValueAtTime(0,now);g.gain.linearRampToValueAtTime(.055,now+.035);g.gain.exponentialRampToValueAtTime(.0001,now+.52);
+    o.connect(filter);filter.connect(g);g.connect(musicMaster||audio.destination);o.start();o.stop(now+.55);toolVoice=o;
+    o.onended=()=>{o.disconnect();filter.disconnect();g.disconnect();if(toolVoice===o)toolVoice=null;};
+  }
+  function beginToolFx(type,result,beforeInspected,beforeSignals){
+    const isCompanion=type==='companion';
+    toolFx={type,result,start:performance.now(),r:game.r,c:game.c,beforeInspected,beforeSignals,revealed:false,sounded:false,
+      soundAt:reduced?80:isCompanion?2100:470,revealAt:reduced?180:isCompanion?2450:1630,duration:reduced?1700:isCompanion?4000:2550};
+    sweep=echoCue=null;hover=-1;
+    say(isCompanion?'同伴正在回应你。':'小灯在脚边，准备替你探路。',isCompanion?'光绸携来回应，亮边和勾选标记确认安全格。':'它只确认前方最近的安全落点。');
+    canvas.dataset.toolEffect=type;
+  }
+  function updateToolFx(now){
+    if(!toolFx)return;const fx=toolFx,age=now-fx.start;
+    if(!fx.sounded&&age>=fx.soundAt){fx.sounded=true;if(age-fx.soundAt<450)playToolVoice(fx.type);}
+    if(!fx.revealed&&age>=fx.revealAt){
+      fx.revealed=true;
+      if(fx.type==='companion'){
+        const dangers=fx.result.targets.filter(p=>p.cliff);
+        say(dangers.length?'「'+dangers.map(p=>DIRS[p.direction].name).join('、')+'，脚下是空的。」':'「相邻的方格都安全。」',dangers.length?`已标记${dangers.length}处悬崖；绕行即可。`:'金色亮边与 ✓ 安全标记表示可以落脚。');
+      }else{
+        const target=fx.result.targets[0],distance=Math.abs(target.r-fx.r)+Math.abs(target.c-fx.c);
+        sweep={target,start:now};say(`小灯落在面朝${DIRS[game.direction].name}的第${distance}格。`,distance>1?'只有落点安全，中间仍可能有悬崖，请绕行。':'这个落点安全，亲自走过才收集图案。',distance>1);
+      }
+    }
+    if(age>=fx.duration){toolFx=null;delete canvas.dataset.toolEffect;updateUI();}
+  }
+  function toolRevealedCells(cells,time){
+    if(!toolFx)return cells;const fx=toolFx,age=time-fx.start;
+    // Illuminate confirmed neighbors / the cat's landing only, never the intervening route.
+    if(age<fx.revealAt)return cells;
+    const strength=smooth((age-fx.revealAt)/150)*(1-smooth((age-fx.duration+420)/420));
+    const map=new Map(cells.map(c=>[id(c.r,c.c),c]));
+    for(const target of fx.result.targets){const index=id(target.r,target.c),existing=map.get(index);map.set(index,{...target,opacity:Math.max(existing?.opacity||0,strength)});}
+    return [...map.values()];
+  }
+  function panoramaDistance(r,c){return (Math.abs(r-game.r)+Math.abs(c-game.c))/Math.max(1,Math.max(game.r,8-game.r)+Math.max(game.c,8-game.c));}
+  function panoramaOpacity(r,c,time){
+    if(!overview)return 1;const age=time-overview.start,d=panoramaDistance(r,c);
+    let alpha=age<PANORAMA_IN?smooth((age/PANORAMA_IN*1.2-d)/.2):age<PANORAMA_IN+PANORAMA_MS?1:1-smooth(((age-PANORAMA_IN-PANORAMA_MS)/PANORAMA_OUT*1.2-(1-d))/.2);
+    return Math.max(alpha,viewOpacity.get(id(r,c))||0);
+  }
+  function drawPanoramaSeam(points,r,c,time){
+    if(!overview)return;const age=time-overview.start,d=panoramaDistance(r,c);let intensity=0;
+    if(age<PANORAMA_IN)intensity=Math.exp(-Math.pow((d-age/PANORAMA_IN*1.2)/.15,2));
+    else if(age>PANORAMA_IN+PANORAMA_MS)intensity=Math.exp(-Math.pow((d-(1-(age-PANORAMA_IN-PANORAMA_MS)/PANORAMA_OUT*1.2))/.15,2));
+    else intensity=.1;
+    ctx.save();ctx.globalAlpha*=intensity*.85;ctx.strokeStyle='#ffc180';ctx.lineWidth=reduced?1:1.8;ctx.shadowBlur=reduced?0:8;ctx.shadowColor='#f19b54';polygon(points,null,'#ffc180',ctx.lineWidth);ctx.restore();
+  }
+  function ribbonPoint(age,size,lag=0,strand=0){
+    const at=Math.max(300,age-lag),u=reduced?0:clamp((at-300)/1800),t=smooth(u),angle=-Math.PI+t*Math.PI*2;
+    const settle=reduced?0:smooth((at-2100)/350);
+    const radius=size*(.29+.025*Math.sin(t*Math.PI*2));
+    const wave=reduced?0:Math.sin(at/185+strand*1.8)*size*.018*(lag/550);
+    return {x:lerp(Math.cos(angle)*radius,0,settle)+wave,
+      y:lerp(Math.sin(angle)*size*.13-size*(.16+.06*Math.sin(t*Math.PI*3)**2),-size*.15,settle)+wave*.7+strand*size*.012,
+      depth:Math.sin(angle)*(1-settle)};
+  }
+  function drawCompanion(x,y,size,time,fx,layer){
+    const age=time-fx.start,fade=1-smooth((age-2450)/400),appear=smooth(age/300);
+    const head=ribbonPoint(age,size),matches=d=>(layer==='back')===(d<0);
+    ctx.save();ctx.translate(x,y);
+    // Two tapered silk-light strips follow earlier positions of the leading light.
+    // Each segment keeps its own depth, so it can pass behind and before the player.
+    const length=reduced?0:Math.min(550,Math.max(0,age-300));
+    for(const strand of [0,1]){
+      const points=Array.from({length:39},(_,i)=>ribbonPoint(age,size,length*i/38,strand));
+      const edges=points.map((p,i)=>{const a=points[Math.max(0,i-1)],b=points[Math.min(38,i+1)],dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1,k=i/38;
+        const w=Math.sin(Math.PI*(.08+.92*k))*(1-k)*size*(strand?.024:.039);
+        return {left:{x:p.x-dy/len*w,y:p.y+dx/len*w},right:{x:p.x+dy/len*w,y:p.y-dx/len*w}};
+      });
+      const tail=points[38],wash=ctx.createLinearGradient(points[0].x,points[0].y,tail.x,tail.y);
+      wash.addColorStop(0,strand?'#edc78ca8':'#ffebc6bf');wash.addColorStop(.6,strand?'#edc78c60':'#fae6bf80');wash.addColorStop(1,'#fae6bf00');
+      ctx.globalAlpha=appear*fade;ctx.fillStyle=wash;ctx.strokeStyle=wash;ctx.lineWidth=Math.max(.55,size*.0035);
+      let start=-1;
+      for(let i=0;i<=38;i++){
+        const visible=i<38&&matches((points[i].depth+points[i+1].depth)/2);
+        if(visible&&start<0)start=i;
+        if(!visible&&start>=0){
+          const outline=[];for(let j=start;j<=i;j++)outline.push(edges[j].left);for(let j=i;j>=start;j--)outline.push(edges[j].right);
+          polygon(outline,wash,null);ctx.beginPath();for(let j=start;j<=i;j++)j===start?ctx.moveTo(points[j].x,points[j].y):ctx.lineTo(points[j].x,points[j].y);ctx.stroke();start=-1;
+        }
+      }
+    }
+    if(matches(head.depth)){
+      const breath=reduced?1:1+.10*Math.sin(age/160),r=Math.max(2,size*.020)*breath;
+      ctx.globalAlpha=appear*fade;
+      const glow=ctx.createRadialGradient(head.x,head.y,0,head.x,head.y,r*4.3);
+      glow.addColorStop(0,'#fff8dfdf');glow.addColorStop(.2,'#ffe4abb0');glow.addColorStop(.5,'#edb96633');glow.addColorStop(1,'#edb96600');
+      ctx.fillStyle=glow;ctx.beginPath();ctx.arc(head.x,head.y,r*4.3,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fff5d9';ctx.beginPath();ctx.ellipse(head.x,head.y,r,r*.8,0,0,Math.PI*2);ctx.fill();
+    }
+    if(layer==='front'&&age>=2450&&!reduced){
+      const t=clamp((age-2450)/600);ctx.fillStyle='#f7dcaa';
+      for(let i=0;i<9;i++){const theta=i*2.399,dist=size*(.025+t*.17)*( .5+random(i+490)*.5);
+        ctx.globalAlpha=(1-t)*.65;ctx.beginPath();ctx.arc(Math.cos(theta)*dist,-size*.15+Math.sin(theta)*dist*.55,Math.max(.65,size*.007)*(1-t*.65),0,Math.PI*2);ctx.fill();}
+    }
+    ctx.restore();
+  }
+  function drawCompanionSignals(x,y,size,time,fx){
+    const age=time-fx.start,wave=clamp((age-fx.soundAt)/650);
+    if(age>=fx.soundAt&&wave<1){
+      ctx.save();ctx.globalAlpha=(1-wave)*.55;ctx.strokeStyle='#f1dfb9';ctx.lineWidth=1.6;ctx.shadowColor='#e5c58b';ctx.shadowBlur=6;
+      ctx.beginPath();ctx.ellipse(x,y-size*.06,size*(.08+wave*.76),size*(.05+wave*.38),0,0,Math.PI*2);ctx.stroke();ctx.restore();
+    }
+    if(!fx.revealed)return;
+    const strength=smooth((age-fx.revealAt)/160)*(1-smooth((age-fx.duration+400)/400));
+    for(const target of fx.result.targets){if(target.cliff)continue;
+      const delta=plane(target.r-fx.r,target.c-fx.c,size),cx=x+delta.x,cy=y+delta.y;
+      const pulse=reduced?1:.86+.14*Math.sin((age-fx.revealAt)/190);
+      ctx.save();ctx.globalAlpha=strength;
+      polygon(diamond(cx,cy,size*.94),'#ffd99d24',null);
+      ctx.shadowColor='#edbd78';ctx.shadowBlur=reduced?0:10;
+      polygon(diamond(cx,cy,size*.94),null,'#ffe4ae',Math.max(1.8,size*.011)*pulse);
+      ctx.shadowBlur=0;polygon(diamond(cx,cy,size*.82),null,'#d6b37b99',1);
+      // A checked badge reads as confirmed safety even with sound off / at SAN 100.
+      const font=clamp(size*.061,9,12),bw=font*3.8,bh=font*1.65,by=cy+size*.12;
+      ctx.fillStyle='#24231eed';ctx.fillRect(cx-bw/2,by-bh/2,bw,bh);
+      ctx.strokeStyle='#f9db9e';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(cx-bw/2+4,by);ctx.lineTo(cx-bw/2+7,by+3);ctx.lineTo(cx-bw/2+12,by-3);ctx.stroke();
+      ctx.fillStyle='#fff0c9';ctx.font=`${font}px ${uiFont}`;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText('安全',cx-bw/2+15,by);ctx.restore();
+    }
+  }
+  // The supplied PNG is used unchanged. Rectangles select its original artwork;
+  // ax/ay are absolute foot anchors, shared across pose changes.
+  const catAtlas=new Image();let catAtlasReady=false;
+  catAtlas.onload=()=>{catAtlasReady=true;};
+  catAtlas.src='assets/xiaodeng-atlas.png';
+  const CAT_FRAMES={
+    sit:{x:648,y:92,w:170,h:212,ax:714,ay:289},
+    walk0:{x:574,y:333,w:196,h:166,ax:674,ay:485},
+    walk1:{x:775,y:333,w:162,h:166,ax:850,ay:485},
+    walk2:{x:940,y:345,w:180,h:156,ax:1024,ay:487},
+    walk3:{x:1120,y:335,w:196,h:166,ax:1206,ay:487},
+    walk4:{x:1320,y:340,w:178,h:162,ax:1404,ay:489},
+    front0:{x:523,y:520,w:127,h:204,ax:581,ay:706},
+    front1:{x:680,y:520,w:122,h:204,ax:739,ay:706},
+    front2:{x:824,y:520,w:124,h:204,ax:883,ay:707},
+    crouch:{x:251,y:746,w:250,h:231,ax:385,ay:953},
+    jump:{x:519,y:736,w:265,h:239,ax:658,ay:941}
+  };
+  function drawCat(x,y,size,time,age,alpha,jump=0,flip=false,flight=0,landing=0){
+    if(!catAtlasReady)return;
+    let name;
+    if(reduced)name='sit';
+    else if(age<330)name='walk'+(Math.floor(age/66)%5);
+    else if(age<870)name=['front0','front1','front2','front1'][Math.floor((age-330)/135)%4];
+    else if(age<1070)name='crouch';
+    else if(flight>0&&flight<1)name='jump';
+    else if(landing<150)name='crouch';
+    else name='sit';
+    const f=CAT_FRAMES[name],scale=clamp(size/620,.11,.40);
+    const rub=!reduced&&age>=330&&age<870?Math.sin((age-330)/540*Math.PI)*.065:0;
+    // Uniform scaling keeps the source's head/body ratio and distinctive muzzle.
+    ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y-jump);
+    const mirror=name==='crouch'?!flip:flip;
+    if(mirror&&name!=='sit'&&!name.startsWith('front'))ctx.scale(-1,1);
+    ctx.rotate(rub);ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(catAtlas,f.x,f.y,f.w,f.h,(f.x-f.ax)*scale,(f.y-f.ay)*scale,f.w*scale,f.h*scale);
+    ctx.restore();
+  }
+  function drawProbeCat(x,y,size,time,fx){
+    const age=time-fx.start,alpha=smooth(age/180)*(1-smooth((age-fx.duration+480)/480)),target=fx.result.targets[0];
+    const delta=plane(target.r-fx.r,target.c-fx.c,size),from={x:x-size*.14,y:y+size*.06};
+    const flight=reduced?(age>=fx.revealAt?1:0):clamp((age-1070)/(fx.revealAt-1070));
+    const leap=smooth(flight),rub=!reduced&&age<870?Math.sin(clamp((age-330)/510)*Math.PI)*size*.045:0;
+    const approach=reduced?0:(1-smooth(age/330))*size*.10;
+    const cx=lerp(from.x+rub-approach,x+delta.x,leap),cy=lerp(from.y,y+delta.y,leap),jump=reduced?0:Math.sin(flight*Math.PI)*Math.min(size*.34,75);
+    drawCat(cx,cy,size,time,age,alpha,jump,age<870?false:delta.x<0,flight,Math.max(0,age-fx.revealAt));
+    if(fx.revealed){ctx.save();ctx.globalAlpha=alpha*.7;ctx.strokeStyle='#e7c78f';ctx.lineWidth=1.5;ctx.beginPath();ctx.ellipse(x+delta.x,y+delta.y,size*.22,size*.105,0,0,Math.PI*2);ctx.stroke();ctx.restore();}
+  }
+  function drawToolFx(time,origin,size,layer='front'){
+    if(!toolFx||falling||winning||overview)return;const fx=toolFx,p=plane(fx.r,fx.c,size),x=origin.x+p.x,y=origin.y+p.y;
+    if(fx.type==='companion'){
+      drawCompanion(x,y,size,time,fx,layer);
+      if(layer==='front')drawCompanionSignals(x,y,size,time,fx);
+    }else if(layer==='front')drawProbeCat(x,y,size,time,fx);
+  }
+
   function tool(type){
     if(busy())return;
+    if(type==='probe'&&!catAtlasReady){say('小灯的动作图正在加载。','请稍后再使用，不会扣除道具。');return;}
     advanceSan();
+    const beforeInspected=new Set(game.inspected),beforeSignals=new Set(game.safeSignals);
     const result=game.useTool(type);
     if(result.kind==='empty'){say('还没有这个道具。','寻找方格上的发光图标，踩上去即可拾取。',true);return;}
     if(result.kind==='no-target'){say('这个方向没有安全落点。','本次不消耗道具。按Q / E转向后再探测。',true);toast('前方没有安全落点 · 未消耗道具');tone('edge');return;}
     if(!['tool','win'].includes(result.kind))return;actions.push(type);
-    if(type==='companion'){
-      const dangers=result.targets.filter(p=>p.cliff);
-      say(dangers.length?'「'+dangers.map(p=>DIRS[p.direction].name).join('、')+'，脚下是空的。」':'「相邻的方格都安全。」',dangers.length?`已标记${dangers.length}处悬崖；绕行即可，不用踩上去。`:'安全格已用小圆点标记。');tone('companion');
-    }else if(type==='probe'){
-      const target=result.targets[0],distance=Math.abs(target.r-game.r)+Math.abs(target.c-game.c);sweep={target,start:performance.now()};
-      say(`面朝${DIRS[game.direction].name}，第${distance}格有安全落点。`,distance>1?'中间仍有悬崖，请绕行；探测不会传送。':'只确认这个落点，踩上去才收集图案。',distance>1);tone('probe');
+    if(type==='companion'||type==='probe'){
+      beginToolFx(type,result,beforeInspected,beforeSignals);
     }else{
       overview={start:performance.now()};sweep=null;toastUntil=0;ui['center-toast'].classList.remove('visible');
       say('瞬间全景 · 看清这1.5秒。','图片是已走过的路，混凝土是未走过的路；× 标记全部悬崖。');tone('panorama');
@@ -644,7 +857,7 @@ async function api(path,data){
 
 
   function restart(){
-    game.reset(createSeed());pickupFlashes=[];frameLights=[];resetViewOpacity();falling=walking=winning=sweep=echoCue=overview=boundary=null;camera=plane(game.r,game.c);
+    game.reset(createSeed());pickupFlashes=[];frameLights=[];resetViewOpacity();falling=walking=winning=sweep=echoCue=overview=boundary=toolFx=null;stopToolVoice();delete canvas.dataset.toolEffect;camera=plane(game.r,game.c);
     starting=started=false;startTick=lastSanTick=lastSanUI=lastStrainTone=0;wasRestricted=false;endElapsed=null;document.body.classList.remove('won','is-falling');
     generation++;finishersRequest++;ui['finishers-refresh'].disabled=false;ui['finishers-body'].replaceChildren();ui['finishers-table'].hidden=true;practice=verifying=submitting=false;runId=null;actions=[];verified=null;
     ui['play-controls'].hidden=false;ui['win-controls'].hidden=true;ui['end-label'].hidden=true;ui['opening-hint'].hidden=false;ui['opening-hint'].style.opacity=1;
@@ -662,6 +875,7 @@ async function api(path,data){
   function ensureMusic(){
     if(!audio){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;audio=new AC();}
     if(!musicMaster){musicMaster=audio.createGain();musicMaster.gain.value=0;musicMaster.connect(audio.destination);}
+    prepareToolAudio();
     for(const name of ['fall','explore','pressure','win']){
       if(musicLoads[name])continue;
       musicLoads[name]=true;
@@ -716,7 +930,7 @@ async function api(path,data){
       const duration=musicBuffers[name].duration;
       const elapsed=Math.max(0,audio.currentTime-v.audioStarted),position=name==='win'?elapsed:elapsed%duration;
       const edge=smooth(position/.035)*(1-smooth((position-duration+(name==='win'?1.2:.035))/(name==='win'?1.2:.035)));
-      v.gain.gain.setTargetAtTime(musicLevels[name]*fallDuck*edge*smooth((now-v.born)/700),audio.currentTime,.015);
+      v.gain.gain.setTargetAtTime(musicLevels[name]*fallDuck*(toolFx?.72:1)*edge*smooth((now-v.born)/700),audio.currentTime,.015);
       if(musicLevels[name]<.0001&&name!==mode)stopMusicVoice(name);
     }
     musicLastFrame=now;
@@ -744,6 +958,9 @@ async function api(path,data){
   const arrowKeys={arrowup:'w',arrowright:'d',arrowdown:'s',arrowleft:'a'};
   function performControl(key){if(key in keyDirections)return step(keyDirections[key]);if(key==='q')return turn(-1);if(key==='e')return turn(1);}
   // Uniformly fit the supplied keyboard composition; preserve its exact perspective.
+  function updateTouchLayout(){document.body.classList.toggle('touch-layout',matchMedia('(pointer:coarse)').matches&&Math.min(innerWidth,innerHeight)<=900);}
+  updateTouchLayout();window.addEventListener('resize',updateTouchLayout);
+  matchMedia('(pointer:coarse)').addEventListener('change',updateTouchLayout);
   const keyboardCluster=document.querySelector('.movement-cluster'),keyboardPlane=document.querySelector('.key-plane');
   function fitKeyboard(){
     if(!keyboardCluster||!keyboardPlane)return;
@@ -768,7 +985,7 @@ async function api(path,data){
     button.addEventListener('click',()=>performControl(key));
   });
   for(const type of Object.keys(TOOL_NAMES))ui[type].addEventListener('click',()=>tool(type));
-  ui['new-game'].addEventListener('click',()=>{if(starting||falling||overview)return;ui['restart-dialog'].showModal();});ui['cancel-restart'].addEventListener('click',()=>ui['restart-dialog'].close());ui['confirm-restart'].addEventListener('click',()=>{ui['restart-dialog'].close();restart();});ui.restart.addEventListener('click',restart);
+  ui['new-game'].addEventListener('click',()=>{if(starting||falling||overview||toolFx)return;ui['restart-dialog'].showModal();});ui['cancel-restart'].addEventListener('click',()=>ui['restart-dialog'].close());ui['confirm-restart'].addEventListener('click',()=>{ui['restart-dialog'].close();restart();});ui.restart.addEventListener('click',restart);
   ui.help.addEventListener('click',()=>openGuide(false));ui['close-help'].addEventListener('click',()=>ui['help-dialog'].close());ui.begin.addEventListener('click',()=>ui['help-dialog'].close());ui['reduce-motion'].addEventListener('change',e=>{reduced=e.target.checked;});ui.haptics.addEventListener('change',e=>{hapticsEnabled=e.target.checked;});
   function unlockAudio(){
     if(!soundEnabled)return;
@@ -780,11 +997,11 @@ async function api(path,data){
   }
   document.addEventListener('pointerdown',unlockAudio,{capture:true,passive:true});
   document.addEventListener('keydown',unlockAudio,{capture:true});
-  ui.sound.addEventListener('click',()=>{soundEnabled=!soundEnabled;ui.sound.setAttribute('aria-checked',String(soundEnabled));if(soundEnabled){unlockAudio();tone('probe');}else{syncMusic(performance.now());}});
+  ui.sound.addEventListener('click',()=>{soundEnabled=!soundEnabled;ui.sound.setAttribute('aria-checked',String(soundEnabled));if(soundEnabled){unlockAudio();tone('probe');}else{stopToolVoice();syncMusic(performance.now());}});
   document.addEventListener('keydown',event=>{if(event.altKey||event.ctrlKey||event.metaKey||document.querySelector('dialog[open]')||['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName))return;const raw=event.key.toLowerCase(),key=arrowKeys[raw]||raw;if(key in keyDirections||key==='q'||key==='e'){event.preventDefault();markKey(key,true);if(!event.repeat)performControl(key);}else if(['1','2','3'].includes(key)){event.preventDefault();if(event.repeat)return;tool({1:'companion',2:'probe',3:'panorama'}[key]);}});
   document.addEventListener('keyup',event=>{const key=arrowKeys[event.key.toLowerCase()]||event.key.toLowerCase();if(key in keyDirections||key==='q'||key==='e')markKey(key,false);});
   window.addEventListener('blur',releaseControls);
-  document.addEventListener('visibilitychange',()=>{lastSanTick=performance.now();if(document.hidden){releaseControls();audio?.suspend().catch(()=>{});}else if(soundEnabled){unlockAudio();}});
+  document.addEventListener('visibilitychange',()=>{lastSanTick=performance.now();if(document.hidden){stopToolVoice();releaseControls();audio?.suspend().catch(()=>{});}else if(soundEnabled){unlockAudio();}});
   let guidePage=0;
   function showGuidePage(index){
     guidePage=Math.max(0,Math.min(2,index));
@@ -808,6 +1025,6 @@ async function api(path,data){
 
   art.onload=()=>{artReady=true;textures.clear();warmFloorTextures();};art.onerror=()=>say('建筑图像加载失败。','请刷新页面后重试。',true);art.src='yuanbai-art.webp';
   resize();camera=plane(game.r,game.c);resetViewOpacity();updateUI();requestAnimationFrame(draw);applyLockedName();firstRunGuide();ensureMusic();unlockAudio();
-  if(document.modelContext?.registerTool){const lifecycle=new AbortController();addEventListener('pagehide',()=>lifecycle.abort(),{once:true});try{Promise.resolve(document.modelContext.registerTool({name:'explore_yuanbai',title:'探索元白楼',description:'通过与界面相同的操作探索元白楼，不泄露未知格。道具需要先拾取。',inputSchema:{type:'object',properties:{action:{type:'string',enum:['read','move_ne','move_se','move_sw','move_nw','turn_left','turn_right','companion','probe','panorama']}},required:['action'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},async execute(input){const choices=['read','move_ne','move_se','move_sw','move_nw','turn_left','turn_right','companion','probe','panorama'];if(!input||Object.keys(input).some(k=>k!=='action')||!choices.includes(input.action))throw Error('无效操作');if(input.action!=='read'){if(busy())throw Error('请等待动画或关闭弹窗');const d=choices.slice(1,5).indexOf(input.action);if(d>=0)await step(d);else if(input.action.startsWith('turn_'))await turn(input.action==='turn_left'?-1:1);else tool(input.action);await new Promise(resolve=>{function done(){if(!starting&&!walking&&!falling&&!overview&&(!winning||performance.now()-winning.start>2700))resolve();else requestAnimationFrame(done);}done();});}return {position:{row:game.r+1,column:game.c+1},collected:game.count,san:Number(game.san.toFixed(1)),visibleTiles:game.visibleCells().length,deaths:game.falls,stock:{...game.stock},facing:DIRS[game.direction].name,mode:game.mode,message:ui['message-title'].textContent};}},{signal:lifecycle.signal})).catch(()=>{});}catch{}}
+  if(document.modelContext?.registerTool){const lifecycle=new AbortController();addEventListener('pagehide',()=>lifecycle.abort(),{once:true});try{Promise.resolve(document.modelContext.registerTool({name:'explore_yuanbai',title:'探索元白楼',description:'通过与界面相同的操作探索元白楼，不泄露未知格。道具需要先拾取。',inputSchema:{type:'object',properties:{action:{type:'string',enum:['read','move_ne','move_se','move_sw','move_nw','turn_left','turn_right','companion','probe','panorama']}},required:['action'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},async execute(input){const choices=['read','move_ne','move_se','move_sw','move_nw','turn_left','turn_right','companion','probe','panorama'];if(!input||Object.keys(input).some(k=>k!=='action')||!choices.includes(input.action))throw Error('无效操作');if(input.action!=='read'){if(busy())throw Error('请等待动画或关闭弹窗');const d=choices.slice(1,5).indexOf(input.action);if(d>=0)await step(d);else if(input.action.startsWith('turn_'))await turn(input.action==='turn_left'?-1:1);else tool(input.action);await new Promise(resolve=>{function done(){if(!starting&&!walking&&!falling&&!overview&&!toolFx&&(!winning||performance.now()-winning.start>2700))resolve();else requestAnimationFrame(done);}done();});}return {position:{row:game.r+1,column:game.c+1},collected:game.count,san:Number(game.san.toFixed(1)),visibleTiles:game.visibleCells().length,deaths:game.falls,stock:{...game.stock},facing:DIRS[game.direction].name,mode:game.mode,message:ui['message-title'].textContent};}},{signal:lifecycle.signal})).catch(()=>{});}catch{}}
 })();
 
