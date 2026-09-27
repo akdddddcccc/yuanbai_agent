@@ -35,6 +35,22 @@ async function setup(t){
   return {base,DB,request,complete};
 }
 
+test('随机地图种子由服务端保存，客户端不能用另一张地图提交成绩',async t=>{
+  const s=await setup(t);
+  const run=await s.request('/runs',{layoutVersion:'seeded-v1'}),token=run.data.playerToken;
+  assert.equal(run.status,201);assert.equal(run.data.layoutVersion,'seeded-v1');
+  const row=s.DB.sqlite.prepare('SELECT layout_seed FROM runs WHERE id=?').get(run.data.runId);
+  assert.equal(row.layout_seed,run.data.layoutSeed);
+  s.DB.sqlite.prepare('UPDATE runs SET started_at=? WHERE id=?').run(Date.now()-100000,run.data.runId);
+  const wrong=await s.request('/finish',{runId:run.data.runId,layoutSeed:'fake',actions:solve(false,'fake').actions},token);
+  assert.equal(wrong.status,400);
+  const correct=await s.request('/finish',{runId:run.data.runId,actions:solve(false,run.data.layoutSeed).actions},token);
+  assert.equal(correct.status,200);
+  assert.equal((await s.request('/scores',{runId:run.data.runId,nickname:'随机探索者'},token)).status,200);
+  const next=await s.request('/runs',{layoutVersion:'seeded-v1'},token);
+  assert.notEqual(next.data.layoutSeed,run.data.layoutSeed);
+});
+
 test('正常榜先比坠落再比用时，同一玩家保留最好成绩',async t=>{
   const s=await setup(t);
   const slow=await s.complete({name:'慢而稳',duration:100000});

@@ -1,6 +1,6 @@
 import '../../public/explore/core.js';
 const core=globalThis.YuanbaiCore;
-const {replay,RULE_VERSION,PANORAMA_MS}=core;
+const {replay,RULE_VERSION,LAYOUT_VERSION,PANORAMA_MS}=core;
 const uid=()=>crypto.randomUUID();
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
 function db(env){if(!env.DB)throw new Error('排行榜数据库尚未连接');return env.DB;}
@@ -25,12 +25,15 @@ export async function handleApi(request,env){
   try{
     const owner=await player(request);
     if(path==='/api/runs'&&request.method==='POST'){
+      const data=await body(request);
+      if(data.layoutVersion!==undefined&&data.layoutVersion!==LAYOUT_VERSION)return json({error:'地图版本已更新，请刷新页面。'},400);
+      const layoutSeed=data.layoutVersion===LAYOUT_VERSION?uid():null;
       const token=owner?null:[...crypto.getRandomValues(new Uint8Array(32))].map(byte=>byte.toString(16).padStart(2,'0')).join('');
       const pid=owner||await hash(token);
       const recent=await db(env).prepare('SELECT COUNT(*) AS n FROM runs WHERE player_id=? AND started_at>?').bind(pid,now-60000).first();
       if(recent.n>=20)return json({error:'新局创建过于频繁，请稍后再试。'},429);
-      const runId=uid();await db(env).prepare('INSERT INTO runs (id,player_id,rule_version,started_at) VALUES (?,?,?,?)').bind(runId,pid,RULE_VERSION,now).run();
-      return json({runId,ruleVersion:RULE_VERSION,startedAt:now,...(token?{playerToken:token}:{})},201);
+      const runId=uid();await db(env).prepare('INSERT INTO runs (id,player_id,rule_version,started_at,layout_seed) VALUES (?,?,?,?,?)').bind(runId,pid,RULE_VERSION,now,layoutSeed).run();
+      return json({runId,ruleVersion:RULE_VERSION,startedAt:now,...(layoutSeed?{layoutSeed,layoutVersion:LAYOUT_VERSION}:{}),...(token?{playerToken:token}:{})},201);
     }
     if(path==='/api/finish'&&request.method==='POST'){
       if(!owner)return json({error:'本局身份已失效，请重新开始。'},401);
@@ -40,7 +43,7 @@ export async function handleApi(request,env){
       if(!run)return json({error:'找不到这次探索，请重新开始。'},404);
       const signature=await hash(JSON.stringify(data.actions));
       if(run.finished_at!==null){if(run.replay_hash!==signature)return json({error:'本局已经完成，无法替换动作。'},409);return json({verified:true,...publicScore(run)});}
-      let result;try{result=replay(data.actions);}catch(error){return json({error:error.message},400);}
+      let result;try{result=replay(data.actions,run.layout_seed??null);}catch(error){return json({error:error.message},400);}
       const duration=now-run.started_at;
       const minimum=result.totalSteps*55+result.falls*900+result.usedPanoramas*PANORAMA_MS;
       if(duration<minimum||duration>86400000)return json({error:'本局计时异常，不能加入排行榜。'},400);

@@ -1,7 +1,7 @@
 /* 元白 · 失重之间 | Canvas绘制、输入、声音与动画。 */
 (() => {
   'use strict';
-  const { Game, SIZE, SAFE_COUNT, DIRS, CLIFFS, PICKUPS, TOOL_NAMES, RULE_VERSION, PANORAMA_MS, SAN_PER_SECOND, SAN_PICKUP, SAN_FALL, id } = window.YuanbaiCore;
+  const { Game, SIZE, SAFE_COUNT, DIRS, TOOL_NAMES, RULE_VERSION, LAYOUT_VERSION, createSeed, PANORAMA_MS, SAN_PER_SECOND, SAN_PICKUP, SAN_FALL, id } = window.YuanbaiCore;
 // 公共 API 地址不是密钥。身份令牌由服务端生成，保存在本机浏览器中。
   const leaderboardBase='/api/yuanbai/game';
   const tokenStorageKey='yuanbai-player-v1';
@@ -13,7 +13,7 @@
   try{lockedName=localStorage.getItem(nameStorageKey)||'';}catch{}
   let runId=null,practice=false,actions=[],verified=null,verifying=false,submitting=false,generation=0;
   let boardPage=1,boardPages=1,boardRequest=0,boardKind='normal',finishersRequest=0;
-  const game = new Game(), $ = s => document.querySelector(s);
+  const game = new Game(createSeed()), $ = s => document.querySelector(s);
   const uiFont='"Yuanbai Sans","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif';
   const canvas = $('#world'), ctx = canvas.getContext('2d', { alpha: false });
   const ui = Object.fromEntries([...document.querySelectorAll('[id]')].map(el=>[el.id,el]));
@@ -127,7 +127,7 @@
   function diamond(x, y, size) { return [{x,y:y-size/4},{x:x+size/2,y},{x,y:y+size/4},{x:x-size/2,y}]; }
   function drawTile(r, c, center, size, opacity, finale = 0, time = 0) {
     const index = id(r,c), current = game.r === r && game.c === c;
-    const revealed=game.safeVisited.has(index),cliff=CLIFFS.includes(index)&&(!!overview||game.visited.has(index)||game.inspected.has(index))&&!winning;
+    const revealed=game.safeVisited.has(index),cliff=game.isCliff(r,c)&&(!!overview||game.visited.has(index)||game.inspected.has(index))&&!winning;
     let points = diamond(center.x, center.y, size * .95);
     if (winning) {
       const mosaic = Math.max(90,Math.min(width-42,height-(width<700?104:176),680)), cell = mosaic / 9;
@@ -463,7 +463,7 @@
   }
   async function beginRun(){
     if(started)return true;starting=true;const current=generation;updateUI();
-    try{const result=await api('/api/runs',{});if(current!==generation)return false;if(result.ruleVersion!==RULE_VERSION)throw Error('规则版本已更新，请刷新页面');runId=result.runId;}
+    try{const result=await api('/api/runs',{layoutVersion:LAYOUT_VERSION});if(current!==generation)return false;if(result.ruleVersion!==RULE_VERSION||result.layoutVersion!==LAYOUT_VERSION||typeof result.layoutSeed!=='string')throw Error('规则版本已更新，请刷新页面');runId=result.runId;game.reset(result.layoutSeed);resetViewOpacity();}
     catch(error){if(current!==generation)return false;practice=true;toast('当前为练习模式，成绩不入榜',2300);}
     starting=false;started=true;startTick=lastSanTick=performance.now();updateUI();return true;
   }
@@ -644,7 +644,7 @@ async function api(path,data){
 
 
   function restart(){
-    game.reset();pickupFlashes=[];frameLights=[];resetViewOpacity();falling=walking=winning=sweep=echoCue=overview=boundary=null;camera=plane(game.r,game.c);
+    game.reset(createSeed());pickupFlashes=[];frameLights=[];resetViewOpacity();falling=walking=winning=sweep=echoCue=overview=boundary=null;camera=plane(game.r,game.c);
     starting=started=false;startTick=lastSanTick=lastSanUI=lastStrainTone=0;wasRestricted=false;endElapsed=null;document.body.classList.remove('won','is-falling');
     generation++;finishersRequest++;ui['finishers-refresh'].disabled=false;ui['finishers-body'].replaceChildren();ui['finishers-table'].hidden=true;practice=verifying=submitting=false;runId=null;actions=[];verified=null;
     ui['play-controls'].hidden=false;ui['win-controls'].hidden=true;ui['end-label'].hidden=true;ui['opening-hint'].hidden=false;ui['opening-hint'].style.opacity=1;

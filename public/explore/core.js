@@ -17,9 +17,41 @@
   const TOOL_NAMES={companion:'同伴的声音',probe:'向前探测',panorama:'瞬间全景'};
   const id=(r,c)=>r*SIZE+c;
   const inside=(r,c)=>r>=0&&r<SIZE&&c>=0&&c<SIZE;
+  const LAYOUT_VERSION='seeded-v1';
+  function createSeed(){return globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`;}
+  function generateLayout(seed){
+    // Integer arithmetic gives browsers and server replay exactly the same map.
+    let state=2166136261;
+    for(const char of String(seed))state=Math.imul(state^char.charCodeAt(0),16777619)>>>0;
+    const random=()=>{state=(state+0x6D2B79F5)>>>0;let n=state;n=Math.imul(n^(n>>>15),n|1);n^=n+Math.imul(n^(n>>>7),n|61);return ((n^(n>>>14))>>>0)/4294967296;};
+    const shuffle=values=>{for(let i=values.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[values[i],values[j]]=[values[j],values[i]];}return values;};
+    const start=id(START.r,START.c),protectedCells=new Set([start,id(7,0),id(8,1)]),cliffs=new Set();
+    const connected=()=>{
+      const seen=new Set([start]),queue=[start];
+      for(let head=0;head<queue.length;head++){
+        const r=Math.floor(queue[head]/SIZE),c=queue[head]%SIZE;
+        for(const {dr,dc} of DIRS){const rr=r+dr,cc=c+dc,index=id(rr,cc);if(inside(rr,cc)&&!cliffs.has(index)&&!seen.has(index)){seen.add(index);queue.push(index);}}
+      }
+      return seen.size===SIZE*SIZE-cliffs.size;
+    };
+    for(const index of shuffle(Array.from({length:SIZE*SIZE},(_,i)=>i).filter(i=>!protectedCells.has(i)))){
+      cliffs.add(index);if(!connected())cliffs.delete(index);
+      if(cliffs.size===CLIFFS.length)break;
+    }
+    if(cliffs.size!==CLIFFS.length)throw Error('无法生成连通地图');
+    const safe=shuffle(Array.from({length:SIZE*SIZE},(_,i)=>i).filter(i=>i!==start&&!cliffs.has(i)));
+    // One early companion helps a new player learn; every other pickup can move.
+    const first=random()<.5?id(7,0):id(8,1);
+    const types=shuffle(PICKUPS.map(p=>p.type));types.splice(types.indexOf('companion'),1);
+    const locations=safe.filter(i=>i!==first);
+    return {cliffs:[...cliffs].sort((a,b)=>a-b),pickups:[{index:first,type:'companion'},...types.map((type,i)=>({index:locations[i],type}))]};
+  }
   class Game{
-    constructor(){this.reset();}
-    reset(){
+    constructor(seed=null){this.reset(seed);}
+    reset(seed=null){
+      this.seed=seed;
+      const layout=seed===null?{cliffs:CLIFFS,pickups:PICKUPS}:generateLayout(seed);
+      this.cliffs=[...layout.cliffs];this.pickups=layout.pickups.map(p=>({...p}));
       this.r=START.r;this.c=START.c;this.direction=0;this.mode='playing';
       this.stock={companion:0,probe:0,panorama:0};this.picked=new Set();
       this.known=new Set([id(this.r,this.c)]);this.visited=new Set(this.known);this.safeVisited=new Set(this.visited);
@@ -48,14 +80,14 @@
       const facing=DIRS[this.direction],r=this.r+facing.dr,c=this.c+facing.dc;
       return inside(r,c)?[here,{r,c}]:[here];
     }
-    isCliff(r,c){return CLIFFS.includes(id(r,c));}
+    isCliff(r,c){return this.cliffs.includes(id(r,c));}
     neighbors(r=this.r,c=this.c){return DIRS.map((d,direction)=>({r:r+d.dr,c:c+d.dc,direction})).filter(p=>inside(p.r,p.c));}
     environment(){
       if(this.mode!=='playing')return null;
       // 只反馈异常存在，不透露方位、数量或距离。
       return this.neighbors().some(p=>this.isCliff(p.r,p.c))?{near:true}:null;
     }
-    pickupAt(index){return this.picked.has(index)?null:PICKUPS.find(p=>p.index===index)||null;}
+    pickupAt(index){return this.picked.has(index)?null:this.pickups.find(p=>p.index===index)||null;}
     turn(delta){if(this.mode!=='playing'||![1,-1].includes(delta))return false;this.direction=(this.direction+delta+4)%4;return true;}
     move(direction){
       if(this.mode!=='playing')return {kind:'busy'};
@@ -84,8 +116,8 @@
         if(!targets.length)return {kind:'no-target'};
       }else{
         // 全景只短暂展示地图；既不增加安全格进度，也不永久显示全部危险。
-        for(const i of CLIFFS)this.known.add(i);this.usedPanoramas++;
-        targets=Array.from({length:81},(_,i)=>({r:Math.floor(i/9),c:i%9,cliff:CLIFFS.includes(i)}));
+        for(const i of this.cliffs)this.known.add(i);this.usedPanoramas++;
+        targets=Array.from({length:81},(_,i)=>({r:Math.floor(i/9),c:i%9,cliff:this.cliffs.includes(i)}));
       }
       this.stock[type]--;
       return {kind:'tool',type,targets};
@@ -95,9 +127,9 @@
       this.r=START.r;this.c=START.c;this.direction=0;this.outings++;this.mode='playing';return true;
     }
   }
-  function replay(actions){
+  function replay(actions,seed=null){
     if(!Array.isArray(actions)||actions.length<1||actions.length>12000)throw new Error('动作记录无效');
-    const g=new Game();
+    const g=new Game(seed);
     for(const a of actions){
       if(typeof a!=='string')throw new Error('动作格式无效');
       if(/^m[0-3]$/.test(a)){const result=g.move(Number(a[1]));if(['busy','invalid'].includes(result.kind))throw new Error('当前状态无法移动');}
@@ -108,7 +140,7 @@
     }
     if(g.mode!=='won'||g.count!==SAFE_COUNT)throw new Error('尚未走遍全部安全格');return g;
   }
-  const api={Game,SIZE,SAFE_COUNT,START,CLIFFS,DIRS,PICKUPS,TOOL_NAMES,RULE_VERSION,PANORAMA_MS,SAN_PER_SECOND,SAN_PICKUP,SAN_FALL,id,inside,replay};
+  const api={Game,SIZE,SAFE_COUNT,START,CLIFFS,DIRS,PICKUPS,TOOL_NAMES,RULE_VERSION,LAYOUT_VERSION,generateLayout,createSeed,PANORAMA_MS,SAN_PER_SECOND,SAN_PICKUP,SAN_FALL,id,inside,replay};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.YuanbaiCore=api;
 })(typeof window!=='undefined'?window:globalThis);
 
