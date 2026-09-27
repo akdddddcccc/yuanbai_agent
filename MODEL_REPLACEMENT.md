@@ -1,17 +1,25 @@
-# Replacing the procedural Yuanbai model
+# 精细模型接入（2026-09-26）
 
-The visual interaction is intentionally separated from the current procedural geometry. A future GLB can replace the generated masses while keeping the same four scene roles:
+## 检查结果
 
-- `blocks`: the movable red-brick volumes. Each block receives idle drift and a controlled speech impulse.
-- `stairRoot`: stairs and connecting bridges. This root stays visually stable and only receives a very small breathing motion.
-- `windowMaterials`: emissive materials inside windows, gaps, and stair undersides. Their intensity follows voice energy and retains a short afterglow during pauses.
-- `particles`: the thinking-state point cloud. It dissolves and rebuilds the model while the API response is pending.
+上传文件为 GLB 2.0，45,991,528 字节（43.86 MiB），5,052 个节点、29,062 个绘制片段、595,502 个三角面、12 个材质，无图片贴图、骨骼或动画。原始节点是平铺结构，名称包含 A01–A15，可据此还原 15 个刚体控制组。用户已选择保留现有材质颜色。
 
-The current editable export is `public/models/yuanbai-brutalist-v1.glb`. It uses these names:
+## 优化与绑定
 
-- `YB_mass_*`: the 12 animated masses, with `userData.role` set to `animated_mass`.
-- `YB_stable_stairs_and_bridges`: the five stable connections, with `userData.role` set to `stable_connector`.
-- `warm_recessed_window`: emissive window geometry.
-- `YB_circular_courtyard_3_brick_2_grass`: the courtyard landscape.
+`public/models/yuanbai-precise-v2.glb` 为独立派生文件，18,647,460 字节、171 个绘制片段。仅按用户要求移除独立的 `YB_V004_CLOSED_THICK_GROUND` 大片地板（103,680 个三角面），保留其余 491,822 个三角面、屋顶绿化和庭院。其余几何按材质合并，无减面。原始文件保留在本地备份的 `artifacts/yuanbai-original.glb`，不覆盖原稿。
 
-When replacing the GLB in Blender or Rhino, preserve these node prefixes. Load the file in `YuanbaiScene.js`, collect the named nodes into the same arrays, and keep the animation loop unchanged. Run `npm run model:glb` to regenerate the current reference export from `src/yuanbaiModelSpec.js`.
+`src/preciseModel.js` 读取新模型，将 A01–A15 重建为 `YB_mass_*`，每组按包围盒中心设置旋转中心，统一缩放和居中。20 组楼梯和连廊根据中心到楼栋包围盒的距离选择最近楼栋，通过父子关系同时跟随平移和旋转，绑定时保持原位。稳定组保留 30 个庭院等构件。此方式减少楼梯不动造成的错位，但不是完整物理碰撞求解，独立楼栋之间不保证所有极端动作都没有交叠。
+
+玻璃材质保留底色，并附加随声音变化的暖色发光。中央 A08 白楼增加随语音增强的向上光束及轻微游动的内部光源，实体消失时同步隐藏。现有语音输入、AI、TTS 和音量分析链路保持不变。思考粒子从新模型限量采样表面；边缘使用材质分块的低细节包围盒代理，避免对约 60 万面实时抽边；不是每条建筑边缘的精确复刻。
+
+仅 `/dialogue/` 默认使用新模型；工作台和探索游戏保持原资源。GLB 加载失败会保留旧的程序化建筑。镜头按模型包围盒、容器宽高和视场角同时适配横纵方向；电脑端保持右侧居中，手机端采用文字、模型、语音按钮三行布局，模型居中放在按钮上方。雾效随镜头距离补偿，窄屏保持可见。线上采用小于 700KB 的版本化分片，并校验长度。
+
+## 验证与回退
+
+双击 `Start-Model.cmd` 打开模型状态检查页，用按钮模拟语音及思考状态，不调用麦克风或收费 API。检查页已包含在构建产物中，不需要开发服务器。直接打开 HTML 会显示正确的启动提示。
+
+访问 `/dialogue/?model=legacy` 可立即使用旧模型。永久回退可回滚本次提交并重新发布；旧的程序化生成器和旧模型文件均保留。
+
+本地备份解压后双击 `Start-Local.cmd`；自带 Windows Node 运行时和构建产物，不需要安装依赖。模型与界面本地运行，真实语音对话仍需联网访问原云端服务。关闭启动窗口即可停止本地服务，监听地址仅为 127.0.0.1。源码开发需要 `npm ci`；重新优化原始文件需要 Python 和 numpy。
+
+本次检查不等同于真实麦克风到云端 TTS 的端到端验证，也不等同于真机手机性能保证。
