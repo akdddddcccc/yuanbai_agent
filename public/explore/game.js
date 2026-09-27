@@ -6,7 +6,7 @@
   const leaderboardBase='/api/yuanbai/game';
   const tokenStorageKey='yuanbai-player-v1';
   const nameStorageKey='yuanbai-player-name-v1';
-  const guideStorageKey='yuanbai-guide-seen-v1';
+  const clearedStorageKey='yuanbai-cleared-v1';
   let playerToken=null;
   try{playerToken=localStorage.getItem(tokenStorageKey);}catch{}
   let lockedName='';
@@ -542,6 +542,7 @@
   }
   function startWin(){
     winning={start:performance.now()};walking=null;sweep=null;endElapsed=elapsed();document.body.classList.add('won');
+    try{localStorage.setItem(clearedStorageKey,'1');}catch{}
     ui['play-controls'].hidden=true;ui['win-controls'].hidden=false;ui['end-label'].hidden=false;ui['opening-hint'].hidden=true;
     ui['progress-note'].innerHTML='走过66个安全格，81块建筑记忆重新拼合。<br>这是你走出来的元白。';ui['stage-note'].lastElementChild.textContent='元白楼 · 艺术化重构';
     updateUI();tone('win');ui['verification-status'].textContent=`探索完成 · 坠落 ${game.falls} 次 · 用时 ${formatTime(endElapsed)}。`;verifyFinish();loadFinishers();
@@ -795,7 +796,7 @@ async function api(path,data){
     ui['help-dialog'].scrollTop=0;
   }
   function openGuide(first){showGuidePage(0);ui['close-help'].textContent=first?'跳过介绍 ×':'关闭 ×';ui.begin.textContent=started?'回到探索 ↗':'开始探索 ↗';ui['help-dialog'].showModal();}
-  function firstRunGuide(){let seen=false;try{seen=!!localStorage.getItem(guideStorageKey);}catch{}if(!seen){openGuide(true);try{localStorage.setItem(guideStorageKey,'1');}catch{}}}
+  function firstRunGuide(){let cleared=false;try{cleared=!!localStorage.getItem(clearedStorageKey);}catch{}if(!cleared){openGuide(true);}}
   ui['guide-prev'].addEventListener('click',()=>showGuidePage(guidePage-1));
   ui['guide-next'].addEventListener('click',()=>showGuidePage(guidePage+1));
   ui['leaderboard-open'].addEventListener('click',openRanking);ui['win-ranking'].addEventListener('click',openRanking);ui['close-ranking'].addEventListener('click',()=>ui['ranking-dialog'].close());
