@@ -94,6 +94,7 @@ export function App() {
     const joined = await joinedResponse.json();
     if (!joinedResponse.ok || !joined.ok || !joined.ticket) throw new Error(joined.error || "暂时进不了队列，请稍后再试。");
     queueTicketRef.current = joined.ticket;
+    if (queueCancelledRef.current) throw new Error("已取消等候。");
     queueHeartbeatRef.current = window.setInterval(() => {
       fetch(`${API_QUEUE_URL}/status`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:joined.ticket})}).catch(()=>{});
     }, 20_000);
@@ -107,9 +108,11 @@ export function App() {
         method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:joined.ticket}),
       });
       status = await response.json();
+      if (queueCancelledRef.current) throw new Error("已取消等候。");
       if (!response.ok || !status.ok || status.expired) throw new Error(status.error || "等候中断了，请重新试一次。");
       setQueuePosition(status.position || 0);
     }
+    if (queueCancelledRef.current) throw new Error("已取消等候。");
     setPhase("thinking");
     return joined.ticket;
   }, []);
@@ -275,6 +278,12 @@ export function App() {
   const cancelQueue = useCallback(() => {
     queueCancelledRef.current = true;
     releaseQueueTicket();
+  }, [releaseQueueTicket]);
+
+  useEffect(() => {
+    const leave = () => { queueCancelledRef.current = true; releaseQueueTicket(); };
+    window.addEventListener("pagehide", leave);
+    return () => { window.removeEventListener("pagehide", leave); leave(); };
   }, [releaseQueueTicket]);
 
   const startListening = useCallback(async (event) => {

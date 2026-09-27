@@ -8,7 +8,10 @@ export function createVoiceQueue({capacity=DEFAULT_CAPACITY,ticketTtl=DEFAULT_TI
   const tickets=new Map();
   function promote(){
     const time=now();
-    for(const [id,ticket] of tickets)if(time-ticket.touchedAt>ticketTtl)tickets.delete(id);
+    for(const [id,ticket] of tickets){
+      const expired=ticket.processing ? time-ticket.claimedAt>180_000 : time-ticket.touchedAt>ticketTtl;
+      if(expired)tickets.delete(id);
+    }
     let active=[...tickets.values()].filter(ticket=>ticket.state==='active').length;
     for(const ticket of tickets.values()){
       if(active>=capacity)break;
@@ -39,6 +42,8 @@ export function createVoiceQueue({capacity=DEFAULT_CAPACITY,ticketTtl=DEFAULT_TI
       return {ok:true,state:ticket.state,position:positionFor(id),capacity};
     },
     release(id){
+      const ticket=tickets.get(id);
+      if(ticket?.processing){ticket.releaseRequested=true;return {ok:true,released:false};}
       const removed=tickets.delete(id);
       promote();
       return {ok:true,released:removed};
@@ -50,6 +55,17 @@ export function createVoiceQueue({capacity=DEFAULT_CAPACITY,ticketTtl=DEFAULT_TI
       if(status.state!=='active')return {ok:false,waiting:true};
       if(ticket.claimed)return {ok:false,busy:true};
       ticket.claimed=true;
+      ticket.processing=true;
+      ticket.claimedAt=now();
+      ticket.claimToken=randomUUID();
+      return {ok:true,claimToken:ticket.claimToken};
+    },
+    complete(id,claimToken){
+      const ticket=tickets.get(id);
+      if(!ticket?.processing||!claimToken||ticket.claimToken!==claimToken)return {ok:false};
+      ticket.processing=false;
+      ticket.touchedAt=now();
+      if(ticket.releaseRequested)this.release(id);
       return {ok:true};
     },
     get size(){return tickets.size;},

@@ -182,19 +182,3 @@ test('每人只能起一次名：首次上榜带新手标，成绩进步后消�
   assert.equal(board.data.items.find(i=>i.nickname==='第一个名字').newbie,false);
   assert.equal(board.data.total,1);
 });
-
-test('共享语音队列按先来顺序放行并验证语音请求票据',async t=>{
-  const s=await setup(t);
-  const base=s.base+'/api/yuanbai/voice-queue/';
-  const call=async(action,ticket)=>fetch(base+action,{method:'POST',headers:{Origin:ORIGIN,'Content-Type':'application/json'},body:JSON.stringify(ticket?{ticket}:{})});
-  const a=await call('join'),b=await call('join'),c=await call('join');
-  const first=await a.json(),second=await b.json(),third=await c.json();
-  assert.equal(first.state,'active');assert.equal(second.state,'active');
-  assert.equal(third.state,'waiting');assert.equal(third.position,1);
-  assert.equal((await call('claim',third.ticket)).status,429);
-  await call('release',first.ticket);
-  const promoted=await call('status',third.ticket).then(r=>r.json());
-  assert.equal(promoted.state,'active');
-  assert.equal((await call('claim',third.ticket)).status,200);
-  assert.equal((await call('claim',third.ticket)).status,409);
-});

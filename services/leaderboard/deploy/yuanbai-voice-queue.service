@@ -1,0 +1,21 @@
+[Unit]
+Description=Yuanbai voice admission queue
+After=network.target
+
+[Service]
+Type=simple
+User=yuanbai
+Group=yuanbai
+WorkingDirectory=/opt/yuanbai-voice-queue/current
+Environment=PORT=4176
+Environment=YUANBAI_VOICE_CONCURRENCY=2
+ExecStart=/opt/yuanbai-runtime/node-v24.16.0-linux-x64/bin/node services/leaderboard/voice-queue-server.mjs
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+PrivateTmp=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

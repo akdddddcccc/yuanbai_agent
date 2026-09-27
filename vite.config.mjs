@@ -28,9 +28,9 @@ export default defineConfig({
     // 这里只在 Vite 开发服务器生效，API 密钥仍保留在云端函数环境变量中。
     proxy: {
       "/api/yuanbai/voice-queue": {
-        target: process.env.YUANBAI_GAME_API_ORIGIN || "http://123.56.162.88",
+        target: process.env.YUANBAI_QUEUE_API_ORIGIN || "http://123.56.162.88",
         changeOrigin: true,
-        rewrite: (path) => process.env.YUANBAI_GAME_API_ORIGIN ? path : `/yuanbai-game${path}`,
+        rewrite: (path) => process.env.YUANBAI_QUEUE_API_ORIGIN ? path : `/yuanbai-queue${path}`,
         configure: (proxy) => proxy.on("proxyReq", (req) => req.setHeader("Origin", "https://apps-demo.muyang23333.top")),
       },
       "/api/yuanbai/game": {
