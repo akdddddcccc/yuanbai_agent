@@ -6,6 +6,7 @@
   const leaderboardBase='/api/yuanbai/game';
   const tokenStorageKey='yuanbai-player-v1';
   const nameStorageKey='yuanbai-player-name-v1';
+  const guideStorageKey='yuanbai-guide-seen-v1';
   let playerToken=null;
   try{playerToken=localStorage.getItem(tokenStorageKey);}catch{}
   let lockedName='';
@@ -794,6 +795,7 @@ async function api(path,data){
     ui['help-dialog'].scrollTop=0;
   }
   function openGuide(first){showGuidePage(0);ui['close-help'].textContent=first?'跳过介绍 ×':'关闭 ×';ui.begin.textContent=started?'回到探索 ↗':'开始探索 ↗';ui['help-dialog'].showModal();}
+  function firstRunGuide(){let seen=false;try{seen=!!localStorage.getItem(guideStorageKey);}catch{}if(!seen){openGuide(true);try{localStorage.setItem(guideStorageKey,'1');}catch{}}}
   ui['guide-prev'].addEventListener('click',()=>showGuidePage(guidePage-1));
   ui['guide-next'].addEventListener('click',()=>showGuidePage(guidePage+1));
   ui['leaderboard-open'].addEventListener('click',openRanking);ui['win-ranking'].addEventListener('click',openRanking);ui['close-ranking'].addEventListener('click',()=>ui['ranking-dialog'].close());
@@ -804,7 +806,7 @@ async function api(path,data){
 
 
   art.onload=()=>{artReady=true;textures.clear();warmFloorTextures();};art.onerror=()=>say('建筑图像加载失败。','请刷新页面后重试。',true);art.src='yuanbai-art.webp';
-  resize();camera=plane(game.r,game.c);resetViewOpacity();updateUI();requestAnimationFrame(draw);applyLockedName();openGuide(true);ensureMusic();unlockAudio();
+  resize();camera=plane(game.r,game.c);resetViewOpacity();updateUI();requestAnimationFrame(draw);applyLockedName();firstRunGuide();ensureMusic();unlockAudio();
   if(document.modelContext?.registerTool){const lifecycle=new AbortController();addEventListener('pagehide',()=>lifecycle.abort(),{once:true});try{Promise.resolve(document.modelContext.registerTool({name:'explore_yuanbai',title:'探索元白楼',description:'通过与界面相同的操作探索元白楼，不泄露未知格。道具需要先拾取。',inputSchema:{type:'object',properties:{action:{type:'string',enum:['read','move_ne','move_se','move_sw','move_nw','turn_left','turn_right','companion','probe','panorama']}},required:['action'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},async execute(input){const choices=['read','move_ne','move_se','move_sw','move_nw','turn_left','turn_right','companion','probe','panorama'];if(!input||Object.keys(input).some(k=>k!=='action')||!choices.includes(input.action))throw Error('无效操作');if(input.action!=='read'){if(busy())throw Error('请等待动画或关闭弹窗');const d=choices.slice(1,5).indexOf(input.action);if(d>=0)await step(d);else if(input.action.startsWith('turn_'))await turn(input.action==='turn_left'?-1:1);else tool(input.action);await new Promise(resolve=>{function done(){if(!starting&&!walking&&!falling&&!overview&&(!winning||performance.now()-winning.start>2700))resolve();else requestAnimationFrame(done);}done();});}return {position:{row:game.r+1,column:game.c+1},collected:game.count,san:Number(game.san.toFixed(1)),visibleTiles:game.visibleCells().length,deaths:game.falls,stock:{...game.stock},facing:DIRS[game.direction].name,mode:game.mode,message:ui['message-title'].textContent};}},{signal:lifecycle.signal})).catch(()=>{});}catch{}}
 })();
 
