@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { preloadModel } from './preloadModel.js';
 
 export function disposeModel(root) {
   const geometries = new Set(), materials = new Set(), textures = new Set();
@@ -58,30 +59,33 @@ function tuneMaterial(material) {
 
 export async function loadPreciseModel(makeParticles) {
   const base = `${import.meta.env.BASE_URL}models/yuanbai-precise-v3/`;
-  const response = await fetch(`${base}manifest.json`);
-  if (!response.ok) throw new Error('Model manifest unavailable');
-  const manifest = await response.json();
-  const chunks = await Promise.all(manifest.parts.map(async part => {
-    const response = await fetch(base + part.name);
-    if (!response.ok) throw new Error(`Model chunk unavailable: ${part.name}`);
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.length !== part.bytes) throw new Error('Incomplete model chunk');
-    return bytes;
-  }));
-  const bytes = new Uint8Array(manifest.bytes);
-  let offset = 0;
-  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-  if (offset !== manifest.bytes) throw new Error('Incomplete model');
+  const bytes = await preloadModel();
   const { scene: source } = await new GLTFLoader().parseAsync(bytes.buffer, base);
   return preparePreciseModel(source, makeParticles);
 }
 
 export function preparePreciseModel(source, makeParticles) {
-  // These two stair flights run through the solid A03/A09 facades in the source model.
-  // Remove their complete tread/stringer/railing groups before particle sampling.
-  for (const name of ['YB_connector_YB_ROUTE_SOUTH_03_04', 'YB_connector_YB_ROUTE_EAST_09_10']) {
-    const stair = source.getObjectByName(name);
-    if (!stair) continue;
+  // Remove every inter-building route, including its merged landing/deck geometry.
+  const routes = source.children.filter(object => object.name.startsWith('YB_connector_YB_ROUTE_'));
+  const routeBounds = routes.map(route => new THREE.Box3().setFromObject(route).expandByScalar(.35));
+  source.getObjectByName('YB_stable_stairs_and_bridges')?.traverse(object => {
+    if (!object.isMesh) return;
+    const geometry = object.geometry;
+    const position = geometry.attributes.position;
+    const indices = geometry.index;
+    const kept = [];
+    const center = new THREE.Vector3();
+    const point = new THREE.Vector3();
+    for (let i = 0; i < (indices?.count ?? position.count); i += 3) {
+      const triangle = [0, 1, 2].map(offset => indices ? indices.getX(i + offset) : i + offset);
+      center.set(0, 0, 0);
+      for (const vertex of triangle) center.add(point.fromBufferAttribute(position, vertex));
+      center.multiplyScalar(1 / 3);
+      if (!routeBounds.some(box => box.containsPoint(center))) kept.push(...triangle);
+    }
+    geometry.setIndex(kept);
+  });
+  for (const stair of routes) {
     stair.removeFromParent();
     stair.traverse(object => object.geometry?.dispose());
   }
@@ -90,11 +94,16 @@ export function preparePreciseModel(source, makeParticles) {
   const size = bounds.getSize(new THREE.Vector3());
   const center = bounds.getCenter(new THREE.Vector3());
   const scale = 11.5 / Math.max(size.x, size.z);
+  let viewRadius = 0;
   // Bake only a uniform unit conversion and translation; original geometry is retained in the source GLB.
   source.traverse(object => {
     if (!object.isMesh) return;
     object.geometry.translate(-center.x, -bounds.min.y, -center.z);
     object.geometry.scale(scale, scale, scale);
+    const vertices = object.geometry.attributes.position;
+    for (let i = 0; i < vertices.count; i++) {
+      viewRadius = Math.max(viewRadius, Math.hypot(vertices.getX(i), vertices.getZ(i)));
+    }
     object.castShadow = true;
     object.receiveShadow = true;
   });
@@ -151,8 +160,8 @@ export function preparePreciseModel(source, makeParticles) {
   const viewBounds = new THREE.Box3().setFromObject(building);
   const particles = makeParticles(building, true);
   const coreLight = core ? makeCoreLight(core) : null;
-  if (coreLight) viewBounds.max.y += 1.6;
-  return { building, viewBounds, blocks, bindings, coreLight, stairs: [], windowMaterials: [...windowMaterials], ...particles };
+  // Frame the architecture itself; the decorative beam does not shrink the building.
+  return { building, viewBounds, viewRadius, blocks, bindings, coreLight, stairs: [], windowMaterials: [...windowMaterials], ...particles };
 }
 
 function makeCoreLight(core) {
