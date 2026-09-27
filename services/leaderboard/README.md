@@ -17,6 +17,13 @@ SSH 私钥只留在本机用于部署，不写入仓库、浏览器、数据库�
 - 重复提交幂等；差成绩不会覆盖好成绩。操作回放校验不是强竞技反作弊，不能阻止脚本完成合法路线。
 - 仅旧规则数据存在时才显示历史榜；本次没有导入任何旧服务器数据库。
 
+## 元白语音并发队列
+
+- 语音排队由独立的 `yuanbai-voice-queue.service` 协调，监听 `127.0.0.1:4176`，不重启排行榜。默认最多同时处理 2 个会话，`YUANBAI_VOICE_CONCURRENCY` 可设为 1–5。其余请求按加入顺序等待，最多保留 200 个等待票据。
+- `/api/yuanbai/voice-queue/{join,status,release,claim,complete}` 只接收短期随机票据。前端播放完回答后释放名额；处理中的请求由 EdgeOne 使用仅服务端持有的完成凭据结束，关页不会提前释放仍在运行的生成任务。等待和播放名额90秒无心跳后回收；生成任务有180秒硬上限。单进程服务重启会让旧票据失效，页面会提示重新尝试。
+- EdgeOne 继续作为浏览器的 HTTPS 入口，并通过现有 HTTP 代理连接 VPS；语音和模型请求只有取得有效队列票据后才能开始。
+- 队列源码位于 `/opt/yuanbai-voice-queue/current`；nginx 使用 `deploy/nginx-voice-queue.conf` 中的 `/yuanbai-queue/` 路由。部署队列并确认 `/yuanbai-queue/health` 后，再一并发布新前端与 EdgeOne 接口。每次排队对应一次提问，回答播放完后下一次提问重新排队。
+
 ## 服务器位置
 
 - 服务：`yuanbai-leaderboard.service`，专用低权限用户 `yuanbai`，监听 `127.0.0.1:4174`。
