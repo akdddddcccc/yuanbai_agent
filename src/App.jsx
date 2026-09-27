@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Microphone } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowUpRight, Microphone } from "@phosphor-icons/react";
 import { CursorLightTrail } from "./CursorLightTrail";
 import { YuanbaiScene } from "./YuanbaiScene";
 
@@ -49,6 +49,7 @@ export function App() {
   const [transcript, setTranscript] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [queuePosition, setQueuePosition] = useState(0);
+  const [queuePromptOpen, setQueuePromptOpen] = useState(false);
 
   useEffect(() => {
     document.title = "对话元白 · YUANBAI";
@@ -79,6 +80,7 @@ export function App() {
     queueTicketRef.current = "";
     window.clearInterval(queueHeartbeatRef.current);
     setQueuePosition(0);
+    setQueuePromptOpen(false);
     if (!ticket) return;
     try {
       await fetch(`${API_QUEUE_URL}/release`, {
@@ -101,8 +103,11 @@ export function App() {
     }, 20_000);
     setQueuePosition(joined.position || 0);
     let status = joined;
-    while (status.state !== "active") {
+    if (status.state !== "active") {
       setPhase("queued");
+      setQueuePromptOpen(true);
+    }
+    while (status.state !== "active") {
       await new Promise((resolve) => window.setTimeout(resolve, 1800 + Math.random() * 500));
       if (queueCancelledRef.current) throw new Error("已取消等候。");
       const response = await fetch(`${API_QUEUE_URL}/status`, {
@@ -114,6 +119,7 @@ export function App() {
       setQueuePosition(status.position || 0);
     }
     if (queueCancelledRef.current) throw new Error("已取消等候。");
+    setQueuePromptOpen(false);
     setPhase("thinking");
     return joined.ticket;
   }, []);
@@ -451,6 +457,30 @@ export function App() {
         </span>
       </button>
       {phase === "queued" && <button className="queue-cancel" type="button" onClick={cancelQueue}>取消等候</button>}
+
+      {phase === "queued" && queuePromptOpen && (
+        <div className="queue-modal-backdrop">
+          <section className="queue-modal" role="dialog" aria-modal="true" aria-labelledby="queue-modal-title">
+            <div className="queue-modal-head">
+              <span>CONVERSATION QUEUE · 元白等候区</span>
+              <span className="queue-position" aria-label={`当前排在第 ${Math.max(1, queuePosition)} 位`}>
+                <small>QUEUE</small>
+                <strong>{String(Math.max(1, queuePosition)).padStart(2, "0")}</strong>
+              </span>
+            </div>
+            <span className="queue-modal-accent" aria-hidden="true" />
+            <h2 id="queue-modal-title">前面还有人在和元白说话</h2>
+            <p>你现在排在第 {Math.max(1, queuePosition)} 位。可以留在这里继续等候，也可以先去探索元白楼；离开后本次位置会自动释放。</p>
+            <div className="queue-modal-actions">
+              <a href={`${import.meta.env.BASE_URL}explore/index.html`}>
+                <span>去探索元白</span>
+                <ArrowUpRight size={18} weight="bold" />
+              </a>
+              <button type="button" onClick={() => setQueuePromptOpen(false)}>继续等候</button>
+            </div>
+          </section>
+        </div>
+      )}
 
       <footer>
         <span>建筑记忆正在生长</span>
