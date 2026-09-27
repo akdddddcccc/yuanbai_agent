@@ -193,6 +193,35 @@ h1 {
   letter-spacing: .16em;
 }
 
+.playback-button {
+  position: fixed;
+  left: var(--copy-left);
+  bottom: 156px;
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 10px 18px;
+  color: #f2dccb;
+  border: 1px solid rgba(239, 158, 101, .55);
+  border-radius: 24px;
+  background: rgba(75, 29, 22, .9);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .28), 0 0 20px rgba(224, 99, 53, .12);
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: .08em;
+  cursor: pointer;
+}
+
+.playback-button:hover,
+.playback-button:focus-visible {
+  border-color: #ffad79;
+  background: rgba(103, 39, 27, .95);
+  outline: none;
+}
+
 .hold-button {
   position: fixed;
   left: var(--copy-left);
@@ -445,6 +474,7 @@ footer {
   .subline { display: none; }
   .phase-queued .subline { display: block; }
   .queue-cancel { left: 24px; bottom: 132px; }
+  .playback-button { left: 24px; bottom: max(130px, calc(env(safe-area-inset-bottom) + 112px)); max-width: calc(100vw - 48px); }
   .queue-modal-backdrop { padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom)); }
   .queue-modal { padding: 23px 20px 20px; }
   .queue-modal-actions { grid-template-columns: 1fr; }
@@ -468,6 +498,7 @@ footer {
   .subline { display: none; }
   .scene-panel { position: absolute; inset: 32px 0 32px 39%; width: auto; height: auto; min-height: 0; margin: 0; }
   .scene-caption { display: none; }
+  .playback-button { left: 24px; bottom: 94px; max-width: 35%; }
   .hold-button { position: absolute; left: 24px; bottom: 28px; width: 34%; height: 56px; grid-template-columns: 34px 1fr; }
   .hold-button .waveform { display: none; }
   footer { bottom: 8px; }

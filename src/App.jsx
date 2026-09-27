@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowUpRight, Microphone } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowUpRight, Microphone, Play } from "@phosphor-icons/react";
 import { CursorLightTrail } from "./CursorLightTrail";
 import { YuanbaiScene } from "./YuanbaiScene";
+import { startAudioPlayback } from "./audioPlayback";
+import { startIntroAudio, stopIntroAudio } from "./introAudio";
 
 const PHASE_COPY = {
   idle: ["在这里，慢慢说", "按住下方按钮，松开发送"],
@@ -13,6 +15,7 @@ const PHASE_COPY = {
 
 const INTRO = "我记得这座楼、学院和大家的故事。设计卡住了，也可以慢慢说给我听。";
 const YUANBAI_MARK_URL = `${import.meta.env.BASE_URL}brand/yuanbai-mark.svg`;
+const INTRO_AUDIO_URL = `${import.meta.env.BASE_URL}audio/yuanbai-intro.mp3`;
 const MAX_AUDIO_BASE64_LENGTH = 800_000;
 // 本地 Python 服务使用 /api/chat；发布到共享域名的 /yuanbai/ 后自动切换到 EdgeOne 函数。
 const API_CHAT_URL = import.meta.env.VITE_YUANBAI_API_URL || (
@@ -48,11 +51,13 @@ export function App() {
   const [answer, setAnswer] = useState("");
   const [transcript, setTranscript] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [playbackBlocked, setPlaybackBlocked] = useState(false);
   const [queuePosition, setQueuePosition] = useState(0);
   const [queuePromptOpen, setQueuePromptOpen] = useState(false);
 
   useEffect(() => {
     document.title = "对话元白 · YUANBAI";
+    startIntroAudio(INTRO_AUDIO_URL);
   }, []);
 
   const mediaRef = useRef(null);
@@ -193,15 +198,33 @@ export function App() {
     });
   }, [ensureAudioContext]);
 
+  const showPlaybackFallback = useCallback((error, retry = false) => {
+    responseRef.current?.pause();
+    cancelAnimationFrame(animationRef.current);
+    setLevel(0);
+    setPlaybackBlocked(true);
+    setPhase("idle");
+    setErrorMessage(retry
+      ? "浏览器仍未允许播放，请检查网页声音权限，再点播放按钮。"
+      : "声音已生成，点击播放按钮收听。");
+    releaseQueueTicket();
+    console.warn("Yuanbai audio playback blocked", { name: error?.name || "UnknownError" });
+  }, [releaseQueueTicket]);
+
   const playResponse = useCallback(async (audioUrl, revokeAfterPlay = false) => {
     if (responseObjectUrlRef.current) {
       URL.revokeObjectURL(responseObjectUrlRef.current);
       responseObjectUrlRef.current = "";
     }
     if (revokeAfterPlay) responseObjectUrlRef.current = audioUrl;
+    setPlaybackBlocked(false);
     const audio = new Audio(audioUrl);
     responseRef.current = audio;
-    const context = await ensureAudioContext();
+    let context = audioContextRef.current;
+    if (!context || context.state === "closed") {
+      context = new AudioContext();
+      audioContextRef.current = context;
+    }
     const source = context.createMediaElementSource(audio);
     connectMeter(source, context, true);
     audio.addEventListener("ended", () => {
@@ -210,18 +233,39 @@ export function App() {
         URL.revokeObjectURL(audioUrl);
         responseObjectUrlRef.current = "";
       }
+      setPlaybackBlocked(false);
       setPhase("idle");
       releaseQueueTicket();
     }, { once: true });
     audio.addEventListener("error", () => {
       stopMeter();
+      setPlaybackBlocked(false);
       setErrorMessage("声音加载失败，请再试一次。");
       setPhase("idle");
       releaseQueueTicket();
     }, { once: true });
-    setPhase("speaking");
-    await audio.play();
-  }, [connectMeter, ensureAudioContext, releaseQueueTicket, stopMeter]);
+    try {
+      await startAudioPlayback(audio, context);
+      setPhase("speaking");
+    } catch (error) {
+      if (error?.name !== "NotAllowedError") throw error;
+      showPlaybackFallback(error);
+    }
+  }, [connectMeter, releaseQueueTicket, showPlaybackFallback, stopMeter]);
+
+  const playPendingResponse = useCallback((event) => {
+    event.preventDefault();
+    const audio = responseRef.current;
+    const context = audioContextRef.current;
+    if (!audio || !context) return;
+    // Keep resume() and play() inside the same click's user activation.
+    startAudioPlayback(audio, context).then(() => {
+      setPlaybackBlocked(false);
+      setErrorMessage("");
+      setPhase("speaking");
+      meter();
+    }).catch((error) => showPlaybackFallback(error, true));
+  }, [meter, showPlaybackFallback]);
 
   const submitRecording = useCallback(async (blob) => {
     try {
@@ -311,6 +355,7 @@ export function App() {
     event.currentTarget.setPointerCapture?.(event.pointerId);
 
     try {
+      stopIntroAudio();
       if (!navigator.mediaDevices?.getUserMedia || !globalThis.MediaRecorder) {
         throw new Error("当前浏览器不能录音，请使用最新版 Chrome 或 Edge。");
       }
@@ -343,6 +388,7 @@ export function App() {
         submitRecording(blob);
       }, { once: true });
       recorder.start(200);
+      setPlaybackBlocked(false);
 
       startedAtRef.current = performance.now();
       setElapsed(0);
@@ -432,6 +478,13 @@ export function App() {
           <span>{phase === "thinking" ? "PARTICLE MEMORY" : "VOICE-REACTIVE ARCHITECTURE"}</span>
         </div>
       </section>
+
+      {playbackBlocked && (
+        <button className="playback-button" type="button" onClick={playPendingResponse}>
+          <Play size={16} weight="fill" aria-hidden="true" />
+          <span>点击播放元白语音</span>
+        </button>
+      )}
 
       <button
         className="hold-button"

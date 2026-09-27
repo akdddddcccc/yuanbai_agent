@@ -29,7 +29,7 @@ const EXPERIENCES = [
   },
 ];
 
-function PortalCard({ experience, onActivate }) {
+function PortalCard({ experience, onActivate, onEnterDialogue }) {
   const Icon = experience.icon;
   const href = `${import.meta.env.BASE_URL}${experience.href}`;
 
@@ -39,6 +39,12 @@ function PortalCard({ experience, onActivate }) {
       href={href}
       onMouseEnter={() => onActivate(experience.id)}
       onFocus={() => onActivate(experience.id)}
+      onClick={(event) => {
+        if (experience.id !== "dialogue" || event.defaultPrevented || event.button !== 0
+          || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        onEnterDialogue();
+      }}
       aria-label={`${experience.title}：${experience.description}`}
     >
       <div className="portal-card-head">
@@ -61,7 +67,7 @@ function PortalCard({ experience, onActivate }) {
   );
 }
 
-export function Portal() {
+export function Portal({ onEnterDialogue }) {
   const portalRef = useRef(null);
   const projectionRef = useRef(null);
   const [active, setActive] = useState("dialogue");
@@ -90,7 +96,8 @@ export function Portal() {
     const onKeyDown = (event) => {
       if (event.key !== "1" && event.key !== "2") return;
       const target = EXPERIENCES[Number(event.key) - 1];
-      window.location.assign(`${import.meta.env.BASE_URL}${target.href}`);
+      if (target.id === "dialogue") onEnterDialogue();
+      else window.location.assign(`${import.meta.env.BASE_URL}${target.href}`);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => {
@@ -98,7 +105,7 @@ export function Portal() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("pointermove", onPointerMove);
     };
-  }, []);
+  }, [onEnterDialogue]);
 
   const scaleTicks = Array.from({ length: 13 }, (_, index) => {
     if (index === 0) return "+3.0";
@@ -162,7 +169,7 @@ export function Portal() {
 
       <nav className="portal-navigation" aria-label="元白体验入口">
         {EXPERIENCES.map((experience) => (
-          <PortalCard key={experience.id} experience={experience} onActivate={setActive} />
+          <PortalCard key={experience.id} experience={experience} onActivate={setActive} onEnterDialogue={onEnterDialogue} />
         ))}
       </nav>
 
