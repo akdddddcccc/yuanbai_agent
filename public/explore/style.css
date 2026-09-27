@@ -201,3 +201,7 @@ tr.is-you{background:#33241a;color:#ffdab4}
 .newbie-badge{display:inline-block;color:#2f9e44;font-size:11px;margin-left:6px;font-weight:500;white-space:nowrap}
 @media(max-width:900px) and (orientation:portrait){.newbie-badge{overflow:hidden;font-size:0;width:7px;height:7px;border-radius:50%;background:#2f9e44;margin-left:6px;vertical-align:2px}}
 
+
+/* Shared return control occupies its own row, above the game header. */
+.explore-return{flex:none;display:flex;align-items:center;min-height:36px;padding:env(safe-area-inset-top) 28px 0;border-bottom:1px solid #ffffff0a;background:#070707}
+@media(max-width:900px){.explore-return{padding-inline:16px;min-height:44px}}

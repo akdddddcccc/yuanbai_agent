@@ -1,0 +1,21 @@
+.back-to-portal {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  color: rgba(222, 193, 171, .68);
+  font-family: Inter, "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: .12em;
+  text-decoration: none;
+  transition: color .2s ease, transform .2s ease;
+}
+.back-to-portal svg { width: 14px; height: 14px; flex: none; }
+.back-to-portal:hover, .back-to-portal:focus-visible {
+  color: #f2e7dc;
+  transform: translateX(-3px);
+}
+.back-to-portal:focus-visible { outline: 1px solid currentColor; outline-offset: 4px; }
+@media (pointer: coarse) { .back-to-portal { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .back-to-portal { transition: none; } }

@@ -26,18 +26,20 @@ test('stair binding preserves rest positions and follows full anchor transforms'
   const size = rawBounds.getSize(new THREE.Vector3());
   assert.ok(Math.max(size.x, size.z) < 150, '160-unit ground slab must be removed');
   const scale = 11.5 / Math.max(size.x, size.z);
+  const stableGroup = scene.getObjectByName('YB_stable_stairs_and_bridges');
+  const stableTriangles = () => stableGroup.children.reduce((sum, mesh) => sum + mesh.geometry.index.count / 3, 0);
+  const beforeTriangles = stableTriangles();
   const probes = [];
   scene.traverse(object => {
-    if (['YB_connector_YB_ROUTE_SOUTH_03_04', 'YB_connector_YB_ROUTE_EAST_09_10'].includes(object.parent?.name)) return;
+    if (object.parent?.name.startsWith('YB_connector_YB_ROUTE_')) return;
     if (object.isMesh) probes.push({ object, expected: new THREE.Vector3().fromBufferAttribute(object.geometry.attributes.position, 0)
       .sub(new THREE.Vector3(rawCenter.x, rawBounds.min.y, rawCenter.z)).multiplyScalar(scale) });
   });
   const model = preparePreciseModel(scene, () => ({}));
   assert.equal(model.blocks.length, 15);
-  assert.equal(model.bindings.length, 19);
-  for (const name of ['YB_connector_YB_ROUTE_SOUTH_03_04', 'YB_connector_YB_ROUTE_EAST_09_10']) {
-    assert.equal(model.building.getObjectByName(name), undefined, 'intersecting stair must be removed');
-  }
+  assert.equal(model.bindings.length, 5);
+  assert.equal(beforeTriangles - stableTriangles(), 84, 'remove all seven inter-building decks as well as the route groups');
+  model.building.traverse(object => assert.ok(!object.name.startsWith('YB_connector_YB_ROUTE_'), 'no inter-building stair may remain'));
   const core = model.building.getObjectByName('YB_mass_A08');
   assert.deepEqual(core.userData.axis.toArray(), [0, 1, 0]);
   assert.equal(model.building.getObjectByName('YB_stable_stairs_and_bridges').parent, core);

@@ -1,4 +1,4 @@
-import { createElement, useEffect, useRef } from "react";
+import { createElement, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { loadPreciseModel, disposeModel } from "./preciseModel.js";
 import { createSpeechMotion } from "./speechMotion.js";
@@ -711,6 +711,7 @@ function makeBuilding(scene) {
 
 export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
   const mountRef = useRef(null);
+  const [attempt, setAttempt] = useState(0);
   const stateRef = useRef({ phase, level });
   stateRef.current = { phase, level };
 
@@ -771,32 +772,32 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
     projection.position.set(.2, -2.45, .45);
     scene.add(projection);
 
-    let model = makeBuilding(scene);
+    let model = variant === "dialogue" ? null : makeBuilding(scene);
     let disposed = false;
-    mount.dataset.model = "procedural";
-    const legacy = new URLSearchParams(window.location.search).get("model") === "legacy";
-    if (!legacy && variant === "dialogue") {
+    mount.dataset.model = model ? "procedural" : "loading";
+    mount.setAttribute("aria-busy", String(!model));
+    if (variant === "dialogue") {
       mount.dataset.model = "loading";
       loadPreciseModel(makeStructureParticleCloud).then(next => {
         if (disposed) { disposeModel(next.building); return; }
-        scene.remove(model.building);
-        disposeModel(model.building);
         model = next;
         model.building.position.y = buildingHomeY;
         scene.add(model.building);
         mount.dataset.model = "precise";
+        mount.setAttribute("aria-busy", "false");
         mount.dataset.blocks = String(model.blocks.length);
         mount.dataset.connectors = String(model.bindings?.length || 0);
         resize();
       }).catch(error => {
         if (disposed) return;
-        mount.dataset.model = "fallback";
-        console.error("Precise model loading failed; using original architecture", error);
+        mount.dataset.model = "error";
+        mount.setAttribute("aria-busy", "false");
+        console.error("Precise model loading failed", error);
       });
     }
     if (variant === "portal") model.building.scale.setScalar(1.04);
     const buildingHomeY = variant === "portal" ? .48 : .72;
-    model.building.position.y = buildingHomeY;
+    if (model) model.building.position.y = buildingHomeY;
 
     const resize = () => {
       const width = mount.clientWidth;
@@ -805,16 +806,11 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
       renderer.setSize(width, height, false);
       camera.aspect = width / Math.max(1, height);
       if (variant === "dialogue") {
-        if (model.viewBounds) {
+        if (model?.viewBounds) {
           const bounds = model.viewBounds.clone();
           // Frame the full swept volume, including the side view during the answer's turn.
-          const radius = Math.max(...[bounds.min.x, bounds.max.x].flatMap(x =>
-            [bounds.min.z - .15, bounds.max.z - .15].map(z => Math.hypot(x, z))));
-          bounds.min.x = -radius;
-          bounds.max.x = radius;
-          bounds.min.z = .15 - radius;
-          bounds.max.z = .15 + radius;
-          bounds.translate(new THREE.Vector3(0, buildingHomeY, 0)).expandByScalar(.55);
+          const radius = model.viewRadius + .55;
+          bounds.translate(new THREE.Vector3(0, buildingHomeY, 0)).expandByScalar(.25);
           bounds.getCenter(lookAt);
           const direction = new THREE.Vector3(11.8, 8.7, 17.5).normalize();
           const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), direction).normalize();
@@ -822,13 +818,16 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
           const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
           const tanX = tanY * camera.aspect;
           let distance = 0;
-          for (const x of [bounds.min.x, bounds.max.x])
-            for (const y of [bounds.min.y, bounds.max.y])
-              for (const z of [bounds.min.z, bounds.max.z]) {
+          // Fit a circular sweep rather than the oversized corners of a square sweep.
+          for (let step = 0; step < 64; step++)
+            for (const y of [bounds.min.y, bounds.max.y]) {
+                const angle = step / 64 * Math.PI * 2;
+                const x = Math.cos(angle) * (radius + .25);
+                const z = .15 + Math.sin(angle) * (radius + .25);
                 const relative = new THREE.Vector3(x, y, z).sub(lookAt);
                 distance = Math.max(distance, relative.dot(direction) + Math.max(
-                  Math.abs(relative.dot(right)) / (tanX * .9),
-                  Math.abs(relative.dot(up)) / (tanY * .9)));
+                  Math.abs(relative.dot(right)) / (tanX * .96),
+                  Math.abs(relative.dot(up)) / (tanY * .94)));
               }
           cameraScale = 1;
           cameraHome.copy(lookAt).addScaledVector(direction, distance);
@@ -870,6 +869,7 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
 
     const animate = (now) => {
       frame = requestAnimationFrame(animate);
+      if (!model) { renderer.render(scene, camera); return; }
       const t = (now - startedAt) / 1000;
       const { phase: currentPhase, level: rawLevel } = stateRef.current;
       const voiceLevel = currentPhase === "speaking" ? rawLevel : 0;
@@ -1013,7 +1013,11 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [variant]);
+  }, [variant, attempt]);
 
-  return createElement("div", { ref: mountRef, className: `scene-mount scene-mount-${variant}` });
+  return createElement("div", { ref: mountRef, className: `scene-mount scene-mount-${variant}` },
+    createElement("div", { className: "model-loading", role: "status" },
+      createElement("span", { className: "model-loading-copy" }, "正在加载元白楼…"),
+      createElement("span", { className: "model-error-copy" }, "模型暂时未能加载"),
+      createElement("button", { className: "model-retry", onClick: () => setAttempt(value => value + 1) }, "重新加载")));
 }
