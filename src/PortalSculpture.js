@@ -6,7 +6,6 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 // 更换模型时改此路径即可；材质、贴图和 UV 随 GLB 一起加载。
 // 同名文件替换后更新版本标记，避免浏览器继续使用旧模型缓存。
 const MODEL_URL = `${import.meta.env.BASE_URL}models/yuanbai-perception-sculpture.glb?v=e45928b1b882`;
-const FALLBACK_URL = `${import.meta.env.BASE_URL}brand/yuanbai-mark.svg`;
 // 首页照明统一在这里调整。曝光影响整体；主光塑形，环境/补光只保留暗部细节。
 // 不给实拍颜色贴图额外染色，避免红砖变浅粉、混凝土变暖白。
 const LIGHTING = {
@@ -224,7 +223,5 @@ export function PortalSculpture({ projectionRef }) {
     };
   }, [projectionRef]);
 
-  return createElement("div", { ref: mountRef, className: "portal-sculpture", "aria-hidden": "true" },
-    createElement("img", { className: "portal-sculpture-fallback", src: FALLBACK_URL, alt: "" }),
-  );
+  return createElement("div", { ref: mountRef, className: "portal-sculpture", "aria-hidden": "true" });
 }

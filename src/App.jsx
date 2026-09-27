@@ -58,6 +58,7 @@ export function App() {
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
   const analyserRef = useRef(null);
+  const playbackGainRef = useRef(null);
   const audioContextRef = useRef(null);
   const animationRef = useRef(0);
   const timerRef = useRef(0);
@@ -130,7 +131,9 @@ export function App() {
   const stopMeter = useCallback(() => {
     cancelAnimationFrame(animationRef.current);
     analyserRef.current?.disconnect?.();
+    playbackGainRef.current?.disconnect?.();
     analyserRef.current = null;
+    playbackGainRef.current = null;
     setLevel(0);
   }, []);
 
@@ -155,7 +158,14 @@ export function App() {
     analyser.fftSize = 512;
     analyser.smoothingTimeConstant = 0.72;
     source.connect(analyser);
-    if (audible) analyser.connect(context.destination);
+    if (audible) {
+      const playbackGain = context.createGain();
+      const mobileOutput = window.matchMedia("(max-width: 820px), (pointer: coarse)").matches;
+      playbackGain.gain.value = mobileOutput ? 1.35 : 1;
+      analyser.connect(playbackGain);
+      playbackGain.connect(context.destination);
+      playbackGainRef.current = playbackGain;
+    }
     analyserRef.current = analyser;
     meter();
   }, [meter, stopMeter]);
@@ -424,6 +434,7 @@ export function App() {
         onPointerUp={stopListening}
         onPointerCancel={stopListening}
         onContextMenu={(event) => event.preventDefault()}
+        onDragStart={(event) => event.preventDefault()}
         disabled={phase === "thinking" || phase === "queued" || phase === "speaking"}
         aria-pressed={phase === "listening"}
         aria-label="按住说话，松开发送"
