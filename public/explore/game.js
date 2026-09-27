@@ -13,7 +13,8 @@
   try{lockedName=localStorage.getItem(nameStorageKey)||'';}catch{}
   let runId=null,practice=false,actions=[],verified=null,verifying=false,submitting=false,generation=0;
   let boardPage=1,boardPages=1,boardRequest=0,boardKind='normal',finishersRequest=0;
-  const game = new Game(createSeed()), $ = s => document.querySelector(s);
+  let preloadedSeed=createSeed();
+  const game = new Game(preloadedSeed), $ = s => document.querySelector(s);
   const uiFont='"Yuanbai Sans","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif';
   const canvas = $('#world'), ctx = canvas.getContext('2d', { alpha: false });
   const ui = Object.fromEntries([...document.querySelectorAll('[id]')].map(el=>[el.id,el]));
@@ -475,7 +476,13 @@
   }
   async function beginRun(){
     if(started)return true;starting=true;const current=generation;updateUI();
-    try{const result=await api('/api/runs',{layoutVersion:LAYOUT_VERSION});if(current!==generation)return false;if(result.ruleVersion!==RULE_VERSION||result.layoutVersion!==LAYOUT_VERSION||typeof result.layoutSeed!=='string')throw Error('规则版本已更新，请刷新页面');runId=result.runId;game.reset(result.layoutSeed);resetViewOpacity();}
+    try{
+      const result=await api('/api/runs',{layoutVersion:LAYOUT_VERSION,layoutSeed:preloadedSeed});
+      if(current!==generation)return false;
+      if(result.ruleVersion!==RULE_VERSION||result.layoutVersion!==LAYOUT_VERSION||result.layoutSeed!==preloadedSeed)throw Error('规则版本已更新，请刷新页面');
+      runId=result.runId;
+      if(result.nickname&&!lockedName){lockedName=result.nickname;try{localStorage.setItem(nameStorageKey,lockedName);}catch{}applyLockedName();}
+    }
     catch(error){if(current!==generation)return false;practice=true;toast('当前为练习模式，成绩不入榜',2300);}
     starting=false;started=true;startTick=lastSanTick=performance.now();updateUI();return true;
   }
@@ -491,7 +498,10 @@
     if(result.pickup){pickupFlashes.push({type:result.pickup.type,index:game.position,color:pickupColors[result.pickup.type],start:performance.now(),duration:reduced?160:620});say(`拾取「${TOOL_NAMES[result.pickup.type]}」×1。`,`SAN 降低 ${SAN_PICKUP} 个百分点；道具随时可用，每处只拾取一次。`);ui[result.pickup.type].classList.add('just-collected');setTimeout(()=>ui[result.pickup.type].classList.remove('just-collected'),750);tone('pickup');}
     else say('这一步已经成为记忆。',practice?'当前未连接共享成绩，仍可完整练习。':'自由移动。已有道具可以随时使用，注意脚下。');
     const signal=game.environment();
-    if(signal&&!wasNear){echoCue={start:performance.now()+180};tone('echo');vibrate([16,45,20]);if(!result.pickup){say('附近似乎不太对劲。','空气与光发生了变化；用道具确认准确的悬崖位置。');toast('附近似乎不太对劲',1400);}}
+    if(signal){
+      if(!wasNear){echoCue={start:performance.now()+180};tone('echo');vibrate([16,45,20]);toast('附近似乎不太对劲',1400);}
+      if(!result.pickup)say('附近似乎不太对劲。','空气与光发生了变化；用道具确认准确的悬崖位置。');
+    }
   }
   // Tool presentation is separate from the core rules. Stock/action is recorded once.
   const PANORAMA_IN=450,PANORAMA_OUT=350;
@@ -800,7 +810,7 @@ async function api(path,data){
       if(current!==generation)return null;
       lockedName=result.nickname;try{localStorage.setItem(nameStorageKey,result.nickname);}catch{}
       ui['score-result'].textContent=result.personalBest?`已入榜，当前第 ${result.rank} 名。`:`已保留更好的历史成绩，当前第 ${result.rank} 名。`;
-      ui['submit-score'].textContent='已提交';ui.nickname.readOnly=true;loadFinishers();
+      ui['submit-score'].textContent='已提交';ui.nickname.readOnly=true;ui['score-form'].hidden=true;ui['score-note'].hidden=true;loadFinishers();
       return result;
     }
     catch(error){
@@ -857,12 +867,12 @@ async function api(path,data){
 
 
   function restart(){
-    game.reset(createSeed());pickupFlashes=[];frameLights=[];resetViewOpacity();falling=walking=winning=sweep=echoCue=overview=boundary=toolFx=null;stopToolVoice();delete canvas.dataset.toolEffect;camera=plane(game.r,game.c);
+    preloadedSeed=createSeed();game.reset(preloadedSeed);pickupFlashes=[];frameLights=[];resetViewOpacity();falling=walking=winning=sweep=echoCue=overview=boundary=toolFx=null;stopToolVoice();delete canvas.dataset.toolEffect;camera=plane(game.r,game.c);
     starting=started=false;startTick=lastSanTick=lastSanUI=lastStrainTone=0;wasRestricted=false;endElapsed=null;document.body.classList.remove('won','is-falling');
     generation++;finishersRequest++;ui['finishers-refresh'].disabled=false;ui['finishers-body'].replaceChildren();ui['finishers-table'].hidden=true;practice=verifying=submitting=false;runId=null;actions=[];verified=null;
     ui['play-controls'].hidden=false;ui['win-controls'].hidden=true;ui['end-label'].hidden=true;ui['opening-hint'].hidden=false;ui['opening-hint'].style.opacity=1;
     ui['progress-note'].innerHTML='走过的安全格，留下建筑的片段。<br>悬崖不用踩踏，也不计入进度。';ui['stage-note'].lastElementChild.textContent='光所及之处，只有一步。';
-    ui.fade.style.opacity=ui['fall-caption'].style.opacity=0;ui['center-toast'].classList.remove('visible');ui['score-form'].hidden=false;ui['score-form'].reset();ui.nickname.readOnly=false;applyLockedName();ui['score-result'].textContent='';ui['submit-score'].textContent='加入已通关名单';ui['submit-score'].disabled=true;ui['retry-verify'].hidden=true;say('自由移动，沿途拾取道具。','道具在安全格上，每处只能拿一次。步数不限。');updateUI();resize();
+    ui.fade.style.opacity=ui['fall-caption'].style.opacity=0;ui['center-toast'].classList.remove('visible');ui['score-form'].hidden=false;ui['score-note'].hidden=false;ui['score-form'].reset();ui.nickname.readOnly=false;applyLockedName();ui['score-result'].textContent='';ui['submit-score'].textContent='加入已通关名单';ui['submit-score'].disabled=true;ui['retry-verify'].hidden=true;say('自由移动，沿途拾取道具。','道具在安全格上，每处只能拿一次。步数不限。');updateUI();resize();
   }
   const MUSIC_DATA={}; // 音乐已拆分为 assets/audio/*.mp3，按需 fetch。
   // All recordings are embedded and loudness-matched to -22 LUFS.
@@ -1021,10 +1031,14 @@ async function api(path,data){
   ui['ranking-prev'].addEventListener('click',()=>loadLeaderboard(boardPage-1));ui['ranking-next'].addEventListener('click',()=>loadLeaderboard(boardPage+1));ui['ranking-retry'].addEventListener('click',()=>loadLeaderboard(boardPage));
   ui['finishers-refresh'].addEventListener('click',loadFinishers);
   ui['score-form'].addEventListener('submit',submitScore);ui['retry-verify'].addEventListener('click',verifyFinish);
+  ui['win-controls'].addEventListener('wheel',event=>{
+    const panel=ui['win-controls'];
+    if(panel.scrollHeight<=panel.clientHeight)return;
+    panel.scrollTop+=event.deltaY;event.preventDefault();event.stopPropagation();
+  },{passive:false});
 
 
   art.onload=()=>{artReady=true;textures.clear();warmFloorTextures();};art.onerror=()=>say('建筑图像加载失败。','请刷新页面后重试。',true);art.src='yuanbai-art.webp';
   resize();camera=plane(game.r,game.c);resetViewOpacity();updateUI();requestAnimationFrame(draw);applyLockedName();firstRunGuide();ensureMusic();unlockAudio();
   if(document.modelContext?.registerTool){const lifecycle=new AbortController();addEventListener('pagehide',()=>lifecycle.abort(),{once:true});try{Promise.resolve(document.modelContext.registerTool({name:'explore_yuanbai',title:'探索元白楼',description:'通过与界面相同的操作探索元白楼，不泄露未知格。道具需要先拾取。',inputSchema:{type:'object',properties:{action:{type:'string',enum:['read','move_ne','move_se','move_sw','move_nw','turn_left','turn_right','companion','probe','panorama']}},required:['action'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},async execute(input){const choices=['read','move_ne','move_se','move_sw','move_nw','turn_left','turn_right','companion','probe','panorama'];if(!input||Object.keys(input).some(k=>k!=='action')||!choices.includes(input.action))throw Error('无效操作');if(input.action!=='read'){if(busy())throw Error('请等待动画或关闭弹窗');const d=choices.slice(1,5).indexOf(input.action);if(d>=0)await step(d);else if(input.action.startsWith('turn_'))await turn(input.action==='turn_left'?-1:1);else tool(input.action);await new Promise(resolve=>{function done(){if(!starting&&!walking&&!falling&&!overview&&!toolFx&&(!winning||performance.now()-winning.start>2700))resolve();else requestAnimationFrame(done);}done();});}return {position:{row:game.r+1,column:game.c+1},collected:game.count,san:Number(game.san.toFixed(1)),visibleTiles:game.visibleCells().length,deaths:game.falls,stock:{...game.stock},facing:DIRS[game.direction].name,mode:game.mode,message:ui['message-title'].textContent};}},{signal:lifecycle.signal})).catch(()=>{});}catch{}}
 })();
-
