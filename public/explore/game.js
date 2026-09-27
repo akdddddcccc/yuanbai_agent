@@ -17,6 +17,9 @@
   const uiFont='"Yuanbai Sans","PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif';
   const canvas = $('#world'), ctx = canvas.getContext('2d', { alpha: false });
   const ui = Object.fromEntries([...document.querySelectorAll('[id]')].map(el=>[el.id,el]));
+  // Emergency rollback: set data-enabled="false" in index.html, or use ?warmup=off.
+  const warmupEnabled=ui['warmup-dialog']?.dataset.enabled==='true' && new URLSearchParams(location.search).get('warmup')!=='off';
+  const warmup=warmupEnabled?window.YuanbaiWarmup?.mount(ui['warmup-dialog']):null;
   const arrow = ['↗','↘','↙','↖'];
   const pad = n => String(n).padStart(2, '0');
   const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
@@ -768,7 +771,13 @@ async function api(path,data){
   });
   for(const type of Object.keys(TOOL_NAMES))ui[type].addEventListener('click',()=>tool(type));
   ui['new-game'].addEventListener('click',()=>{if(starting||falling||overview)return;ui['restart-dialog'].showModal();});ui['cancel-restart'].addEventListener('click',()=>ui['restart-dialog'].close());ui['confirm-restart'].addEventListener('click',()=>{ui['restart-dialog'].close();restart();});ui.restart.addEventListener('click',restart);
-  ui.help.addEventListener('click',()=>openGuide(false));ui['close-help'].addEventListener('click',()=>ui['help-dialog'].close());ui.begin.addEventListener('click',()=>ui['help-dialog'].close());ui['reduce-motion'].addEventListener('change',e=>{reduced=e.target.checked;});ui.haptics.addEventListener('change',e=>{hapticsEnabled=e.target.checked;});
+  ui.help.addEventListener('click',()=>openGuide(false));ui['close-help'].addEventListener('click',()=>ui['help-dialog'].close());ui.begin.addEventListener('click',()=>{
+    ui['help-dialog'].close();
+    if(warmup&&!started)warmup.open();
+  });ui['reduce-motion'].addEventListener('change',e=>{reduced=e.target.checked;});ui.haptics.addEventListener('change',e=>{hapticsEnabled=e.target.checked;});
+  ui['warmup-dialog']?.addEventListener('close',()=>{
+    lastSanTick=performance.now();releaseControls();canvas.focus({preventScroll:true});
+  });
   function unlockAudio(){
     if(!soundEnabled)return;
     ensureMusic();
@@ -794,7 +803,7 @@ async function api(path,data){
     ui['guide-prev'].hidden=guidePage===0;ui['guide-next'].hidden=guidePage===2;ui.begin.hidden=guidePage!==2;
     ui['help-dialog'].scrollTop=0;
   }
-  function openGuide(first){showGuidePage(0);ui['close-help'].textContent=first?'跳过介绍 ×':'关闭 ×';ui.begin.textContent=started?'回到探索 ↗':'开始探索 ↗';ui['help-dialog'].showModal();}
+  function openGuide(first){showGuidePage(0);ui['close-help'].textContent=first?'跳过介绍 ×':'关闭 ×';ui.begin.textContent=started?'回到探索 ↗':warmup?'进入 3×3 热身 ↗':'开始探索 ↗';ui['help-dialog'].showModal();}
   function firstRunGuide(){let seen=false;try{seen=!!localStorage.getItem(guideStorageKey);}catch{}if(!seen){openGuide(true);try{localStorage.setItem(guideStorageKey,'1');}catch{}}}
   ui['guide-prev'].addEventListener('click',()=>showGuidePage(guidePage-1));
   ui['guide-next'].addEventListener('click',()=>showGuidePage(guidePage+1));

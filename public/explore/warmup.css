@@ -1,0 +1,33 @@
+/* Scoped to the optional warmup dialog; the formal game keeps its own styles. */
+#warmup-dialog{max-width:720px;padding:24px 30px;background:#1a1b1d}
+#warmup-dialog h2{font-size:26px;font-weight:400;margin:18px 0 8px;letter-spacing:.04em}
+#warmup-dialog .warmup-lead{font-size:13px;line-height:1.8;color:#b8b5b0;margin:0}
+.warmup-meta{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:18px;font-size:11px;color:#b9b7b3}
+#warmup-count{font-size:19px;color:#f0ba91;font-weight:400;letter-spacing:.08em}
+#warmup-progress{height:3px;background:#38383b;margin-top:9px;border-radius:2px;overflow:hidden}
+#warmup-progress>span{height:100%;display:block;background:#df9e6c;transition:width .18s ease}
+.warmup-scene{margin:12px 0 0;background:radial-gradient(ellipse at 50% 60%,#343133 0,#17181a 67%);border:1px solid #393a3d;border-radius:4px;overflow:hidden}
+#warmup-board{display:block;width:100%;height:250px}
+.warmup-side{fill:#2b2c30;stroke:#333438;stroke-width:1}
+.warmup-surface{fill:#595452;stroke:#d59869;stroke-width:1.4}
+.warmup-visited .warmup-surface{fill:#554236;stroke:#b48865}
+.warmup-current .warmup-surface{fill:#856147;stroke:#f4c69e;stroke-width:2}
+.warmup-trace{fill:#e0b38e}
+.warmup-legend{display:flex;justify-content:center;gap:20px;padding:0 10px 12px;font-size:10px;color:#b0aaa5}
+.warmup-legend span:before{content:'';display:inline-block;width:7px;height:7px;margin-right:6px;background:#595452;border:1px solid #d59869;transform:rotate(45deg)}
+.warmup-legend span:last-child:before{background:#554236;border-color:#b48865}
+#warmup-status{min-height:2.8em;font-size:12px;line-height:1.6;color:#e3c3a9;margin:12px 0 8px}
+.warmup-input{display:flex;gap:24px;justify-content:center;align-items:center}
+.warmup-pad{display:grid;grid-template-columns:repeat(2,64px);gap:7px}
+#warmup-dialog .warmup-pad button,#warmup-dialog .warmup-turn button{min-height:40px;border:1px solid #646268;border-radius:4px;background:#303035;color:#ede6dd;font:inherit;font-size:13px;cursor:pointer;touch-action:manipulation}
+#warmup-dialog button:focus-visible{outline:2px solid #ffc18e;outline-offset:3px}
+#warmup-dialog .warmup-pad button:hover,#warmup-dialog .warmup-turn button:hover{background:#49403b;border-color:#d99c6d}
+#warmup-dialog button:disabled{opacity:.4;cursor:default}
+.warmup-turn{display:grid;grid-template-columns:repeat(2,64px);gap:7px}
+.warmup-input small{display:block;color:#9c9791;font-size:10px;text-align:center;margin-top:7px}
+.warmup-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;border-top:1px solid #414246;margin-top:20px;padding-top:16px}
+#warmup-dialog .warmup-note{font-size:10px;color:#8f8d8a;line-height:1.5;margin:12px 0 0}
+@media(max-width:600px){#warmup-dialog{padding:18px;max-height:94dvh}#warmup-dialog h2{font-size:22px}.warmup-input{gap:14px}#warmup-board{height:215px}.warmup-footer{gap:10px}#warmup-dialog .primary-btn{font-size:12px}.warmup-meta{margin-top:12px}}
+@media(max-width:360px){.warmup-input{gap:8px}.warmup-pad,.warmup-turn{grid-template-columns:repeat(2,56px);gap:6px}.warmup-input small{font-size:9px}#warmup-board{height:185px}.warmup-legend{gap:12px}}
+@media(max-height:600px) and (orientation:landscape){#warmup-dialog{max-width:800px;padding:14px 22px}.warmup-content{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:center}.warmup-scene{margin:8px 0}#warmup-board{height:175px}.warmup-input{gap:12px}#warmup-dialog h2{font-size:20px;margin-top:10px}.warmup-meta{margin-top:10px}.warmup-footer{margin-top:10px;padding-top:10px}.warmup-legend{gap:12px}}
+@media(prefers-reduced-motion:reduce){#warmup-progress>span{transition:none}}
