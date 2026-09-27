@@ -560,17 +560,46 @@ async function api(path,data){
   async function verifyFinish(){
     if(verifying)return;if(practice||!runId){ui['verification-status'].textContent='练习已完成。本局未连接共享成绩，无法入榜。';ui['score-form'].hidden=true;return;}
     verifying=true;const current=generation;ui['retry-verify'].hidden=true;ui['verification-status'].textContent='正在确认通关成绩…';
-    try{const result=await api('/api/finish',{runId,actions});if(current!==generation)return;verified=result;endElapsed=result.durationMs;ui.timer.textContent=formatTime(endElapsed);ui['verification-status'].textContent=`通关确认：坠落 ${result.deaths} 次 · ${formatTime(result.durationMs)}。`;ui['submit-score'].disabled=false;}
+    try{
+      const result=await api('/api/finish',{runId,actions});
+      if(current!==generation)return;
+      verified=result;endElapsed=result.durationMs;ui.timer.textContent=formatTime(endElapsed);
+      ui['verification-status'].textContent=`通关确认：坠落 ${result.deaths} 次 · ${formatTime(result.durationMs)}。`;
+      if(lockedName){
+        // 已固定昵称：隐藏表单，自动上传本局成绩。
+        ui['score-form'].hidden=true;ui['score-note'].hidden=true;
+        const saved=await saveScore(lockedName);
+        if(saved===null&&current===generation){ui['score-form'].hidden=false;ui['score-note'].hidden=false;applyLockedName();}
+      }else{
+        ui['submit-score'].disabled=false;
+      }
+    }
     catch(error){if(current!==generation)return;ui['verification-status'].textContent=error.message||'成绩确认失败，请重试。';ui['retry-verify'].hidden=false;}
     finally{if(current===generation)verifying=false;}
+  }
+  async function saveScore(nickname){
+    if(!verified||submitting)return null;
+    submitting=true;const current=generation;ui['submit-score'].disabled=true;ui['submit-score'].textContent='正在保存…';
+    try{
+      const result=await api('/api/scores',{runId,nickname});
+      if(current!==generation)return null;
+      lockedName=result.nickname;try{localStorage.setItem(nameStorageKey,result.nickname);}catch{}
+      ui['score-result'].textContent=result.personalBest?`已入榜，当前第 ${result.rank} 名。`:`已保留更好的历史成绩，当前第 ${result.rank} 名。`;
+      ui['submit-score'].textContent='已提交';ui.nickname.readOnly=true;loadFinishers();
+      return result;
+    }
+    catch(error){
+      if(current!==generation)return null;
+      ui['score-result'].textContent=error.message||'保存失败，昵称已保留，请再试。';
+      ui['submit-score'].disabled=false;ui['submit-score'].textContent='重试提交';
+      return null;
+    }
+    finally{if(current===generation)submitting=false;}
   }
   async function submitScore(event){
     event.preventDefault();if(!verified||submitting)return;
     const nickname=ui.nickname.value.normalize('NFC').trim();if(!nickname||Array.from(nickname).length>16||/[\u0000-\u001f\u007f<>]/.test(nickname)){ui['score-result'].textContent='昵称请输入1—16个字符，不含尖括号。';return;}
-    submitting=true;const current=generation;ui['submit-score'].disabled=true;ui['submit-score'].textContent='正在保存…';
-    try{const result=await api('/api/scores',{runId,nickname});if(current!==generation)return;lockedName=result.nickname;try{localStorage.setItem(nameStorageKey,result.nickname);}catch{}ui['score-result'].textContent=result.personalBest?`已入榜，当前第 ${result.rank} 名。`:`已保留更好的历史成绩，当前第 ${result.rank} 名。`;ui['submit-score'].textContent='已提交';ui.nickname.readOnly=true;loadFinishers();}
-    catch(error){if(current!==generation)return;ui['score-result'].textContent=error.message||'保存失败，昵称已保留，请再试。';ui['submit-score'].disabled=false;ui['submit-score'].textContent='重试提交';}
-    finally{if(current===generation)submitting=false;}
+    await saveScore(nickname);
   }
   function formatDate(value){return value?new Date(value).toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit'}):'—';}
   function newbieBadge(){const badge=document.createElement('span');badge.className='newbie-badge';badge.textContent='新手';return badge;}
