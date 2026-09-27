@@ -137,13 +137,18 @@ h1 {
 }
 
 .answer {
-  min-height: 4.8em;
+  display: -webkit-box;
+  height: 9.5em;
   max-width: 410px;
   margin: 0;
+  overflow: hidden;
   color: rgba(235, 219, 207, .72);
   font-size: 14px;
   line-height: 1.9;
   letter-spacing: .035em;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
 }
 
 .subline {
@@ -276,6 +281,72 @@ h1 {
 }
 .queue-cancel:hover { border-color: rgba(239, 158, 101, .55); }
 
+.queue-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(7, 1, 2, .72);
+  backdrop-filter: blur(10px);
+}
+
+.queue-modal {
+  width: min(520px, 100%);
+  padding: 30px;
+  color: #eee1d6;
+  border: 1px solid rgba(239, 140, 88, .3);
+  border-top: 4px solid #c74835;
+  background:
+    radial-gradient(circle at 92% 12%, rgba(188, 65, 42, .18), transparent 36%),
+    rgba(24, 8, 8, .97);
+  box-shadow: 0 34px 100px rgba(0, 0, 0, .64);
+}
+
+.queue-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  color: rgba(222, 185, 162, .58);
+  font-size: 9px;
+  letter-spacing: .16em;
+}
+
+.queue-position {
+  display: grid;
+  min-width: 66px;
+  text-align: right;
+}
+.queue-position small { font-size: 7px; letter-spacing: .2em; }
+.queue-position strong { color: #f0ddd0; font-size: 38px; font-weight: 350; line-height: .95; letter-spacing: -.05em; }
+.queue-modal-accent { display: block; width: 48px; height: 4px; margin: 18px 0 16px; background: #c74835; }
+.queue-modal h2 { margin: 0; font-family: Georgia, "Noto Serif SC", serif; font-size: clamp(27px, 4vw, 38px); font-weight: 400; line-height: 1.25; }
+.queue-modal p { margin: 18px 0 26px; color: rgba(226, 205, 190, .64); font-size: 12px; line-height: 1.85; letter-spacing: .035em; }
+.queue-modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.queue-modal-actions a,
+.queue-modal-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 0 17px;
+  color: #f5e9df;
+  border: 1px solid rgba(236, 164, 117, .28);
+  background: rgba(73, 21, 17, .72);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-decoration: none;
+  cursor: pointer;
+}
+.queue-modal-actions button { justify-content: center; background: rgba(255, 255, 255, .045); }
+.queue-modal-actions a:hover,
+.queue-modal-actions a:focus-visible,
+.queue-modal-actions button:hover,
+.queue-modal-actions button:focus-visible { border-color: rgba(245, 164, 108, .72); outline: none; }
+
 .mic-disc {
   display: grid;
   place-items: center;
@@ -368,12 +439,16 @@ footer {
   .copy-panel { position: relative; top: auto; left: auto; width: 100%; transform: none; grid-row: 1; }
   .copy-panel .status-row { margin-bottom: 12px; }
   .copy-panel h1 { max-width: none; font-size: clamp(28px, 7.5vw, 42px); margin-bottom: 12px; }
-  .copy-panel .answer { max-width: none; min-height: 0; max-height: 64px; overflow-y: auto; }
+  .copy-panel .answer { width: 100%; max-width: none; height: 9.5em; }
   h1 { max-width: 280px; font-size: 42px; }
   .answer { max-width: 300px; font-size: 12px; }
   .subline { display: none; }
   .phase-queued .subline { display: block; }
   .queue-cancel { left: 24px; bottom: 132px; }
+  .queue-modal-backdrop { padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom)); }
+  .queue-modal { padding: 23px 20px 20px; }
+  .queue-modal-actions { grid-template-columns: 1fr; }
+  .queue-modal-actions a, .queue-modal-actions button { min-height: 50px; }
   .scene-panel { position: relative; inset: auto; grid-row: 2; width: calc(100% + 32px); margin-left: -16px; height: 100%; min-height: 160px; opacity: 1; }
   .scene-caption { display: none; }
   .hold-button { position: relative; left: auto; bottom: auto; grid-row: 3; width: 100%; height: 68px; grid-template-columns: 42px 112px 1fr; }
@@ -389,7 +464,7 @@ footer {
   .copy-panel { position: absolute; top: 100px; left: 24px; width: 35%; transform: none; }
   .copy-panel .status-row { margin-bottom: 8px; }
   .copy-panel h1 { font-size: 28px; margin-bottom: 10px; }
-  .copy-panel .answer { min-height: 0; max-height: 58px; overflow-y: auto; font-size: 11px; }
+  .copy-panel .answer { height: 8em; font-size: 11px; line-height: 1.6; }
   .subline { display: none; }
   .scene-panel { position: absolute; inset: 32px 0 32px 39%; width: auto; height: auto; min-height: 0; margin: 0; }
   .scene-caption { display: none; }
