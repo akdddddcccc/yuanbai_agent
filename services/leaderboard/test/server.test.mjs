@@ -37,8 +37,9 @@ async function setup(t){
 
 test('随机地图种子由服务端保存，客户端不能用另一张地图提交成绩',async t=>{
   const s=await setup(t);
-  const run=await s.request('/runs',{layoutVersion:'seeded-v1'}),token=run.data.playerToken;
+  const run=await s.request('/runs',{layoutVersion:'seeded-v1',layoutSeed:'preloaded-map'}),token=run.data.playerToken;
   assert.equal(run.status,201);assert.equal(run.data.layoutVersion,'seeded-v1');
+  assert.equal(run.data.layoutSeed,'preloaded-map');
   const row=s.DB.sqlite.prepare('SELECT layout_seed FROM runs WHERE id=?').get(run.data.runId);
   assert.equal(row.layout_seed,run.data.layoutSeed);
   s.DB.sqlite.prepare('UPDATE runs SET started_at=? WHERE id=?').run(Date.now()-100000,run.data.runId);
@@ -197,4 +198,17 @@ test('每人只能起一次名：首次上榜带新手标，成绩进步后消�
   board=await s.request('/leaderboard?board=normal',undefined,first.token);
   assert.equal(board.data.items.find(i=>i.nickname==='第一个名字').newbie,false);
   assert.equal(board.data.total,1);
+});
+
+test('昵称全榜唯一，同一设备开新局会取回固定昵称',async t=>{
+  const s=await setup(t);
+  const first=await s.complete({name:'唯一昵称',duration:100000});
+  const restored=await s.request('/runs',{layoutVersion:'seeded-v1',layoutSeed:'next-map'},first.token);
+  assert.equal(restored.status,201);assert.equal(restored.data.nickname,'唯一昵称');
+  const other=await s.request('/runs',{}),otherToken=other.data.playerToken;
+  s.DB.sqlite.prepare('UPDATE runs SET started_at=? WHERE id=?').run(Date.now()-100000,other.data.runId);
+  assert.equal((await s.request('/finish',{runId:other.data.runId,actions:solve().actions},otherToken)).status,200);
+  const duplicate=await s.request('/scores',{runId:other.data.runId,nickname:'唯一昵称'},otherToken);
+  assert.equal(duplicate.status,409);assert.equal(duplicate.data.code,'nickname_taken');assert.match(duplicate.data.error,/昵称已占用/);
+  assert.equal((await s.request('/leaderboard')).data.total,1);
 });

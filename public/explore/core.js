@@ -19,6 +19,30 @@
   const inside=(r,c)=>r>=0&&r<SIZE&&c>=0&&c<SIZE;
   const LAYOUT_VERSION='seeded-v1';
   function createSeed(){return globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`;}
+  function validateLayout(layout){
+    if(!layout||!Array.isArray(layout.cliffs)||!Array.isArray(layout.pickups))throw Error('地图数据无效');
+    const cliffs=[...layout.cliffs].sort((a,b)=>a-b),cliffSet=new Set(cliffs),start=id(START.r,START.c);
+    if(cliffs.length!==CLIFFS.length||cliffSet.size!==CLIFFS.length||cliffs.some(i=>!Number.isInteger(i)||i<0||i>=SIZE*SIZE))throw Error('悬崖布局无效');
+    if(cliffSet.has(start)||cliffSet.has(id(7,0))||cliffSet.has(id(8,1)))throw Error('起点附近必须安全');
+    const seen=new Set([start]),queue=[start];
+    for(let head=0;head<queue.length;head++){
+      const r=Math.floor(queue[head]/SIZE),c=queue[head]%SIZE;
+      for(const {dr,dc} of DIRS){const rr=r+dr,cc=c+dc,index=id(rr,cc);if(inside(rr,cc)&&!cliffSet.has(index)&&!seen.has(index)){seen.add(index);queue.push(index);}}
+    }
+    if(seen.size!==SIZE*SIZE-cliffs.length)throw Error('地图存在无法到达的安全格');
+    const pickupIndexes=new Set(),typeCounts={companion:0,probe:0,panorama:0};
+    for(const pickup of layout.pickups){
+      if(!pickup||!Number.isInteger(pickup.index)||!Object.hasOwn(typeCounts,pickup.type)||pickup.index===start||cliffSet.has(pickup.index)||pickupIndexes.has(pickup.index))throw Error('道具布局无效');
+      pickupIndexes.add(pickup.index);typeCounts[pickup.type]++;
+    }
+    if(layout.pickups.length!==PICKUPS.length||typeCounts.companion!==5||typeCounts.probe!==4||typeCounts.panorama!==3)throw Error('道具数量无效');
+    const dangerSignals=[];
+    for(const index of seen){
+      const r=Math.floor(index/SIZE),c=index%SIZE;
+      if(DIRS.some(({dr,dc})=>inside(r+dr,c+dc)&&cliffSet.has(id(r+dr,c+dc))))dangerSignals.push(index);
+    }
+    return {cliffs,pickups:layout.pickups.map(p=>({...p})),dangerSignals:dangerSignals.sort((a,b)=>a-b)};
+  }
   function generateLayout(seed){
     // Integer arithmetic gives browsers and server replay exactly the same map.
     let state=2166136261;
@@ -44,14 +68,15 @@
     const first=random()<.5?id(7,0):id(8,1);
     const types=shuffle(PICKUPS.map(p=>p.type));types.splice(types.indexOf('companion'),1);
     const locations=safe.filter(i=>i!==first);
-    return {cliffs:[...cliffs].sort((a,b)=>a-b),pickups:[{index:first,type:'companion'},...types.map((type,i)=>({index:locations[i],type}))]};
+    return validateLayout({cliffs:[...cliffs],pickups:[{index:first,type:'companion'},...types.map((type,i)=>({index:locations[i],type}))]});
   }
   class Game{
     constructor(seed=null){this.reset(seed);}
     reset(seed=null){
       this.seed=seed;
-      const layout=seed===null?{cliffs:CLIFFS,pickups:PICKUPS}:generateLayout(seed);
+      const layout=seed===null?validateLayout({cliffs:CLIFFS,pickups:PICKUPS}):generateLayout(seed);
       this.cliffs=[...layout.cliffs];this.pickups=layout.pickups.map(p=>({...p}));
+      this.dangerSignals=new Set(layout.dangerSignals);
       this.r=START.r;this.c=START.c;this.direction=0;this.mode='playing';
       this.stock={companion:0,probe:0,panorama:0};this.picked=new Set();
       this.known=new Set([id(this.r,this.c)]);this.visited=new Set(this.known);this.safeVisited=new Set(this.visited);
@@ -85,7 +110,7 @@
     environment(){
       if(this.mode!=='playing')return null;
       // 只反馈异常存在，不透露方位、数量或距离。
-      return this.neighbors().some(p=>this.isCliff(p.r,p.c))?{near:true}:null;
+      return this.dangerSignals.has(this.position)?{near:true}:null;
     }
     pickupAt(index){return this.picked.has(index)?null:this.pickups.find(p=>p.index===index)||null;}
     turn(delta){if(this.mode!=='playing'||![1,-1].includes(delta))return false;this.direction=(this.direction+delta+4)%4;return true;}
@@ -140,7 +165,6 @@
     }
     if(g.mode!=='won'||g.count!==SAFE_COUNT)throw new Error('尚未走遍全部安全格');return g;
   }
-  const api={Game,SIZE,SAFE_COUNT,START,CLIFFS,DIRS,PICKUPS,TOOL_NAMES,RULE_VERSION,LAYOUT_VERSION,generateLayout,createSeed,PANORAMA_MS,SAN_PER_SECOND,SAN_PICKUP,SAN_FALL,id,inside,replay};
+  const api={Game,SIZE,SAFE_COUNT,START,CLIFFS,DIRS,PICKUPS,TOOL_NAMES,RULE_VERSION,LAYOUT_VERSION,generateLayout,validateLayout,createSeed,PANORAMA_MS,SAN_PER_SECOND,SAN_PICKUP,SAN_FALL,id,inside,replay};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.YuanbaiCore=api;
 })(typeof window!=='undefined'?window:globalThis);
-

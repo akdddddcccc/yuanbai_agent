@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import '../../../public/explore/core.js';
 import {solve} from './solver.mjs';
-const {Game,generateLayout,replay,id,SAFE_COUNT,CLIFFS}=globalThis.YuanbaiCore;
+const {Game,generateLayout,validateLayout,replay,id,SAFE_COUNT,CLIFFS}=globalThis.YuanbaiCore;
 
 test('2000 seeded maps are connected, keep a safe start and preserve pickup counts',()=>{
   const maps=new Set();
@@ -19,6 +19,13 @@ test('2000 seeded maps are connected, keep a safe start and preserve pickup coun
     assert(g.pickups.every(p=>seen.has(p.index)&&p.index!==g.position));
     assert.deepEqual(['companion','probe','panorama'].map(type=>g.pickups.filter(p=>p.type===type).length),[5,4,3]);
     assert(g.neighbors().some(p=>g.pickupAt(id(p.r,p.c))?.type==='companion'));
+    const checked=validateLayout({cliffs:g.cliffs,pickups:g.pickups});
+    for(const index of seen){
+      g.r=Math.floor(index/9);g.c=index%9;
+      const expected=g.neighbors().some(p=>g.isCliff(p.r,p.c));
+      assert.equal(!!g.environment(),expected,`seed ${seed}, cell ${index} should report nearby danger`);
+      assert.equal(checked.dangerSignals.includes(index),expected);
+    }
   }
   assert.equal(maps.size,2000);
 });

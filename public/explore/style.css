@@ -171,12 +171,16 @@ dialog{background:#1a1b1d;border-color:#535459}.guide-art{background:radial-grad
 @media(max-height:560px) and (orientation:landscape){.identity>strong,.header-title{translate:0 -3.5px}.header-title{font-size:12px;margin-left:-7.5px}.new-game{height:36px;font-size:11px;gap:6px}.new-game>span:first-child{font-size:18px}.new-game-row{margin-top:3px}}
 
 /* 云端排行榜（保留自原版，配色适配灰橙版） */
+#win-controls{min-height:0;max-height:100%;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:0 8px 8px 0;-webkit-overflow-scrolling:touch}
+.won .panel{overflow:hidden}
 #score-form label{font-size:14px;display:block;margin:14px 0 8px;color:#d5d5d5}
 .name-row{display:flex;gap:9px;flex-wrap:wrap}
 .name-row input{flex:1;min-width:120px;background:#101010;border:1px solid #3f3f3f;color:#e6e6e6;border-radius:3px;padding:10px}
 .name-row .primary-btn{white-space:nowrap;font-size:12px;padding:10px}
 .small-note{font-size:12px;color:#8a8a8a;line-height:1.7;margin:10px 0 0}
 #score-result{font-size:13px;color:#dfa16e;margin-top:8px;min-height:18px}
+.win-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0 6px;padding:10px 0;border-block:1px solid #3a342f}
+.win-actions .primary-btn{min-width:126px;padding:10px 16px}
 .ranking-rule{margin:0 0 14px;font-size:12px;color:#989898;line-height:1.8}
 .table-wrap{overflow:auto}
 #ranking-table{width:100%;border-collapse:collapse;font-size:12px}
@@ -200,6 +204,7 @@ tr.is-you{background:#33241a;color:#ffdab4}
 .finishers p{font-size:12px;color:#8a8a8a;line-height:1.6}
 .newbie-badge{display:inline-block;color:#2f9e44;font-size:11px;margin-left:6px;font-weight:500;white-space:nowrap}
 @media(max-width:900px) and (orientation:portrait){.newbie-badge{overflow:hidden;font-size:0;width:7px;height:7px;border-radius:50%;background:#2f9e44;margin-left:6px;vertical-align:2px}}
+@media(max-width:600px){#win-controls{padding-right:3px}.win-actions{position:sticky;bottom:0;z-index:2;background:linear-gradient(180deg,#141517e8,#141517 28%);padding:12px 0 8px;margin-bottom:0}.win-actions .primary-btn{min-width:116px}}
 
 
 /* Shared return control occupies its own row, above the game header. */

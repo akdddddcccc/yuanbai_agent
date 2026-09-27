@@ -1,6 +1,6 @@
 import '../../public/explore/core.js';
 const core=globalThis.YuanbaiCore;
-const {replay,RULE_VERSION,LAYOUT_VERSION,PANORAMA_MS}=core;
+const {replay,generateLayout,RULE_VERSION,LAYOUT_VERSION,PANORAMA_MS}=core;
 const uid=()=>crypto.randomUUID();
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
 function db(env){if(!env.DB)throw new Error('排行榜数据库尚未连接');return env.DB;}
@@ -14,6 +14,7 @@ async function player(request){
 async function body(request){const raw=await request.text();if(raw.length>200000)throw new Error('提交内容过大');try{return JSON.parse(raw);}catch{throw new Error('提交格式无效');}}
 function publicScore(row){return {deaths:row.deaths,durationMs:row.duration_ms,steps:row.steps};}
 async function hash(value){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(x=>x.toString(16).padStart(2,'0')).join('');}
+const nicknameKey=value=>value.normalize('NFKC').toLocaleLowerCase('zh-CN');
 export async function handleApi(request,env){
   const url=new URL(request.url),path=url.pathname.replace(/^\/api\/yuanbai\/game\//,'/api/'),now=Date.now();
   if(request.method==='POST'){
@@ -27,13 +28,18 @@ export async function handleApi(request,env){
     if(path==='/api/runs'&&request.method==='POST'){
       const data=await body(request);
       if(data.layoutVersion!==undefined&&data.layoutVersion!==LAYOUT_VERSION)return json({error:'地图版本已更新，请刷新页面。'},400);
-      const layoutSeed=data.layoutVersion===LAYOUT_VERSION?uid():null;
+      let layoutSeed=null;
+      if(data.layoutVersion===LAYOUT_VERSION){
+        layoutSeed=typeof data.layoutSeed==='string'&&data.layoutSeed.length<=80?data.layoutSeed:uid();
+        try{generateLayout(layoutSeed);}catch{return json({error:'地图生成失败，请重新开始。'},400);}
+      }
       const token=owner?null:[...crypto.getRandomValues(new Uint8Array(32))].map(byte=>byte.toString(16).padStart(2,'0')).join('');
       const pid=owner||await hash(token);
       const recent=await db(env).prepare('SELECT COUNT(*) AS n FROM runs WHERE player_id=? AND started_at>?').bind(pid,now-60000).first();
       if(recent.n>=20)return json({error:'新局创建过于频繁，请稍后再试。'},429);
       const runId=uid();await db(env).prepare('INSERT INTO runs (id,player_id,rule_version,started_at,layout_seed) VALUES (?,?,?,?,?)').bind(runId,pid,RULE_VERSION,now,layoutSeed).run();
-      return json({runId,ruleVersion:RULE_VERSION,startedAt:now,...(layoutSeed?{layoutSeed,layoutVersion:LAYOUT_VERSION}:{}),...(token?{playerToken:token}:{})},201);
+      const profile=await db(env).prepare('SELECT nickname FROM scores WHERE player_id=? AND rule_version=?').bind(pid,RULE_VERSION).first();
+      return json({runId,ruleVersion:RULE_VERSION,startedAt:now,...(layoutSeed?{layoutSeed,layoutVersion:LAYOUT_VERSION}:{}),...(profile?{nickname:profile.nickname}:{}),...(token?{playerToken:token}:{})},201);
     }
     if(path==='/api/finish'&&request.method==='POST'){
       if(!owner)return json({error:'本局身份已失效，请重新开始。'},401);
@@ -62,6 +68,10 @@ export async function handleApi(request,env){
       // 每人只能起一次名：已有名字后换昵称会被拒绝。
       const existing=await db(env).prepare('SELECT nickname FROM scores WHERE player_id=? AND rule_version=?').bind(owner,RULE_VERSION).first();
       if(existing&&existing.nickname!==name)return json({error:'昵称已固定，无法更换。'},400);
+      const key=nicknameKey(name);
+      await db(env).prepare('INSERT INTO nickname_claims (rule_version,nickname_key,nickname,player_id,created_at) VALUES (?,?,?,?,?) ON CONFLICT DO NOTHING').bind(RULE_VERSION,key,name,owner,now).run();
+      const claim=await db(env).prepare('SELECT player_id,nickname FROM nickname_claims WHERE rule_version=? AND nickname_key=?').bind(RULE_VERSION,key).first();
+      if(!claim||claim.player_id!==owner)return json({error:'昵称已占用，请换一个未使用的昵称。',code:'nickname_taken'},409);
       // 原子择优，重复点击或较慢的旧请求不会覆盖更好的成绩。
       // 首次上榜记 is_newbie=1（新手标）；之后成绩进步被替换时置 0。
       await db(env).prepare(`INSERT INTO scores (id,player_id,run_id,rule_version,nickname,deaths,duration_ms,steps,created_at,is_newbie)
