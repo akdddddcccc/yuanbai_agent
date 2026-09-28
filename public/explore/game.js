@@ -546,8 +546,12 @@
     canvas.dataset.toolEffect=type;
   }
   function updateToolFx(now){
-    if(!toolFx)return;const fx=toolFx,age=now-fx.start;
-    if(!fx.sounded&&age>=fx.soundAt){fx.sounded=true;if(age-fx.soundAt<450)playToolVoice(fx.type);}
+    if(!toolFx)return;const fx=toolFx,age=Math.max(0,now-fx.start);
+    if(!fx.sounded&&age>=fx.soundAt){
+      fx.sounded=true;
+      // Optional audio must never stop the animation clock or leave input locked.
+      if(age-fx.soundAt<450)try{playToolVoice(fx.type);}catch(error){stopToolVoice();console.warn('Tool audio unavailable',error);}
+    }
     if(!fx.revealed&&age>=fx.revealAt){
       fx.revealed=true;
       if(fx.type==='companion'){
@@ -657,8 +661,9 @@
   }
   // The supplied PNG is used unchanged. Rectangles select its original artwork;
   // ax/ay are absolute foot anchors, shared across pose changes.
-  const catAtlas=new Image();let catAtlasReady=false;
-  catAtlas.onload=()=>{catAtlasReady=true;};
+  const catAtlas=new Image();let catAtlasReady=false,catAtlasFailed=false;
+  catAtlas.onload=()=>{catAtlasReady=catAtlas.naturalWidth>0;catAtlasFailed=!catAtlasReady;};
+  catAtlas.onerror=()=>{catAtlasReady=false;catAtlasFailed=true;};
   catAtlas.src='assets/xiaodeng-atlas.png';
   const CAT_FRAMES={
     sit:{x:648,y:92,w:170,h:212,ax:714,ay:289},
@@ -675,6 +680,9 @@
   };
   function drawCat(x,y,size,time,age,alpha,jump=0,flip=false,flight=0,landing=0){
     if(!catAtlasReady)return;
+    // A RAF timestamp may precede a tap handled in the same frame (especially on
+    // throttled mobile devices). Negative age used to select nonexistent walk-1.
+    age=Number.isFinite(age)?Math.max(0,age):0;
     let name;
     if(reduced)name='sit';
     else if(age<330)name='walk'+(Math.floor(age/66)%5);
@@ -683,18 +691,24 @@
     else if(flight>0&&flight<1)name='jump';
     else if(landing<150)name='crouch';
     else name='sit';
-    const f=CAT_FRAMES[name],scale=clamp(size/620,.11,.40);
+    const f=CAT_FRAMES[name]||CAT_FRAMES.sit,scale=clamp(size/620,.11,.40);
     const rub=!reduced&&age>=330&&age<870?Math.sin((age-330)/540*Math.PI)*.065:0;
     // Uniform scaling keeps the source's head/body ratio and distinctive muzzle.
-    ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y-jump);
-    const mirror=name==='crouch'?!flip:flip;
-    if(mirror&&name!=='sit'&&!name.startsWith('front'))ctx.scale(-1,1);
-    ctx.rotate(rub);ctx.imageSmoothingEnabled=false;
-    ctx.drawImage(catAtlas,f.x,f.y,f.w,f.h,(f.x-f.ax)*scale,(f.y-f.ay)*scale,f.w*scale,f.h*scale);
-    ctx.restore();
+    ctx.save();
+    try{
+      ctx.globalAlpha=alpha;ctx.translate(x,y-jump);
+      const mirror=name==='crouch'?!flip:flip;
+      if(mirror&&name!=='sit'&&!name.startsWith('front'))ctx.scale(-1,1);
+      ctx.rotate(rub);ctx.imageSmoothingEnabled=false;
+      ctx.drawImage(catAtlas,f.x,f.y,f.w,f.h,(f.x-f.ax)*scale,(f.y-f.ay)*scale,f.w*scale,f.h*scale);
+    }catch(error){
+      // Decode/GPU failures degrade to the existing safe-landing signal. The
+      // tool remains consumed once and its reveal/unlock timeline keeps running.
+      catAtlasReady=false;catAtlasFailed=true;console.warn('Cat sprite unavailable',error);
+    }finally{ctx.restore();}
   }
   function drawProbeCat(x,y,size,time,fx){
-    const age=time-fx.start,alpha=smooth(age/180)*(1-smooth((age-fx.duration+480)/480)),target=fx.result.targets[0];
+    const age=Math.max(0,time-fx.start),alpha=smooth(age/180)*(1-smooth((age-fx.duration+480)/480)),target=fx.result.targets[0];
     const delta=plane(target.r-fx.r,target.c-fx.c,size),from={x:x-size*.14,y:y+size*.06};
     const flight=reduced?(age>=fx.revealAt?1:0):clamp((age-1070)/(fx.revealAt-1070));
     const leap=smooth(flight),rub=!reduced&&age<870?Math.sin(clamp((age-330)/510)*Math.PI)*size*.045:0;
@@ -713,7 +727,7 @@
 
   function tool(type){
     if(busy())return;
-    if(type==='probe'&&!catAtlasReady){say('小灯的动作图正在加载。','请稍后再使用，不会扣除道具。');return;}
+    if(type==='probe'&&!catAtlasReady&&!catAtlasFailed){say('小灯的动作图正在加载。','请稍后再使用，不会扣除道具。');return;}
     advanceSan();
     const beforeInspected=new Set(game.inspected),beforeSignals=new Set(game.safeSignals);
     const result=game.useTool(type);
