@@ -302,3 +302,16 @@ body.touch-layout .keyboard-key{touch-action:manipulation}
  body.touch-layout .stage-note,body.touch-layout .vision-status{display:none}
  body.touch-layout .panorama-legend{top:24px;font-size:8px;padding:5px}
 }
+
+/* Persistent cliff proximity warning: it remains visible when pickup or tool copy changes. */
+.nearby-status{position:absolute;bottom:222px;left:12px;right:12px;text-align:center;font-size:13px;line-height:1.6;color:#e0a270;text-shadow:0 0 18px #d47d4059;pointer-events:none;z-index:3;transition:opacity .6s}
+.nearby-status span:before{content:"";display:inline-block;width:5px;height:5px;margin:0 8px 2px 0;border-radius:50%;background:var(--rust);box-shadow:0 0 12px #d48150}
+.nearby-status small{display:block;font-size:11px;color:#a9917e}
+.nearby-status:not([hidden])+.vision-status:not([hidden]){bottom:264px}
+.won .nearby-status,.is-overview .nearby-status{display:none}
+.is-falling .nearby-status{opacity:0!important;pointer-events:none}
+@media(min-width:901px) and (max-height:800px){.nearby-status{bottom:189px}.nearby-status:not([hidden])+.vision-status:not([hidden]){bottom:225px}}
+@media(max-width:900px) and (orientation:portrait){.nearby-status{bottom:142px;font-size:11px}.nearby-status small{font-size:10px}.nearby-status:not([hidden])+.vision-status:not([hidden]){bottom:176px}}
+@media(max-width:900px) and (max-height:700px) and (orientation:portrait){.nearby-status{bottom:136px;font-size:10px}.nearby-status:not([hidden])+.vision-status:not([hidden]){bottom:168px}}
+@media(max-height:560px) and (orientation:landscape){.nearby-status{bottom:116px;font-size:10px}.nearby-status small{font-size:9px}.nearby-status:not([hidden])+.vision-status:not([hidden]){bottom:146px}}
+@media (orientation:portrait) and (max-height:660px){body.touch-layout .nearby-status{bottom:76px;font-size:10px}body.touch-layout .nearby-status small{display:none}}

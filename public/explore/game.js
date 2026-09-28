@@ -49,7 +49,8 @@
     const top=document.querySelector('.san-block').getBoundingClientRect().bottom-rect.top+18;
     const note=document.querySelector('.stage-note');
     const noteTop=(getComputedStyle(note).display==='none'?document.querySelector('.tools-dock'):note).getBoundingClientRect().top;
-    const limit=(ui['vision-status'].hidden||getComputedStyle(ui['vision-status']).display==='none')?noteTop:Math.min(noteTop,ui['vision-status'].getBoundingClientRect().top);
+    const statusTops=['nearby-status','vision-status'].filter(name=>!ui[name].hidden&&getComputedStyle(ui[name]).display!=='none').map(name=>ui[name].getBoundingClientRect().top);
+    const limit=Math.min(noteTop,...statusTops);
     const bottom=limit-rect.top-14;
     tile=Math.max(35,Math.min(width*.36,(bottom-top)/1.5,242));
     viewY=(top+bottom)/2;
@@ -465,6 +466,10 @@
   function updateUI(){
     updateSanUI();
     ui['panorama-legend'].hidden=!overview;document.querySelector('.stage').classList.toggle('is-overview',!!overview);
+    const nearby=game.mode==='playing'&&!!game.environment()&&!falling&&!winning&&!overview;
+    const nearbyChanged=ui['nearby-status'].hidden===nearby;
+    ui['nearby-status'].hidden=!nearby;canvas.dataset.nearbyDanger=String(nearby);
+    if(width&&nearbyChanged)resize();
     ui.count.textContent=pad(game.count);ui.percentage.textContent=Math.floor(game.count/SAFE_COUNT*100)+'%';ui.progress.setAttribute('aria-valuenow',game.count);ui['progress-fill'].style.width=game.count/SAFE_COUNT*100+'%';
     ui.coordinate.textContent=`位置 ${pad(game.r+1)} · ${pad(game.c+1)}`;ui['picked-count'].textContent=game.picked.size;
     for(const type of Object.keys(TOOL_NAMES)){ui[type+'-stock'].textContent=game.stock[type];ui[type].disabled=game.mode!=='playing'||game.stock[type]===0||!!falling||!!overview||!!toolFx||starting;}
@@ -472,7 +477,7 @@
     document.querySelectorAll('[data-face]').forEach(el=>el.classList.toggle('active',Number(el.dataset.face)===game.direction));
     document.querySelectorAll('[data-direction]').forEach(el=>{const facing=Number(el.dataset.direction)===game.direction;el.classList.toggle('is-facing',facing);el.title=el.getAttribute('aria-label')+(facing?' · 当前朝向':'');});
     ui.falls.textContent=pad(game.falls);ui['run-kind'].textContent=game.mode==='won'?(practice?'练习完成':'探索完成'):practice?'练习模式':started?'正在探索':'尚未出发';
-    canvas.setAttribute('aria-label',`位置第${game.r+1}行第${game.c+1}列，走过${game.count}/${SAFE_COUNT}个安全格，坠落${game.falls}次，面朝${DIRS[game.direction].name}。道具：提示${game.stock.companion}、探测${game.stock.probe}、全景${game.stock.panorama}。WASD移动，123使用道具。`);
+    canvas.setAttribute('aria-label',`位置第${game.r+1}行第${game.c+1}列，走过${game.count}/${SAFE_COUNT}个安全格，坠落${game.falls}次，面朝${DIRS[game.direction].name}。${nearby?'附近似乎不太对劲。':''}道具：提示${game.stock.companion}、探测${game.stock.probe}、全景${game.stock.panorama}。WASD移动，123使用道具。`);
   }
   async function beginRun(){
     if(started)return true;starting=true;const current=generation;updateUI();
