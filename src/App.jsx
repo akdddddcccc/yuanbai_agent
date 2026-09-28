@@ -228,6 +228,7 @@ export function App() {
     const source = context.createMediaElementSource(audio);
     connectMeter(source, context, true);
     audio.addEventListener("ended", () => {
+      if (responseRef.current !== audio) return;
       stopMeter();
       if (responseObjectUrlRef.current === audioUrl) {
         URL.revokeObjectURL(audioUrl);
@@ -238,6 +239,7 @@ export function App() {
       releaseQueueTicket();
     }, { once: true });
     audio.addEventListener("error", () => {
+      if (responseRef.current !== audio) return;
       stopMeter();
       setPlaybackBlocked(false);
       setErrorMessage("声音加载失败，请再试一次。");
@@ -246,6 +248,10 @@ export function App() {
     }, { once: true });
     try {
       await startAudioPlayback(audio, context);
+      if (queueCancelledRef.current || responseRef.current !== audio) {
+        audio.pause();
+        return;
+      }
       setPhase("speaking");
     } catch (error) {
       if (error?.name !== "NotAllowedError") throw error;
