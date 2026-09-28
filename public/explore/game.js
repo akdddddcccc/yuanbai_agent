@@ -49,7 +49,8 @@
     const top=document.querySelector('.san-block').getBoundingClientRect().bottom-rect.top+18;
     const note=document.querySelector('.stage-note');
     const noteTop=(getComputedStyle(note).display==='none'?document.querySelector('.tools-dock'):note).getBoundingClientRect().top;
-    const limit=(ui['vision-status'].hidden||getComputedStyle(ui['vision-status']).display==='none')?noteTop:Math.min(noteTop,ui['vision-status'].getBoundingClientRect().top);
+    const statusTops=['nearby-status','vision-status'].filter(name=>!ui[name].hidden&&getComputedStyle(ui[name]).display!=='none').map(name=>ui[name].getBoundingClientRect().top);
+    const limit=Math.min(noteTop,...statusTops);
     const bottom=limit-rect.top-14;
     tile=Math.max(35,Math.min(width*.36,(bottom-top)/1.5,242));
     viewY=(top+bottom)/2;
@@ -465,6 +466,10 @@
   function updateUI(){
     updateSanUI();
     ui['panorama-legend'].hidden=!overview;document.querySelector('.stage').classList.toggle('is-overview',!!overview);
+    const nearby=game.mode==='playing'&&!!game.environment()&&!falling&&!winning&&!overview;
+    const nearbyChanged=ui['nearby-status'].hidden===nearby;
+    ui['nearby-status'].hidden=!nearby;canvas.dataset.nearbyDanger=String(nearby);
+    if(width&&nearbyChanged)resize();
     ui.count.textContent=pad(game.count);ui.percentage.textContent=Math.floor(game.count/SAFE_COUNT*100)+'%';ui.progress.setAttribute('aria-valuenow',game.count);ui['progress-fill'].style.width=game.count/SAFE_COUNT*100+'%';
     ui.coordinate.textContent=`位置 ${pad(game.r+1)} · ${pad(game.c+1)}`;ui['picked-count'].textContent=game.picked.size;
     for(const type of Object.keys(TOOL_NAMES)){ui[type+'-stock'].textContent=game.stock[type];ui[type].disabled=game.mode!=='playing'||game.stock[type]===0||!!falling||!!overview||!!toolFx||starting;}
@@ -472,7 +477,7 @@
     document.querySelectorAll('[data-face]').forEach(el=>el.classList.toggle('active',Number(el.dataset.face)===game.direction));
     document.querySelectorAll('[data-direction]').forEach(el=>{const facing=Number(el.dataset.direction)===game.direction;el.classList.toggle('is-facing',facing);el.title=el.getAttribute('aria-label')+(facing?' · 当前朝向':'');});
     ui.falls.textContent=pad(game.falls);ui['run-kind'].textContent=game.mode==='won'?(practice?'练习完成':'探索完成'):practice?'练习模式':started?'正在探索':'尚未出发';
-    canvas.setAttribute('aria-label',`位置第${game.r+1}行第${game.c+1}列，走过${game.count}/${SAFE_COUNT}个安全格，坠落${game.falls}次，面朝${DIRS[game.direction].name}。道具：提示${game.stock.companion}、探测${game.stock.probe}、全景${game.stock.panorama}。WASD移动，123使用道具。`);
+    canvas.setAttribute('aria-label',`位置第${game.r+1}行第${game.c+1}列，走过${game.count}/${SAFE_COUNT}个安全格，坠落${game.falls}次，面朝${DIRS[game.direction].name}。${nearby?'附近似乎不太对劲。':''}道具：提示${game.stock.companion}、探测${game.stock.probe}、全景${game.stock.panorama}。WASD移动，123使用道具。`);
   }
   async function beginRun(){
     if(started)return true;starting=true;const current=generation;updateUI();
@@ -541,12 +546,8 @@
     canvas.dataset.toolEffect=type;
   }
   function updateToolFx(now){
-    if(!toolFx)return;const fx=toolFx,age=Math.max(0,now-fx.start);
-    if(!fx.sounded&&age>=fx.soundAt){
-      fx.sounded=true;
-      // Optional audio must never stop the animation clock or leave input locked.
-      if(age-fx.soundAt<450)try{playToolVoice(fx.type);}catch(error){stopToolVoice();console.warn('Tool audio unavailable',error);}
-    }
+    if(!toolFx)return;const fx=toolFx,age=now-fx.start;
+    if(!fx.sounded&&age>=fx.soundAt){fx.sounded=true;if(age-fx.soundAt<450)playToolVoice(fx.type);}
     if(!fx.revealed&&age>=fx.revealAt){
       fx.revealed=true;
       if(fx.type==='companion'){
@@ -656,9 +657,8 @@
   }
   // The supplied PNG is used unchanged. Rectangles select its original artwork;
   // ax/ay are absolute foot anchors, shared across pose changes.
-  const catAtlas=new Image();let catAtlasReady=false,catAtlasFailed=false;
-  catAtlas.onload=()=>{catAtlasReady=catAtlas.naturalWidth>0;catAtlasFailed=!catAtlasReady;};
-  catAtlas.onerror=()=>{catAtlasReady=false;catAtlasFailed=true;};
+  const catAtlas=new Image();let catAtlasReady=false;
+  catAtlas.onload=()=>{catAtlasReady=true;};
   catAtlas.src='assets/xiaodeng-atlas.png';
   const CAT_FRAMES={
     sit:{x:648,y:92,w:170,h:212,ax:714,ay:289},
@@ -675,9 +675,6 @@
   };
   function drawCat(x,y,size,time,age,alpha,jump=0,flip=false,flight=0,landing=0){
     if(!catAtlasReady)return;
-    // A RAF timestamp may precede a tap handled in the same frame (especially on
-    // throttled mobile devices). Negative age used to select nonexistent walk-1.
-    age=Number.isFinite(age)?Math.max(0,age):0;
     let name;
     if(reduced)name='sit';
     else if(age<330)name='walk'+(Math.floor(age/66)%5);
@@ -686,24 +683,18 @@
     else if(flight>0&&flight<1)name='jump';
     else if(landing<150)name='crouch';
     else name='sit';
-    const f=CAT_FRAMES[name]||CAT_FRAMES.sit,scale=clamp(size/620,.11,.40);
+    const f=CAT_FRAMES[name],scale=clamp(size/620,.11,.40);
     const rub=!reduced&&age>=330&&age<870?Math.sin((age-330)/540*Math.PI)*.065:0;
     // Uniform scaling keeps the source's head/body ratio and distinctive muzzle.
-    ctx.save();
-    try{
-      ctx.globalAlpha=alpha;ctx.translate(x,y-jump);
-      const mirror=name==='crouch'?!flip:flip;
-      if(mirror&&name!=='sit'&&!name.startsWith('front'))ctx.scale(-1,1);
-      ctx.rotate(rub);ctx.imageSmoothingEnabled=false;
-      ctx.drawImage(catAtlas,f.x,f.y,f.w,f.h,(f.x-f.ax)*scale,(f.y-f.ay)*scale,f.w*scale,f.h*scale);
-    }catch(error){
-      // Decode/GPU failures degrade to the existing safe-landing signal. The
-      // tool remains consumed once and its reveal/unlock timeline keeps running.
-      catAtlasReady=false;catAtlasFailed=true;console.warn('Cat sprite unavailable',error);
-    }finally{ctx.restore();}
+    ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y-jump);
+    const mirror=name==='crouch'?!flip:flip;
+    if(mirror&&name!=='sit'&&!name.startsWith('front'))ctx.scale(-1,1);
+    ctx.rotate(rub);ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(catAtlas,f.x,f.y,f.w,f.h,(f.x-f.ax)*scale,(f.y-f.ay)*scale,f.w*scale,f.h*scale);
+    ctx.restore();
   }
   function drawProbeCat(x,y,size,time,fx){
-    const age=Math.max(0,time-fx.start),alpha=smooth(age/180)*(1-smooth((age-fx.duration+480)/480)),target=fx.result.targets[0];
+    const age=time-fx.start,alpha=smooth(age/180)*(1-smooth((age-fx.duration+480)/480)),target=fx.result.targets[0];
     const delta=plane(target.r-fx.r,target.c-fx.c,size),from={x:x-size*.14,y:y+size*.06};
     const flight=reduced?(age>=fx.revealAt?1:0):clamp((age-1070)/(fx.revealAt-1070));
     const leap=smooth(flight),rub=!reduced&&age<870?Math.sin(clamp((age-330)/510)*Math.PI)*size*.045:0;
@@ -722,7 +713,7 @@
 
   function tool(type){
     if(busy())return;
-    if(type==='probe'&&!catAtlasReady&&!catAtlasFailed){say('小灯的动作图正在加载。','请稍后再使用，不会扣除道具。');return;}
+    if(type==='probe'&&!catAtlasReady){say('小灯的动作图正在加载。','请稍后再使用，不会扣除道具。');return;}
     advanceSan();
     const beforeInspected=new Set(game.inspected),beforeSignals=new Set(game.safeSignals);
     const result=game.useTool(type);
