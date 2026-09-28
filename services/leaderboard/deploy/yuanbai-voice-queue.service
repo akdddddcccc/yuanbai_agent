@@ -8,7 +8,7 @@ User=yuanbai
 Group=yuanbai
 WorkingDirectory=/opt/yuanbai-voice-queue/current
 Environment=PORT=4176
-Environment=YUANBAI_VOICE_CONCURRENCY=2
+Environment=YUANBAI_VOICE_CONCURRENCY=4
 ExecStart=/opt/yuanbai-runtime/node-v24.16.0-linux-x64/bin/node services/leaderboard/voice-queue-server.mjs
 Restart=on-failure
 RestartSec=3

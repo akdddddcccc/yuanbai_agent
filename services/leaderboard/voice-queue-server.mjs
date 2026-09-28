@@ -3,11 +3,11 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {createVoiceQueue} from './voice-queue.mjs';
 
-export function createVoiceQueueServer({capacity=2}={}){
+export function createVoiceQueueServer({capacity=4}={}){
   const queue=createVoiceQueue({capacity});
   return http.createServer(async(req,res)=>{
     const send=(status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(body));};
-    if(req.method==='GET'&&req.url==='/health')return send(200,{ok:true,capacity});
+    if(req.method==='GET'&&req.url==='/health')return send(200,{ok:true,...queue.snapshot()});
     const action=req.url?.match(/^\/api\/yuanbai\/voice-queue\/(join|status|claim|complete|release)$/)?.[1];
     if(!action)return send(404,{ok:false,error:'接口不存在'});
     if(req.method!=='POST')return send(405,{ok:false,error:'请求方式不支持'});
@@ -23,6 +23,6 @@ export function createVoiceQueueServer({capacity=2}={}){
 }
 
 if(process.argv[1]&&fileURLToPath(import.meta.url)===path.resolve(process.argv[1])){
-  const capacity=Math.max(1,Math.min(5,Math.floor(Number(process.env.YUANBAI_VOICE_CONCURRENCY)||2)));
+  const capacity=Math.max(1,Math.min(5,Math.floor(Number(process.env.YUANBAI_VOICE_CONCURRENCY)||4)));
   createVoiceQueueServer({capacity}).listen(Number(process.env.PORT)||4176,'127.0.0.1');
 }
