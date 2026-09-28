@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
 
-const DEFAULT_CAPACITY=2;
+const DEFAULT_CAPACITY=4;
 const DEFAULT_TICKET_TTL=90_000;
 const MAX_WAITING=200;
 
@@ -63,10 +63,17 @@ export function createVoiceQueue({capacity=DEFAULT_CAPACITY,ticketTtl=DEFAULT_TI
     complete(id,claimToken){
       const ticket=tickets.get(id);
       if(!ticket?.processing||!claimToken||ticket.claimToken!==claimToken)return {ok:false};
-      ticket.processing=false;
-      ticket.touchedAt=now();
-      if(ticket.releaseRequested)this.release(id);
+      // The lease protects provider work, not playback on the visitor's device.
+      // Retire it atomically so heartbeats cannot keep a finished job occupying a slot.
+      tickets.delete(id);
+      promote();
       return {ok:true};
+    },
+    snapshot(){
+      promote();
+      const all=[...tickets.values()];
+      return {capacity,active:all.filter(t=>t.state==='active').length,
+        processing:all.filter(t=>t.processing).length,waiting:all.filter(t=>t.state==='waiting').length};
     },
     get size(){return tickets.size;},
   };
