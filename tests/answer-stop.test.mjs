@@ -9,6 +9,7 @@ test('stop answer aborts generation, stops playback and releases the queue slot'
   ]);
   assert.match(app,/requestController = new AbortController\(\)/);
   assert.match(app,/signal: requestController\.signal/);
+  assert.match(app,/await startAudioPlayback\(audio, context\);[\s\S]*queueCancelledRef\.current \|\| responseRef\.current !== audio/);
   assert.match(app,/const stopAnswer = useCallback\(\(\) => \{[\s\S]*requestAbortRef\.current\?\.abort\(\)[\s\S]*responseRef\.current\?\.pause\(\)[\s\S]*releaseQueueTicket\(\)/);
   assert.match(app,/phase === "thinking" \|\| phase === "speaking"/);
   assert.match(app,/停止元白回答并释放排队名额/);
