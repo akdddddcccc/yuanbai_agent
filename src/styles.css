@@ -296,7 +296,8 @@ h1 {
 .phase-listening .hold-button::after { animation: recordOuterRing 1.4s cubic-bezier(.2, .6, .2, 1) infinite; }
 .hold-button:disabled { cursor: wait; opacity: .78; }
 
-.queue-cancel {
+.queue-cancel,
+.answer-stop {
   position: fixed;
   z-index: 9;
   left: var(--copy-left);
@@ -307,8 +308,16 @@ h1 {
   border-radius: 20px;
   background: rgba(57, 14, 13, .72);
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: color .2s ease, border-color .2s ease, background .2s ease, transform .2s ease;
 }
-.queue-cancel:hover { border-color: rgba(239, 158, 101, .55); }
+.queue-cancel:hover,
+.answer-stop:hover,
+.queue-cancel:focus-visible,
+.answer-stop:focus-visible { color: #f4dfd0; border-color: rgba(239, 158, 101, .55); background: rgba(76, 20, 17, .88); outline: none; }
+.answer-stop { display: inline-flex; align-items: center; gap: 7px; }
+.answer-stop:active { transform: scale(.97); }
 
 .queue-modal-backdrop {
   position: fixed;
@@ -473,7 +482,7 @@ footer {
   .answer { max-width: 300px; font-size: 12px; }
   .subline { display: none; }
   .phase-queued .subline { display: block; }
-  .queue-cancel { left: 24px; bottom: 132px; }
+  .queue-cancel, .answer-stop { left: 24px; bottom: max(130px, calc(env(safe-area-inset-bottom) + 112px)); }
   .playback-button { left: 24px; bottom: max(130px, calc(env(safe-area-inset-bottom) + 112px)); max-width: calc(100vw - 48px); }
   .queue-modal-backdrop { padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom)); }
   .queue-modal { padding: 23px 20px 20px; }
@@ -499,6 +508,7 @@ footer {
   .scene-panel { position: absolute; inset: 32px 0 32px 39%; width: auto; height: auto; min-height: 0; margin: 0; }
   .scene-caption { display: none; }
   .playback-button { left: 24px; bottom: 94px; max-width: 35%; }
+  .answer-stop { left: 24px; bottom: 94px; max-width: 35%; }
   .hold-button { position: absolute; left: 24px; bottom: 28px; width: 34%; height: 56px; grid-template-columns: 34px 1fr; }
   .hold-button .waveform { display: none; }
   footer { bottom: 8px; }
