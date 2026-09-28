@@ -95,8 +95,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
 --><meta name="description" content="元白楼感知探索：在81格未知空间中走遍66个安全格，避开悬崖，拾取道具；让完整的建筑记忆重新显现。">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23060707'/%3E%3Cpath d='M16 4 29 12 16 20 3 12Z' fill='%23d48150'/%3E%3Cpath d='M3 16 16 24 29 16M3 21 16 29 29 21' fill='none' stroke='%23d48150' stroke-width='2'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=tools-v6"><link rel="stylesheet" href="../portal-navigation.css"><script type="module" src="../model-preload.js"></script><script>if(location.pathname.endsWith("/explore/index.html"))history.replaceState(null,"",location.pathname.replace(/index\.html$/,"")+location.search+location.hash);</script>
-<script defer src="core.js?v=seeded-v1"></script><script defer src="game.js?v=probe-clock-fix-v1"></script>
+<link rel="stylesheet" href="style.css?v=cliff-warning-v1"><link rel="stylesheet" href="../portal-navigation.css"><script type="module" src="../model-preload.js"></script><script>if(location.pathname.endsWith("/explore/index.html"))history.replaceState(null,"",location.pathname.replace(/index\.html$/,"")+location.search+location.hash);</script>
+<script defer src="core.js?v=seeded-v1"></script><script defer src="game.js?v=cliff-warning-v1"></script>
 </head><body>
 <svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs>
 <symbol id="icon-companion" viewBox="0 0 88 88"><path d="M62.3333 25.6667V62.3334H55V25.6667H62.3333ZM33 25.6667V62.3334H25.6667V25.6667H33ZM18.3333 36.6667V51.3334H11V36.6667H18.3333ZM77 36.6667V51.3334H69.6667V36.6667H77ZM47.6667 14.6667V73.3334H40.3333V14.6667H47.6667Z" fill="currentColor" fill-rule="nonzero"/></symbol>
@@ -125,7 +125,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <main><section class="stage" aria-label="元白楼探索棋盘"><canvas id="world" tabindex="0" role="img" aria-label="WASD移动，Q和E转向，数字1、2、3使用道具"></canvas>
 <div class="stage-top"><span>9 × 9 / 未知空间</span><span id="coordinate">位置 09 · 01</span></div>
 <div class="san-block" id="san-block"><div class="san-heading"><span>SAN <small>感知压力</small></span><strong id="san-value">0.0%</strong></div><div class="san-meter" id="san-meter" role="progressbar" aria-label="SAN感知压力" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="san-fill"></span></div><p id="san-state">每秒 +0.2 · 拾取 −8 · 坠落 +8</p></div>
-<div class="stage-note" id="stage-note"><span></span><span>光所及之处，只有一步。</span></div><div id="vision-status" class="vision-status" role="status" hidden>SAN 满值 · 正前方仍有光<br><small>Q / E 转向观察 · 拾取道具后恢复</small></div>
+<div class="stage-note" id="stage-note"><span></span><span>光所及之处，只有一步。</span></div><div id="nearby-status" class="nearby-status" role="status" aria-live="polite" hidden><span>附近似乎不太对劲</span><small>空气与光发生了变化 · 用道具确认悬崖位置</small></div><div id="vision-status" class="vision-status" role="status" hidden>SAN 满值 · 正前方仍有光<br><small>Q / E 转向观察 · 拾取道具后恢复</small></div>
 <div id="panorama-legend" class="panorama-legend" hidden><span><i class="legend-swatch visited"></i>已走过</span><span><i class="legend-swatch"></i>未走过</span><span><i class="legend-swatch cliff">×</i>悬崖</span><span>◉ 你的位置</span></div>
 <div id="play-controls" class="tools-dock"><div class="tool-grid">
 <button class="tool" id="companion" aria-label="1 同伴的声音，确认相邻四格" aria-keyshortcuts="1"><span class="tool-label"><strong>同伴的声音</strong><small>确认相邻四格</small></span><svg class="tool-icon" aria-hidden="true"><use href="#icon-companion"/></svg><span class="tool-key" aria-hidden="true">1</span><span class="stock" id="companion-stock">0</span><span class="tool-stock-hint">按 1 使用</span></button>
