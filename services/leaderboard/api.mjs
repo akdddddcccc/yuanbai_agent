@@ -73,7 +73,7 @@ export async function handleApi(request,env){
       const claim=await db(env).prepare('SELECT player_id,nickname FROM nickname_claims WHERE rule_version=? AND nickname_key=?').bind(RULE_VERSION,key).first();
       if(!claim||claim.player_id!==owner)return json({error:'昵称已占用，请换一个未使用的昵称。',code:'nickname_taken'},409);
       // 原子择优，重复点击或较慢的旧请求不会覆盖更好的成绩。
-      // 首次上榜记 is_newbie=1（新手标）；之后成绩进步被替换时置 0。
+      // 首次上榜记 is_newbie=1（新手标）；之后无论成绩是否更好，只要再次通关提交即置 0。
       await db(env).prepare(`INSERT INTO scores (id,player_id,run_id,rule_version,nickname,deaths,duration_ms,steps,created_at,is_newbie)
         VALUES (?,?,?,?,?,?,?,?,?,1) ON CONFLICT(player_id,rule_version) DO UPDATE SET
         run_id=excluded.run_id,nickname=excluded.nickname,deaths=excluded.deaths,duration_ms=excluded.duration_ms,steps=excluded.steps,created_at=excluded.created_at,is_newbie=0
@@ -86,6 +86,11 @@ export async function handleApi(request,env){
         WHERE excluded.deaths>death_scores.deaths OR
         (excluded.deaths=death_scores.deaths AND (excluded.duration_ms,excluded.steps)<(death_scores.duration_ms,death_scores.steps))`)
         .bind(uid(),owner,run.id,RULE_VERSION,name,run.deaths,run.duration_ms,run.steps,now).run();
+      // 新手标只在第一次上榜时显示；之后只要再次通关提交（无论成绩是否更好）就摘掉。
+      if(existing){
+        await db(env).prepare('UPDATE scores SET is_newbie=0 WHERE player_id=? AND rule_version=?').bind(owner,RULE_VERSION).run();
+        await db(env).prepare('UPDATE death_scores SET is_newbie=0 WHERE player_id=? AND rule_version=?').bind(owner,RULE_VERSION).run();
+      }
       const best=await db(env).prepare('SELECT * FROM scores WHERE player_id=? AND rule_version=?').bind(owner,RULE_VERSION).first();
       const rank=await db(env).prepare('SELECT COUNT(*)+1 AS rank FROM scores WHERE rule_version=? AND (deaths,duration_ms,steps,created_at,id)<(?,?,?,?,?)').bind(RULE_VERSION,best.deaths,best.duration_ms,best.steps,best.created_at,best.id).first();
       return json({saved:true,personalBest:best.run_id===run.id,rank:rank.rank,nickname:best.nickname,...publicScore(best)});

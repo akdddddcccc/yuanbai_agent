@@ -185,16 +185,16 @@ test('入榜按成功次数限流，失败提交不占名额，被挡住仍保�
   assert.equal(board.data.items[0].isYou,true);
 });
 
-test('每人只能起一次名：首次上榜带新手标，成绩进步后消失',async t=>{
+test('每人只能起一次名：首次上榜带新手标，再次通关即消失',async t=>{
   const s=await setup(t);
   const first=await s.complete({name:'第一个名字',duration:100000});
   let board=await s.request('/leaderboard?board=normal',undefined,first.token);
   assert.equal(board.data.items.find(i=>i.nickname==='第一个名字').newbie,true);
   // 换名字被拒绝
   assert.equal((await s.request('/scores',{runId:first.started.data.runId,nickname:'第二个名字'},first.token)).status,400);
-  // 用原名提交更好的成绩 → 新手标消失
-  const better=await s.complete({name:'第一个名字',duration:50000,token:first.token});
-  assert.equal(better.saved.data.personalBest,true);
+  // 用原名再提交一次更差的成绩 → 新手标仍然消失（只要再次通关）
+  const again=await s.complete({name:'第一个名字',duration:180000,token:first.token});
+  assert.equal(again.saved.data.personalBest,false);
   board=await s.request('/leaderboard?board=normal',undefined,first.token);
   assert.equal(board.data.items.find(i=>i.nickname==='第一个名字').newbie,false);
   assert.equal(board.data.total,1);
