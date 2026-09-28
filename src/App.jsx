@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowUpRight, Microphone, Play } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowUpRight, Microphone, Play, Stop } from "@phosphor-icons/react";
 import { CursorLightTrail } from "./CursorLightTrail";
 import { YuanbaiScene } from "./YuanbaiScene";
 import { startAudioPlayback } from "./audioPlayback";
@@ -79,13 +79,15 @@ export function App() {
   const queueTicketRef = useRef("");
   const queueCancelledRef = useRef(false);
   const queueHeartbeatRef = useRef(0);
+  const requestAbortRef = useRef(null);
 
-  const releaseQueueTicket = useCallback(async () => {
-    const ticket = queueTicketRef.current;
-    queueTicketRef.current = "";
-    window.clearInterval(queueHeartbeatRef.current);
-    setQueuePosition(0);
-    setQueuePromptOpen(false);
+  const releaseQueueTicket = useCallback(async (ticket = queueTicketRef.current) => {
+    if (queueTicketRef.current === ticket) {
+      queueTicketRef.current = "";
+      window.clearInterval(queueHeartbeatRef.current);
+      setQueuePosition(0);
+      setQueuePromptOpen(false);
+    }
     if (!ticket) return;
     try {
       await fetch(`${API_QUEUE_URL}/release`, {
@@ -94,15 +96,17 @@ export function App() {
     } catch {}
   }, []);
 
-  const waitForQueueTurn = useCallback(async () => {
-    queueCancelledRef.current = false;
+  const waitForQueueTurn = useCallback(async (signal) => {
     const joinedResponse = await fetch(`${API_QUEUE_URL}/join`, {
-      method:"POST",headers:{"Content-Type":"application/json"},body:"{}",
+      method:"POST",headers:{"Content-Type":"application/json"},body:"{}",signal,
     });
     const joined = await joinedResponse.json();
     if (!joinedResponse.ok || !joined.ok || !joined.ticket) throw new Error(joined.error || "暂时进不了队列，请稍后再试。");
     queueTicketRef.current = joined.ticket;
-    if (queueCancelledRef.current) throw new Error("已取消等候。");
+    if (signal.aborted || queueCancelledRef.current) {
+      releaseQueueTicket(joined.ticket);
+      throw new DOMException("已取消等候。", "AbortError");
+    }
     queueHeartbeatRef.current = window.setInterval(() => {
       fetch(`${API_QUEUE_URL}/status`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:joined.ticket})}).catch(()=>{});
     }, 20_000);
@@ -114,20 +118,29 @@ export function App() {
     }
     while (status.state !== "active") {
       await new Promise((resolve) => window.setTimeout(resolve, 1800 + Math.random() * 500));
-      if (queueCancelledRef.current) throw new Error("已取消等候。");
+      if (signal.aborted || queueCancelledRef.current) {
+        releaseQueueTicket(joined.ticket);
+        throw new DOMException("已取消等候。", "AbortError");
+      }
       const response = await fetch(`${API_QUEUE_URL}/status`, {
-        method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:joined.ticket}),
+        method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket:joined.ticket}),signal,
       });
       status = await response.json();
-      if (queueCancelledRef.current) throw new Error("已取消等候。");
+      if (signal.aborted || queueCancelledRef.current) {
+        releaseQueueTicket(joined.ticket);
+        throw new DOMException("已取消等候。", "AbortError");
+      }
       if (!response.ok || !status.ok || status.expired) throw new Error(status.error || "等候中断了，请重新试一次。");
       setQueuePosition(status.position || 0);
     }
-    if (queueCancelledRef.current) throw new Error("已取消等候。");
+    if (signal.aborted || queueCancelledRef.current) {
+      releaseQueueTicket(joined.ticket);
+      throw new DOMException("已取消等候。", "AbortError");
+    }
     setQueuePromptOpen(false);
     setPhase("thinking");
     return joined.ticket;
-  }, []);
+  }, [releaseQueueTicket]);
 
   const ensureAudioContext = useCallback(async () => {
     if (!audioContextRef.current || audioContextRef.current.state === "closed") {
@@ -228,6 +241,7 @@ export function App() {
     const source = context.createMediaElementSource(audio);
     connectMeter(source, context, true);
     audio.addEventListener("ended", () => {
+      if (responseRef.current !== audio) return;
       stopMeter();
       if (responseObjectUrlRef.current === audioUrl) {
         URL.revokeObjectURL(audioUrl);
@@ -238,6 +252,7 @@ export function App() {
       releaseQueueTicket();
     }, { once: true });
     audio.addEventListener("error", () => {
+      if (responseRef.current !== audio) return;
       stopMeter();
       setPlaybackBlocked(false);
       setErrorMessage("声音加载失败，请再试一次。");
@@ -246,6 +261,10 @@ export function App() {
     }, { once: true });
     try {
       await startAudioPlayback(audio, context);
+      if (queueCancelledRef.current || responseRef.current !== audio) {
+        audio.pause();
+        return;
+      }
       setPhase("speaking");
     } catch (error) {
       if (error?.name !== "NotAllowedError") throw error;
@@ -268,6 +287,9 @@ export function App() {
   }, [meter, showPlaybackFallback]);
 
   const submitRecording = useCallback(async (blob) => {
+    const requestController = new AbortController();
+    requestAbortRef.current = requestController;
+    let queueTicket = "";
     try {
       if (blob.size < 800) throw new Error("录音太短了，请多说一点。 ");
       // MediaRecorder 已将麦克风音频压缩为 Opus/AAC；直接上传压缩流，
@@ -276,12 +298,15 @@ export function App() {
       if (audioBase64.length > MAX_AUDIO_BASE64_LENGTH) {
         throw new Error("这段话比较长，云端一次接收不了，请分成两段再说。");
       }
-      const queueTicket = await waitForQueueTurn();
+      if (requestController.signal.aborted || queueCancelledRef.current) return;
+      queueTicket = await waitForQueueTurn(requestController.signal);
+      if (requestController.signal.aborted || queueCancelledRef.current) return;
       // 原文件留在浏览器，只把提取后的文字交给服务端做相关片段检索。
       // API 密钥始终留在服务端函数中。
       const response = await fetch(API_CHAT_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: requestController.signal,
         body: JSON.stringify({
           audio_base64: audioBase64,
           mime_type: blob.type || "audio/webm",
@@ -307,6 +332,7 @@ export function App() {
       if (!response.ok || !result.ok) {
         throw new Error(result.error || "这次没有回答成功，请再试一次。");
       }
+      if (requestController.signal.aborted || queueCancelledRef.current) return;
       setTranscript(result.transcript || "");
       setAnswer(result.answer || "");
       historyRef.current = [
@@ -328,15 +354,41 @@ export function App() {
         throw new Error("回答已经生成，但没有收到声音文件。");
       }
     } catch (error) {
+      if (error?.name === "AbortError" || queueCancelledRef.current) {
+        stopMeter();
+        setPhase("idle");
+        releaseQueueTicket(queueTicket);
+        return;
+      }
       setErrorMessage(error?.message || "这次没有回答成功，请再试一次。");
       stopMeter();
       setPhase("idle");
-      releaseQueueTicket();
+      releaseQueueTicket(queueTicket || queueTicketRef.current);
+    } finally {
+      if (requestAbortRef.current === requestController) requestAbortRef.current = null;
     }
   }, [playResponse, releaseQueueTicket, stopMeter, waitForQueueTurn]);
 
+  const stopAnswer = useCallback(() => {
+    queueCancelledRef.current = true;
+    requestAbortRef.current?.abort();
+    requestAbortRef.current = null;
+    responseRef.current?.pause();
+    responseRef.current = null;
+    if (responseObjectUrlRef.current) {
+      URL.revokeObjectURL(responseObjectUrlRef.current);
+      responseObjectUrlRef.current = "";
+    }
+    setPlaybackBlocked(false);
+    setErrorMessage("");
+    stopMeter();
+    setPhase("idle");
+    releaseQueueTicket();
+  }, [releaseQueueTicket, stopMeter]);
+
   const cancelQueue = useCallback(() => {
     queueCancelledRef.current = true;
+    requestAbortRef.current?.abort();
     releaseQueueTicket();
   }, [releaseQueueTicket]);
 
@@ -350,6 +402,7 @@ export function App() {
     event.preventDefault();
     if (phase !== "idle") return;
     pressedRef.current = true;
+    queueCancelledRef.current = false;
     setErrorMessage("");
     setTranscript("");
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -432,6 +485,7 @@ export function App() {
     if (recorderRef.current?.state === "recording") recorderRef.current.stop();
     mediaRef.current?.getTracks().forEach((track) => track.stop());
     responseRef.current?.pause();
+    requestAbortRef.current?.abort();
     const ticket = queueTicketRef.current;
     window.clearInterval(queueHeartbeatRef.current);
     if (ticket) fetch(`${API_QUEUE_URL}/release`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ticket}),keepalive:true}).catch(()=>{});
@@ -509,6 +563,12 @@ export function App() {
           ))}
         </span>
       </button>
+      {(phase === "thinking" || phase === "speaking") && (
+        <button className="answer-stop" type="button" onClick={stopAnswer} aria-label="停止元白回答并释放排队名额">
+          <Stop size={13} weight="fill" aria-hidden="true" />
+          <span>停止回答</span>
+        </button>
+      )}
       {phase === "queued" && <button className="queue-cancel" type="button" onClick={cancelQueue}>取消等候</button>}
 
       {phase === "queued" && queuePromptOpen && (
