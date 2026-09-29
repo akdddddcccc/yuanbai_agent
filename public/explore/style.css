@@ -304,6 +304,7 @@ body.touch-layout .keyboard-key{touch-action:manipulation}
 }
 
 /* Fixed overlay slots keep status copy out of the board's sizing calculation. */
+.nearby-status{position:absolute}
 .explore-hints{position:absolute;bottom:calc(100% + 10px);left:0;right:0;height:40px;pointer-events:none}
 body .explore-hints .stage-note,body .explore-hints .nearby-status,body .explore-hints .vision-status{position:absolute;left:0;right:0;bottom:auto;margin:0;white-space:nowrap;text-align:center;pointer-events:none;line-height:20px;height:20px}
 body .explore-hints .stage-note,body .explore-hints .nearby-status{top:0;font-size:13px;letter-spacing:.04em}
@@ -316,4 +317,85 @@ body .explore-hints .vision-status{top:22px;font-size:11px;line-height:16px;heig
  body.touch-layout .explore-hints .stage-note,body .explore-hints .nearby-status{display:flex;align-items:center;justify-content:center}
  body .explore-hints .stage-note,body .explore-hints .nearby-status{font-size:11px;line-height:18px;height:18px}
  body.touch-layout .explore-hints .vision-status,body .explore-hints .vision-status{display:block;top:19px;font-size:10px;line-height:15px;height:15px}
+}
+
+/* Header shares one visual row: return, Yuanbai identity, then game actions. */
+.masthead-start{display:flex;align-items:center;gap:18px;min-width:0}
+.masthead .back-to-portal{position:static;flex:none;padding-right:18px;border-right:1px solid #ffffff18;color:#b79b88}
+.masthead .back-to-portal:hover,.masthead .back-to-portal:focus-visible{color:#f0ddd0}
+
+/* 14-inch Windows/Edge and desktop WeChat: reserve the visual weight for the board. */
+@media (min-width:901px) and (max-width:1500px) and (max-height:900px){
+ .masthead{height:54px;padding:0 20px;gap:12px}
+ .masthead-start{gap:13px}
+ .masthead .back-to-portal{padding-right:13px;font-size:9px}
+ .yuanbai-logo{width:39px;height:32px}
+ .identity{gap:8px}
+ .identity>strong{font-size:21px}
+ .header-title{font-size:14px;margin-left:2px}
+ .masthead nav{gap:18px}
+ .text-btn,.sound-control{font-size:12px}
+ main{grid-template-columns:minmax(0,1fr) clamp(278px,22vw,326px)}
+ .stage-top{left:20px;right:20px;top:14px;font-size:9px}
+ .san-block{top:42px;left:20px;width:220px}
+ .san-heading{font-size:12px}
+ .san-heading small{font-size:11px;margin-left:5px}
+ .san-heading strong{font-size:17px}
+ .san-meter{height:4px;margin-top:6px}
+ .san-block p{font-size:9px;margin-top:5px}
+ .tools-dock{bottom:13px;width:min(420px,calc(100% - 42px))}
+ .tool-grid{gap:8px}
+ .tool{height:96px;padding:9px 10px}
+ .tool-label{top:9px;left:10px;right:9px}
+ .tool-label strong{font-size:13px}
+ .tool-label small{font-size:9px;margin-top:2px}
+ #companion .tool-icon,#probe .tool-icon{width:36px;height:36px;left:10px;bottom:6px}
+ #panorama .tool-icon{width:29px;height:29px;left:14px;bottom:9px}
+ .tool-key{font-size:88px;bottom:-16px}
+ .tool-stock-hint{font-size:8px;bottom:6px;right:7px}
+ .stock{min-width:22px;padding:4px 5px;font-size:11px}
+ .explore-hints{bottom:calc(100% + 6px);height:34px}
+ body .explore-hints .stage-note,body .explore-hints .nearby-status{height:18px;line-height:18px;font-size:11px}
+ body .explore-hints .vision-status{top:19px;height:15px;line-height:15px;font-size:9px}
+ .panel{padding:10px 13px 8px 8px;gap:7px}
+ .status-card{padding:13px 16px 11px}
+ .progress-head{font-size:10px}
+ .count{margin:9px 0 8px;gap:6px}
+ .count>strong{font-size:42px}
+ .count>span{font-size:13px}
+ .count .pickup-total{font-size:9px}
+ .muted{display:none}
+ .run-stats{padding-top:8px;gap:9px;font-size:9px}
+ .run-stats strong{font-size:10px}
+ #run-kind{font-size:8px}
+ .message{min-height:36px;padding:0 10px}
+ .message>span{font-size:10px;line-height:1.45}
+ .message p{font-size:9px;line-height:1.45;margin-top:2px}
+ .movement-controls{padding:0;margin-top:auto}
+ .control-head{padding:0 9px;margin-bottom:0}
+ .movement-controls>.movement-cluster{height:160px}
+ .supply-note{font-size:8px}
+ footer{height:28px;padding:0 20px;font-size:9px}
+ body.touch-layout main{grid-template-columns:minmax(0,1fr) 276px}
+ body.touch-layout .panel{grid-template-rows:54px 25px minmax(0,1fr);padding:4px 8px}
+ body.touch-layout .movement-controls>.movement-cluster{height:158px}
+ body.touch-layout .status-card{padding-right:72px}
+ body.touch-layout .tools-dock{width:min(400px,calc(100% - 36px))}
+ body.touch-layout .tool{height:88px}
+}
+
+@media (min-width:901px) and (max-width:1120px){
+ .masthead .back-to-portal span,.header-title{display:none}
+ .masthead .back-to-portal{padding-right:10px}
+}
+
+@media (max-width:900px){
+ .masthead-start{gap:7px}
+ .masthead .back-to-portal{min-width:30px;padding:0 7px 0 0;border-right-color:#ffffff12}
+ .masthead .back-to-portal span{display:none}
+}
+
+@media (max-width:600px){
+ .header-title{display:none}
+ .identity>strong{font-size:18px}
 }
