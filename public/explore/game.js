@@ -52,7 +52,7 @@
     // Reserve the same compact hint strip whether warnings are visible or not.
     const limit=document.querySelector('.explore-hints').getBoundingClientRect().top;
     const bottom=limit-rect.top-14;
-    tile=Math.max(35,Math.min(width*.36,(bottom-top)/1.5,242));
+    tile=Math.max(35,Math.min(width*.36,(bottom-top)/1.5,280));
     viewY=(top+bottom)/2;
     const overviewTop=Math.min(76,height*.24);
     overviewSize=Math.max(12,Math.min(width/9.7,(bottom-overviewTop)/5.1));
