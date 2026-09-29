@@ -1,7 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createVoiceQueue} from '../voice-queue.mjs';
-import {createVoiceQueueServer} from '../voice-queue-server.mjs';
+import {createVoiceQueueServer,sanitizeDiagnostics} from '../voice-queue-server.mjs';
+
+test('persistent diagnostics discard private payloads and unbounded labels',()=>{
+  assert.deepEqual(sanitizeDiagnostics({ok:false,stage:'语音合成',upstream_status:429,tts_ms:34000,
+    audio:'secret-audio',answer:'private-answer',ticket:'private-ticket',api_key:'secret-key',
+    asr_ms:-1,total_ms:Infinity,error_name:'private arbitrary string',
+  }),{ok:false,tts_ms:34000,upstream_status:429,stage:'语音合成'});
+  assert.deepEqual(sanitizeDiagnostics({stage:'private transcript',dialogue_ms:600001}),{});
+});
 
 test('default four slots admit 100 visitors FIFO and retire jobs before playback',()=>{
   const queue=createVoiceQueue();
