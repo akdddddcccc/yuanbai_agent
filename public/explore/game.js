@@ -24,8 +24,6 @@
   const lerp = (a, b, t) => a + (b - a) * t;
   const ease = x => 1 - Math.pow(1 - clamp(x), 3);
   let viewY=0, overviewY=0, overviewSize=0;
-  let nearbyPosition=null,toastKind='';
-  const NEARBY_TEXT='附近似乎不太对劲';
   let width = 0, height = 0, tile = 190, camera = { x: 0, y: 0 }, lastTime = 0;
   let frameLights=[],pickupFlashes=[];
   const pickupColors={companion:'#ef9c60',probe:'#c6d0d8',panorama:'#e4c3a7'};
@@ -49,10 +47,12 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // Fit the scene between the HUD and the tool dock, including small phones.
     const top=document.querySelector('.san-block').getBoundingClientRect().bottom-rect.top+18;
-    // Reserve the same compact hint strip whether warnings are visible or not.
-    const limit=document.querySelector('.explore-hints').getBoundingClientRect().top;
+    const note=document.querySelector('.stage-note');
+    const noteTop=(getComputedStyle(note).display==='none'?document.querySelector('.tools-dock'):note).getBoundingClientRect().top;
+    const statusTops=['nearby-status','vision-status'].filter(name=>!ui[name].hidden&&getComputedStyle(ui[name]).display!=='none').map(name=>ui[name].getBoundingClientRect().top);
+    const limit=Math.min(noteTop,...statusTops);
     const bottom=limit-rect.top-14;
-    tile=Math.max(35,Math.min(width*.36,(bottom-top)/1.5,242));
+    tile=Math.max(35,Math.min(width*.36,(bottom-top)/1.5,280));
     viewY=(top+bottom)/2;
     const overviewTop=Math.min(76,height*.24);
     overviewSize=Math.max(12,Math.min(width/9.7,(bottom-overviewTop)/5.1));
@@ -338,12 +338,15 @@
     if(game.san>=80&&now-lastStrainTone>lerp(5500,2700,game.effectLevel)){lastStrainTone=now;tone('strain');}
   }
   function updateSanUI(){
+    const wasHidden=ui['vision-status'].hidden;
     const value=Math.min(100,Math.floor(game.san*10)/10);
     ui['san-value'].textContent=value.toFixed(1)+'%';ui['san-meter'].setAttribute('aria-valuenow',value);
     ui['san-fill'].style.width=game.san+'%';ui['san-fill'].style.background=`hsl(${43-game.san*.35} 65% 64%)`;
     ui['san-block'].classList.toggle('critical',game.restrictedVision);
     ui['san-state'].textContent=game.restrictedVision?'脚下与正前方可见 · 拾取道具后恢复':`每秒 +${SAN_PER_SECOND} · 拾取 −${SAN_PICKUP} · 坠落 +${SAN_FALL}`;
     ui['vision-status'].hidden=!game.restrictedVision||!!winning||!!overview;
+    if(game.restrictedVision)ui['vision-status'].lastElementChild.textContent='Q / E 转向观察 · 拾取道具后恢复';
+    if(width&&wasHidden!==ui['vision-status'].hidden)resize();
     ui['opening-hint'].hidden=game.restrictedVision||!!winning;
     canvas.dataset.visibleTiles=(falling||winning||overview?81:game.visibleCells().length);
   }
@@ -459,28 +462,14 @@
   function elapsed(){return endElapsed!==null?endElapsed:started?performance.now()-startTick:0;}
   function busy(){return starting||falling||walking||winning||overview||toolFx||document.querySelector('dialog[open]');}
   function say(title,detail='',warning=false){ui['message-title'].textContent=title;ui['message-detail'].textContent=detail;ui['message-title'].parentElement.classList.toggle('warning',warning);}
-  function toast(text,duration=1200,kind=''){toastKind=kind;ui['center-toast'].textContent=text;ui['center-toast'].classList.add('visible');toastUntil=performance.now()+duration;}
-  function syncNearbyHint(){
-    const near=game.mode==='playing'&&!!game.environment()&&!falling&&!winning;
-    const visible=near&&!overview;
-    ui['nearby-status'].hidden=!visible;
-    ui['stage-note'].hidden=visible;
-    canvas.dataset.nearbyDanger=String(visible);
-    // Keep the position across temporary tool overlays; turning and UI refreshes
-    // do not replay the toast. Moving to another nearby tile does.
-    if(visible&&nearbyPosition!==game.position){
-      toast(NEARBY_TEXT,1400,'nearby');
-      if(nearbyPosition===null){echoCue={start:performance.now()+180};tone('echo');vibrate([16,45,20]);}
-      nearbyPosition=game.position;
-    }
-    if(!visible&&toastKind==='nearby'){toastUntil=0;toastKind='';ui['center-toast'].classList.remove('visible');}
-    if(!near)nearbyPosition=null;
-    return visible;
-  }
+  function toast(text,duration=1200){ui['center-toast'].textContent=text;ui['center-toast'].classList.add('visible');toastUntil=performance.now()+duration;}
   function updateUI(){
     updateSanUI();
     ui['panorama-legend'].hidden=!overview;document.querySelector('.stage').classList.toggle('is-overview',!!overview);
-    const nearby=syncNearbyHint();
+    const nearby=game.mode==='playing'&&!!game.environment()&&!falling&&!winning&&!overview;
+    const nearbyChanged=ui['nearby-status'].hidden===nearby;
+    ui['nearby-status'].hidden=!nearby;canvas.dataset.nearbyDanger=String(nearby);
+    if(width&&nearbyChanged)resize();
     ui.count.textContent=pad(game.count);ui.percentage.textContent=Math.floor(game.count/SAFE_COUNT*100)+'%';ui.progress.setAttribute('aria-valuenow',game.count);ui['progress-fill'].style.width=game.count/SAFE_COUNT*100+'%';
     ui.coordinate.textContent=`位置 ${pad(game.r+1)} · ${pad(game.c+1)}`;ui['picked-count'].textContent=game.picked.size;
     for(const type of Object.keys(TOOL_NAMES)){ui[type+'-stock'].textContent=game.stock[type];ui[type].disabled=game.mode!=='playing'||game.stock[type]===0||!!falling||!!overview||!!toolFx||starting;}
@@ -504,7 +493,7 @@
   }
   async function step(direction){
     if(busy())return;if(!await beginRun())return;if(game.mode!=='playing'||document.querySelector('dialog[open]'))return;
-    advanceSan();
+    advanceSan();const wasNear=!!game.environment();
     const result=game.move(direction);if(result.kind==='invalid'||result.kind==='busy')return;actions.push('m'+direction);wasRestricted=game.restrictedVision;updateUI();
     if(result.kind==='edge'){boundary={direction,start:performance.now()};toast('前方已到边界 · 换个方向');say('这里是空间的边缘。','黄色边光提醒：这个方向无法继续。');tone('edge');vibrate(18);return;}
     walking={...result,start:performance.now(),duration:180};sweep=null;hover=-1;
@@ -513,7 +502,11 @@
     if(result.kind==='win'){startWin();return;}
     if(result.pickup){pickupFlashes.push({type:result.pickup.type,index:game.position,color:pickupColors[result.pickup.type],start:performance.now(),duration:reduced?160:620});say(`拾取「${TOOL_NAMES[result.pickup.type]}」×1。`,`SAN 降低 ${SAN_PICKUP} 个百分点；道具随时可用，每处只拾取一次。`);ui[result.pickup.type].classList.add('just-collected');setTimeout(()=>ui[result.pickup.type].classList.remove('just-collected'),750);tone('pickup');}
     else say('这一步已经成为记忆。',practice?'当前未连接共享成绩，仍可完整练习。':'自由移动。已有道具可以随时使用，注意脚下。');
-
+    const signal=game.environment();
+    if(signal){
+      if(!wasNear){echoCue={start:performance.now()+180};tone('echo');vibrate([16,45,20]);toast('附近似乎不太对劲',1400);}
+      if(!result.pickup)say('附近似乎不太对劲。','空气与光发生了变化；用道具确认准确的悬崖位置。');
+    }
   }
   // Tool presentation is separate from the core rules. Stock/action is recorded once.
   const PANORAMA_IN=450,PANORAMA_OUT=350;
@@ -553,12 +546,8 @@
     canvas.dataset.toolEffect=type;
   }
   function updateToolFx(now){
-    if(!toolFx)return;const fx=toolFx,age=Math.max(0,now-fx.start);
-    if(!fx.sounded&&age>=fx.soundAt){
-      fx.sounded=true;
-      // Optional audio must never stop the animation clock or leave input locked.
-      if(age-fx.soundAt<450)try{playToolVoice(fx.type);}catch(error){stopToolVoice();console.warn('Tool audio unavailable',error);}
-    }
+    if(!toolFx)return;const fx=toolFx,age=now-fx.start;
+    if(!fx.sounded&&age>=fx.soundAt){fx.sounded=true;if(age-fx.soundAt<450)playToolVoice(fx.type);}
     if(!fx.revealed&&age>=fx.revealAt){
       fx.revealed=true;
       if(fx.type==='companion'){
@@ -668,9 +657,8 @@
   }
   // The supplied PNG is used unchanged. Rectangles select its original artwork;
   // ax/ay are absolute foot anchors, shared across pose changes.
-  const catAtlas=new Image();let catAtlasReady=false,catAtlasFailed=false;
-  catAtlas.onload=()=>{catAtlasReady=catAtlas.naturalWidth>0;catAtlasFailed=!catAtlasReady;};
-  catAtlas.onerror=()=>{catAtlasReady=false;catAtlasFailed=true;};
+  const catAtlas=new Image();let catAtlasReady=false;
+  catAtlas.onload=()=>{catAtlasReady=true;};
   catAtlas.src='assets/xiaodeng-atlas.png';
   const CAT_FRAMES={
     sit:{x:648,y:92,w:170,h:212,ax:714,ay:289},
@@ -687,9 +675,6 @@
   };
   function drawCat(x,y,size,time,age,alpha,jump=0,flip=false,flight=0,landing=0){
     if(!catAtlasReady)return;
-    // A RAF timestamp may precede a tap handled in the same frame (especially on
-    // throttled mobile devices). Negative age used to select nonexistent walk-1.
-    age=Number.isFinite(age)?Math.max(0,age):0;
     let name;
     if(reduced)name='sit';
     else if(age<330)name='walk'+(Math.floor(age/66)%5);
@@ -698,24 +683,18 @@
     else if(flight>0&&flight<1)name='jump';
     else if(landing<150)name='crouch';
     else name='sit';
-    const f=CAT_FRAMES[name]||CAT_FRAMES.sit,scale=clamp(size/620,.11,.40);
+    const f=CAT_FRAMES[name],scale=clamp(size/620,.11,.40);
     const rub=!reduced&&age>=330&&age<870?Math.sin((age-330)/540*Math.PI)*.065:0;
     // Uniform scaling keeps the source's head/body ratio and distinctive muzzle.
-    ctx.save();
-    try{
-      ctx.globalAlpha=alpha;ctx.translate(x,y-jump);
-      const mirror=name==='crouch'?!flip:flip;
-      if(mirror&&name!=='sit'&&!name.startsWith('front'))ctx.scale(-1,1);
-      ctx.rotate(rub);ctx.imageSmoothingEnabled=false;
-      ctx.drawImage(catAtlas,f.x,f.y,f.w,f.h,(f.x-f.ax)*scale,(f.y-f.ay)*scale,f.w*scale,f.h*scale);
-    }catch(error){
-      // Decode/GPU failures degrade to the existing safe-landing signal. The
-      // tool remains consumed once and its reveal/unlock timeline keeps running.
-      catAtlasReady=false;catAtlasFailed=true;console.warn('Cat sprite unavailable',error);
-    }finally{ctx.restore();}
+    ctx.save();ctx.globalAlpha=alpha;ctx.translate(x,y-jump);
+    const mirror=name==='crouch'?!flip:flip;
+    if(mirror&&name!=='sit'&&!name.startsWith('front'))ctx.scale(-1,1);
+    ctx.rotate(rub);ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(catAtlas,f.x,f.y,f.w,f.h,(f.x-f.ax)*scale,(f.y-f.ay)*scale,f.w*scale,f.h*scale);
+    ctx.restore();
   }
   function drawProbeCat(x,y,size,time,fx){
-    const age=Math.max(0,time-fx.start),alpha=smooth(age/180)*(1-smooth((age-fx.duration+480)/480)),target=fx.result.targets[0];
+    const age=time-fx.start,alpha=smooth(age/180)*(1-smooth((age-fx.duration+480)/480)),target=fx.result.targets[0];
     const delta=plane(target.r-fx.r,target.c-fx.c,size),from={x:x-size*.14,y:y+size*.06};
     const flight=reduced?(age>=fx.revealAt?1:0):clamp((age-1070)/(fx.revealAt-1070));
     const leap=smooth(flight),rub=!reduced&&age<870?Math.sin(clamp((age-330)/510)*Math.PI)*size*.045:0;
@@ -734,7 +713,7 @@
 
   function tool(type){
     if(busy())return;
-    if(type==='probe'&&!catAtlasReady&&!catAtlasFailed){say('小灯的动作图正在加载。','请稍后再使用，不会扣除道具。');return;}
+    if(type==='probe'&&!catAtlasReady){say('小灯的动作图正在加载。','请稍后再使用，不会扣除道具。');return;}
     advanceSan();
     const beforeInspected=new Set(game.inspected),beforeSignals=new Set(game.safeSignals);
     const result=game.useTool(type);
@@ -893,7 +872,6 @@ async function api(path,data){
 
 
   function restart(){
-    nearbyPosition=null;toastKind='';
     preloadedSeed=createSeed();game.reset(preloadedSeed);pickupFlashes=[];frameLights=[];resetViewOpacity();falling=walking=winning=sweep=echoCue=overview=boundary=toolFx=null;stopToolVoice();delete canvas.dataset.toolEffect;camera=plane(game.r,game.c);
     starting=started=false;startTick=lastSanTick=lastSanUI=lastStrainTone=0;wasRestricted=false;endElapsed=null;document.body.classList.remove('won','is-falling');
     generation++;finishersRequest++;ui['finishers-refresh'].disabled=false;ui['finishers-body'].replaceChildren();ui['finishers-table'].hidden=true;practice=verifying=submitting=false;runId=null;actions=[];verified=null;
