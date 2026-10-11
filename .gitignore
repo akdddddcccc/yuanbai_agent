@@ -1,5 +1,13 @@
 node_modules/
 dist/
+dist-school/
+.school-preview/
+college-config.json
+data/
+backups/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
 .DS_Store
 *.log
 .env

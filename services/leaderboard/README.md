@@ -1,5 +1,11 @@
 # 元白探索 · 云端已通关名单
 
+## 学院 Windows 部署
+
+迁移说明、只读验收、数据库备份恢复、Nginx 增量片段和正式切换/回退流程见 [Windows 部署说明](deploy/windows/DEPLOYMENT.md)。`scripts/package-college.mjs` 生成只包含探索游戏与排行榜的便携包。默认不改变现有线上目标；新实例必须先迁入数据库，不能意外创建空榜。
+
+服务增加可选 `APP_ORIGINS`（逗号分隔的精确 HTTPS 来源）和 `LEADERBOARD_READ_ONLY=1`（迁移维护期间拒绝写入）。未配置时保持原单域名行为。正式上线仍须核实学院公网 HTTPS 可达性；不要把内网地址填到 EdgeOne。
+
 ## 当前链路
 
 浏览器访问 `https://apps-demo.muyang23333.top/api/yuanbai/game/{runs,finish,scores,leaderboard}`，由发布仓库 `edge-functions/_shared/yuanbai-game.js` 转发至用户服务器 `http://123.56.162.88/yuanbai-game/api/yuanbai/game/`。浏览器不会直接访问 HTTP，因此不会触发混合内容拦截。EdgeOne 到 VPS 当前是 HTTP；以后启用公网 HTTPS 时，只需替换代理的 UPSTREAM。

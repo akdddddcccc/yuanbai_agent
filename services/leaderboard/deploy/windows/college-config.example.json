@@ -1,0 +1,7 @@
+{
+  "siteOrigin": "",
+  "additionalOrigins": ["https://apps-demo.muyang23333.top"],
+  "port": 4174,
+  "database": "data/leaderboard.sqlite",
+  "readOnly": true
+}

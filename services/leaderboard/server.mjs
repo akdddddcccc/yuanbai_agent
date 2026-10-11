@@ -27,21 +27,30 @@ function createQuota(limit,windowMs){
   };
 }
 
-export function createLeaderboardServer({database=':memory:',origin='https://apps-demo.muyang23333.top'}={}){
-  if(!/^https:\/\/[^/]+$/.test(origin))throw new Error('APP_ORIGIN 须为完整 HTTPS 来源（不带路径或结尾斜杠）');
+export function createLeaderboardServer({database=':memory:',origin='https://apps-demo.muyang23333.top',origins=[origin],readOnly=false}={}){
+  if(!Array.isArray(origins)||!origins.length)throw new Error('APP_ORIGINS 须包含至少一个 HTTPS 来源');
+  for(const value of origins){
+    let url;try{url=new URL(value);}catch{}
+    if(!url||url.protocol!=='https:'||url.origin!==value||url.username||url.password)throw new Error('APP_ORIGIN 须为完整 HTTPS 来源（不带路径或结尾斜杠）');
+  }
+  const allowedOrigins=new Set(origins);
   const DB=localDB(database);
   const starts=createQuota(RUN_LIMIT,RUN_WINDOW);
   const publishes=createQuota(PUBLISH_LIMIT,PUBLISH_WINDOW);
   const server=http.createServer(async(req,res)=>{
     const requestOrigin=req.headers.origin;
     const cors={'Vary':'Origin','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
-    if(requestOrigin===origin)cors['Access-Control-Allow-Origin']=origin;
+    if(allowedOrigins.has(requestOrigin))cors['Access-Control-Allow-Origin']=requestOrigin;
     const send=(status,body)=>{res.writeHead(status,{...cors,'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(body));};
-    if(requestOrigin&&requestOrigin!==origin)return send(403,{error:'请从游戏页面内访问。'});
+    if(requestOrigin&&!allowedOrigins.has(requestOrigin))return send(403,{error:'请从游戏页面内访问。'});
     if(req.method==='OPTIONS'){
       res.writeHead(204,{...cors,'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Max-Age':'600'});return res.end();
     }
     if(req.method==='GET'&&req.url==='/health')return send(200,{ok:true});
+    if(readOnly&&req.method!=='GET'&&req.method!=='HEAD'){
+      res.setHeader('Retry-After','300');
+      return send(503,{error:'排行榜正在迁移，暂时无法记录成绩，请稍后重试。'});
+    }
     const source=req.headers['x-real-ip']||req.socket.remoteAddress, now=Date.now(), pathname=req.url.split('?')[0];
     if(req.method==='POST'&&pathname==='/api/yuanbai/game/runs'){
       if(starts.full(source,now))return send(429,{error:'新局创建过于频繁，请一分钟后再试。'});
@@ -53,7 +62,8 @@ export function createLeaderboardServer({database=':memory:',origin='https://app
       let size=0,chunks=[];
       for await(const chunk of req){size+=chunk.length;if(size>MAX_BODY)return send(413,{error:'提交内容过大'});chunks.push(chunk);}
       const request=new Request('http://127.0.0.1'+req.url,{method:req.method,headers:req.headers,body:chunks.length?Buffer.concat(chunks):undefined});
-      const response=await handleApi(request,{DB,APP_ORIGIN:origin});
+      // The origin was checked against the exact allowlist above.
+      const response=await handleApi(request,{DB,APP_ORIGIN:requestOrigin||origins[0]});
       if(publishing&&response.status===200)publishes.count(source,Date.now());
       res.writeHead(response.status,{...cors,...Object.fromEntries(response.headers)});
       res.end(Buffer.from(await response.arrayBuffer()));
@@ -67,6 +77,6 @@ export function createLeaderboardServer({database=':memory:',origin='https://app
 }
 
 if(process.argv[1]&&fileURLToPath(import.meta.url)===path.resolve(process.argv[1])){
-  const {server}=createLeaderboardServer({database:process.env.DB_PATH||'./leaderboard.sqlite',origin:process.env.APP_ORIGIN||'https://apps-demo.muyang23333.top'});
+  const {server}=createLeaderboardServer({database:process.env.DB_PATH||'./leaderboard.sqlite',origin:process.env.APP_ORIGIN||'https://apps-demo.muyang23333.top',...(process.env.APP_ORIGINS?{origins:process.env.APP_ORIGINS.split(',').map(s=>s.trim())}:{}),readOnly:process.env.LEADERBOARD_READ_ONLY==='1'});
   server.listen(Number(process.env.PORT)||4174,'127.0.0.1',()=>console.log('Leaderboard listening on 127.0.0.1:'+server.address().port));
 }

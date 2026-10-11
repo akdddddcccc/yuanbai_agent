@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "school:build": "node scripts/build-school.mjs",
+    "school:dev": "node scripts/preview-school.mjs",
+    "school:test": "node --test school/tests/*.test.mjs services/leaderboard/test/server.test.mjs services/leaderboard/test/layout.test.mjs services/leaderboard/test/college-migration.test.mjs",
     "dev": "vite",
     "build": "vite build && node scripts/prepare-portal-build.mjs && node scripts/prepare-sites-build.mjs",
     "model:glb": "node scripts/generate-yuanbai-glb.mjs",

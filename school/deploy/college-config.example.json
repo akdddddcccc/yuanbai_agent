@@ -1,0 +1,7 @@
+{
+  "siteOrigin": "https://oa.design.bnuzh.edu.cn",
+  "additionalOrigins": [],
+  "port": 4174,
+  "database": "data/school-leaderboard.sqlite",
+  "readOnly": false
+}
