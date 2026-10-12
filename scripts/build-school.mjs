@@ -2,6 +2,9 @@ import {cp,mkdir,readFile,writeFile,readdir,rm} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
+import {build} from 'vite';
+import react from '@vitejs/plugin-react';
+import {buildTutorial} from './build-school-tutorial.mjs';
 
 export const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 export const output=path.join(root,'dist-school');
@@ -13,10 +16,10 @@ export async function buildSchool(){
   await rm(output,{recursive:true,force:true});
   const publicDir=path.join(output,'public');
   await mkdir(publicDir,{recursive:true});
-  for(const file of ['index.html','school.css','home.js'])await cp(path.join(root,'school',file),path.join(publicDir,file));
-  await cp(path.join(root,'school/tutorial'),path.join(publicDir,'tutorial'),{recursive:true});
-  await mkdir(path.join(publicDir,'assets'));
-  await cp(path.join(root,'public/brand/yuanbai-mark.svg'),path.join(publicDir,'assets/yuanbai-mark.svg'));
+  await build({configFile:false,root:path.join(root,'school'),base:'./',publicDir:false,plugins:[react()],build:{outDir:publicDir,emptyOutDir:false}});
+  await cp(path.join(root,'public/brand'),path.join(publicDir,'brand'),{recursive:true});
+  await mkdir(path.join(publicDir,'models'));
+  await cp(path.join(root,'public/models/yuanbai-perception-sculpture.glb'),path.join(publicDir,'models/yuanbai-perception-sculpture.glb'));
   await cp(path.join(root,'public/explore'),path.join(publicDir,'explore'),{recursive:true});
   let gameHtml=await readFile(path.join(publicDir,'explore/index.html'),'utf8');
   gameHtml=replaceOnce(gameHtml,'<script type="module" src="../model-preload.js"></script>','');
@@ -25,17 +28,17 @@ export async function buildSchool(){
   if([...gameHtml.matchAll(portalLink)].length!==1)throw new Error('返回链接结构已改变，请检查学校入口');
   gameHtml=gameHtml.replace(portalLink,'<a class="back-to-school" href="../" aria-label="返回学院游戏首页">↖ <span>学院首页</span></a>');
   gameHtml=gameHtml.replace('探索者排行榜','学院探索者排行榜');
+  gameHtml=gameHtml.replace('</head>',`<script data-school-entry>try{if(!localStorage.getItem('yuanbai-school-onboarding-v2'))location.replace('../tutorial/');}catch{}</script></head>`);
+  gameHtml=gameHtml.replace('>玩法</button>','>探索规则</button>');
+  gameHtml=replaceOnce(gameHtml,'<div class="guide-footer">','<div class="guide-footer"><a class="replay-tutorial" href="../tutorial/">重看互动教学 ↗</a>');
   let gameJs=await readFile(path.join(publicDir,'explore/game.js'),'utf8');
   for(const [a,b] of [['yuanbai-player-v1','yuanbai-school-player-v1'],['yuanbai-player-name-v1','yuanbai-school-player-name-v1'],['yuanbai-cleared-v1','yuanbai-school-cleared-v1']])gameJs=replaceOnce(gameJs,a,b);
   // The school homepage already presents the rules; help remains available in the game menu.
   gameJs=replaceOnce(gameJs,'applyLockedName();firstRunGuide();ensureMusic();','applyLockedName();ensureMusic();');
   await writeFile(path.join(publicDir,'explore/game.js'),gameJs);
   await cp(path.join(root,'school/school-game.css'),path.join(publicDir,'explore/school-game.css'));
-  // Version every HTML JS/CSS reference; module imports receive their own content version.
-  const tutorialPath=path.join(publicDir,'tutorial/tutorial.js');
-  let tutorialJs=await readFile(tutorialPath,'utf8');
-  tutorialJs=replaceOnce(tutorialJs,"from './model.js'",`from './model.js?v=${hash(await readFile(path.join(publicDir,'tutorial/model.js')))}'`);
-  await writeFile(tutorialPath,tutorialJs);
+  await buildTutorial(root,publicDir,gameHtml,gameJs);
+  // Version generated game assets and retained portal bundles.
   for(const [relative,provided] of [['index.html'],['tutorial/index.html'],['explore/index.html',gameHtml]]){
     const filename=path.join(publicDir,relative);
     let html=provided||await readFile(filename,'utf8');

@@ -3,5 +3,5 @@
   "additionalOrigins": [],
   "port": 4174,
   "database": "data/school-leaderboard.sqlite",
-  "readOnly": false
+  "readOnly": true
 }

@@ -8,6 +8,7 @@ import {buildSchool,output,root} from '../../scripts/build-school.mjs';
 import {startPreview} from '../../scripts/preview-school.mjs';
 import {initializeSchoolDatabase} from '../deploy/init-school-db.mjs';
 import {solve} from '../../services/leaderboard/test/solver.mjs';
+import vm from 'node:vm';
 let preview,sourceGame,sourceHtml;
 before(async()=>{sourceGame=await readFile(path.join(root,'public/explore/game.js'));sourceHtml=await readFile(path.join(root,'public/explore/index.html'));await buildSchool();preview=await startPreview({port:0,rebuild:false});});
 after(async()=>preview?.close());
@@ -15,12 +16,14 @@ test('学校构建不修改原站源码，独立身份与入口完整',async()=>
   assert.deepEqual(await readFile(path.join(root,'public/explore/game.js')),sourceGame);
   assert.deepEqual(await readFile(path.join(root,'public/explore/index.html')),sourceHtml);
   const home=await readFile(path.join(output,'public/index.html'),'utf8');
-  assert(!home.includes('dialogue/'));assert(home.includes('id="rules"'));
+  assert(!home.includes('dialogue/'));assert(home.includes('id="root"'));
+  assert.deepEqual(await readFile(path.join(output,'public/models/yuanbai-perception-sculpture.glb')),await readFile(path.join(root,'public/models/yuanbai-perception-sculpture.glb')));
   const html=await readFile(path.join(output,'public/explore/index.html'),'utf8');
   const js=await readFile(path.join(output,'public/explore/game.js'),'utf8');
   assert(!html.includes('model-preload'));assert(!html.includes('返回主页'));assert(html.includes('返回学院游戏首页'));
   assert(js.includes('yuanbai-school-player-v1'));assert(!js.includes('applyLockedName();firstRunGuide();'));
   assert(js.includes("const leaderboardBase='/api/yuanbai/game'"));
+  assert(html.includes('yuanbai-school-onboarding-v2'));assert(html.includes('重看互动教学'));
   for(const entry of ['index.html','tutorial/index.html','explore/index.html']){
     const text=await readFile(path.join(output,'public',entry),'utf8');
     for(const match of text.matchAll(/(?:src|href)="([^"?#]+\.(?:css|js|svg|png|jpg))(?:\?[^"#]*)?"/g)){
@@ -29,6 +32,16 @@ test('学校构建不修改原站源码，独立身份与入口完整',async()=>
       if(/\.(css|js)$/.test(match[1]))assert(match[0].includes('?v='),match[0]);
     }
   }
+});
+test('4×4 教学沿用真实核心规则，三种工具可完成且探测不会移动玩家',async()=>{
+  const context={};vm.createContext(context);vm.runInContext(await readFile(path.join(output,'public/tutorial/core.js'),'utf8'),context);
+  const {Game,SIZE,SAFE_COUNT}=context.YuanbaiCore;assert.equal(SIZE,4);assert.equal(SAFE_COUNT,14);
+  const game=new Game();assert.equal(game.position,12);
+  assert.equal(game.move(0).pickup.type,'companion');assert.equal(game.useTool('companion').kind,'tool');
+  assert.equal(game.move(0).pickup.type,'probe');game.turn(1);const position=game.position;
+  assert.equal(game.useTool('probe').targets[0].c,1);assert.equal(game.position,position);
+  assert.equal(game.move(0).pickup.type,'panorama');assert.equal(game.useTool('panorama').targets.length,16);
+  const config=JSON.parse(await readFile(path.join(output,'college-config.example.json'),'utf8'));assert.equal(config.readOnly,true);
 });
 test('学校页面可在子路径访问，目录跳转保留末尾斜杠',async()=>{
   for(const suffix of ['/','/yuanbai/','/yuanbai/tutorial/','/yuanbai/explore/']){
