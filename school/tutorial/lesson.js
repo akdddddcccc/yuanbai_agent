@@ -1,4 +1,10 @@
-// Runs inside the original game's closure: identical canvas, tools, sound and controls.
+/**
+ * 学校教学编排，不是独立脚本。
+ * build-school-tutorial.mjs 将本文件插入正式 game.js 的闭包内，复用 game、ui、
+ * canvas、resize、busy、toast 等变量/函数，以及原有角色、道具动画和声音。
+ * 调整文案可改 lessons；改变动作顺序时，需同时检查构建脚本中的拾取位置与动作钩子。
+ */
+// action 是完成条件；key 用于显示和高亮。七步依次为 W → 1 → W → E → 2 → W → 3。
 const lessons = [
   {key:'w', title:'迈出第一步', copy:'按 W（或 ↑），走向面前的光。踩到道具所在格，就能拾取它。', action:'move'},
   {key:'1', title:'听见同伴的声音', copy:'按 1，或点击「同伴的声音」。它会确认相邻四格，帮你分辨脚下的方向。', action:'companion'},
@@ -11,14 +17,17 @@ const lessons = [
 ];
 let lessonIndex=0;
 const lessonPanel=document.getElementById('lesson-panel');
+// 使用原生 dialog：自动限制焦点和背景交互。弹层文案是固定本地内容，不拼入用户输入。
 const rulesIntro=document.createElement('dialog');
 rulesIntro.id='rules-intro';rulesIntro.setAttribute('aria-labelledby','rules-intro-title');
 rulesIntro.innerHTML=`<span class="rules-intro-eyebrow">探索元白 / 初次感知</span><h2 id="rules-intro-title">先用几步，学会探索。</h2><p>一小片 4 × 4 的空间，带你认识移动、转向和三种工具。</p><ol><li><b>走过，才算发现</b><span>正式探索是 9 × 9 网格，走遍 66 个安全格，拼回元白楼。</span></li><li><b>让线索照亮下一步</b><span>同伴确认相邻四格，小灯探测前方，全景短暂展示地图。</span></li><li><b>留意感知压力</b><span>SAN 随时间增加，拾取道具可以降低；满值时转向寻找前路。</span></li></ol><p class="rules-intro-note">跟随呼吸的光，按下对应按键，或直接点击发光按钮。</p><div class="rules-intro-actions"><button id="begin-lesson" autofocus>开始互动教学 ↗</button><button id="skip-intro">直接进入游戏</button></div>`;
 document.body.append(rulesIntro);
 const focusRing=document.createElement('div');focusRing.id='lesson-focus';focusRing.setAttribute('aria-hidden','true');
+// 光圈与文字只是视觉层（CSS pointer-events:none），实际点击仍落在原游戏按钮上。
 focusRing.innerHTML='<span></span>';document.body.append(focusRing);
 let focusTarget=null;
 function positionLessonFocus(){
+  // getBoundingClientRect 包含原键盘的等距变换；不能用未变换的 offsetWidth 定位。
   focusRing.hidden=rulesIntro.open||!focusTarget;
   if(focusRing.hidden)return;
   const rect=focusTarget.getBoundingClientRect(),padding=8;
@@ -32,8 +41,11 @@ rulesIntro.querySelector('#skip-intro').addEventListener('click',leaveLesson);
 addEventListener('resize',()=>requestAnimationFrame(positionLessonFocus));
 addEventListener('scroll',positionLessonFocus,{capture:true,passive:true});
 new ResizeObserver(()=>requestAnimationFrame(positionLessonFocus)).observe(document.querySelector('.movement-cluster'));
+// seen 在进入教学时写入，complete 在完成/跳过时写入；两者都会阻止下次自动进入。
+// 此键只属于当前来源和浏览器。主动打开 tutorial/ 不受限制，便于随时重看。
 try{localStorage.setItem('yuanbai-school-onboarding-v2','seen');}catch{}
 function syncLesson(){
+  // 统一更新顶部文字、按钮高亮与就近提示，避免步骤切换后光圈指向上一项。
   const lesson=lessons[lessonIndex];
   lessonPanel.dataset.step=String(lessonIndex);
   document.getElementById('lesson-count').textContent=lessonIndex===7?'准备就绪':`${String(lessonIndex+1).padStart(2,'0')} / 07`;
@@ -52,6 +64,7 @@ function syncLesson(){
   requestAnimationFrame(()=>{resize();positionLessonFocus();});
 }
 function allowLesson(action,value){
+  // 教学限定安全路线。正式游戏不注入此门控，仍可自由移动和使用工具。
   const lesson=lessons[lessonIndex];
   const accepted=lesson.action===action && (action!=='move'||value===0) && (action!=='turn'||value===1);
   if(!accepted)toast('先试试提示中的操作 · '+(lesson.key||'完成教学'),1100);
@@ -59,13 +72,14 @@ function allowLesson(action,value){
 }
 function completeLesson(action){
   if(lessons[lessonIndex].action!==action)return;
-  // Keep the explanation and light on the active tool until its animation finishes.
+  // 等待原动画完成再推进：避免小灯还在移动时文字和光圈已经跳到下一步。
   if(action==='companion'||action==='probe'||action==='panorama'){
     const wait=()=>{if(busy()){requestAnimationFrame(wait);return;}lessonIndex++;syncLesson();};
     requestAnimationFrame(wait);
   }else{lessonIndex++;syncLesson();}
 }
 function leaveLesson(){
+  // 正式游戏另起页面和正常计分局；教学步数/道具库存不会带入正式成绩。
   try{localStorage.setItem('yuanbai-school-onboarding-v2','complete');}catch{}
   location.assign('../explore/');
 }

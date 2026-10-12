@@ -6,6 +6,12 @@ import {build} from 'vite';
 import react from '@vitejs/plugin-react';
 import {buildTutorial} from './build-school-tutorial.mjs';
 
+/** 学校版构建总入口。只写 dist-school/，不覆盖 public/、src/ 或任何线上目录。
+ * 1. 构建原首页的学校入口；2. 复制并覆盖正式游戏的学校差异；
+ * 3. 派生教学页；4. 附带独立排行榜与部署模板；5. 为输出生成资源版本和哈希清单。
+ * dist-school/ 是可重建产物，不应手改；设计调整请修改 school/ 后重新构建。
+ */
+
 export const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 export const output=path.join(root,'dist-school');
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex').slice(0,12);
@@ -28,12 +34,13 @@ export async function buildSchool(){
   if([...gameHtml.matchAll(portalLink)].length!==1)throw new Error('返回链接结构已改变，请检查学校入口');
   gameHtml=gameHtml.replace(portalLink,'<a class="back-to-school" href="../" aria-label="返回学院游戏首页">↖ <span>学院首页</span></a>');
   gameHtml=gameHtml.replace('探索者排行榜','学院探索者排行榜');
+  // 不以通关状态判断是否看过教学；独立标记允许玩家跳过后正常重返游戏。
   gameHtml=gameHtml.replace('</head>',`<script data-school-entry>try{if(!localStorage.getItem('yuanbai-school-onboarding-v2'))location.replace('../tutorial/');}catch{}</script></head>`);
   gameHtml=gameHtml.replace('>玩法</button>','>探索规则</button>');
   gameHtml=replaceOnce(gameHtml,'<div class="guide-footer">','<div class="guide-footer"><a class="replay-tutorial" href="../tutorial/">重看互动教学 ↗</a>');
   let gameJs=await readFile(path.join(publicDir,'explore/game.js'),'utf8');
   for(const [a,b] of [['yuanbai-player-v1','yuanbai-school-player-v1'],['yuanbai-player-name-v1','yuanbai-school-player-name-v1'],['yuanbai-cleared-v1','yuanbai-school-cleared-v1']])gameJs=replaceOnce(gameJs,a,b);
-  // The school homepage already presents the rules; help remains available in the game menu.
+  // 学校首次引导由 tutorial/ 接管，移除原游戏重复的首次规则弹窗；手动“探索规则”仍保留。
   gameJs=replaceOnce(gameJs,'applyLockedName();firstRunGuide();ensureMusic();','applyLockedName();ensureMusic();');
   await writeFile(path.join(publicDir,'explore/game.js'),gameJs);
   await cp(path.join(root,'school/school-game.css'),path.join(publicDir,'explore/school-game.css'));
@@ -50,6 +57,7 @@ export async function buildSchool(){
     await writeFile(filename,html);
   }
   const serviceDir=path.join(output,'services/leaderboard');await mkdir(serviceDir,{recursive:true});
+  // 后端按许可列表打包，只带代码和 SQL；不会读入真实库、身份令牌或现场配置。
   for(const name of await readdir(path.join(root,'services/leaderboard'))){
     if(['server.mjs','api.mjs','sqlite.cjs','database-transfer.mjs'].includes(name)||/^\d+_.*\.sql$/.test(name))await cp(path.join(root,'services/leaderboard',name),path.join(serviceDir,name));
   }

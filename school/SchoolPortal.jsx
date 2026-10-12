@@ -3,9 +3,15 @@ import { ArrowUpRight } from "@phosphor-icons/react/dist/csr/ArrowUpRight";
 import { Target } from "@phosphor-icons/react/dist/csr/Target";
 import { PortalSculpture } from "../src/PortalSculpture";
 
+/**
+ * 学校专属首页：沿用原站 3D 楼体、投影和刻度，只保留游戏入口。
+ * 改标题/介绍：编辑 EXPERIENCES；改排版：编辑 school.css。
+ * 不在 src/Portal.jsx 上改学校文案，避免将学校改动带回原站。
+ */
+
 const YUANBAI_MARK_URL = `${import.meta.env.BASE_URL}brand/yuanbai-mark.svg`;
 
-// 入口页只负责分流。新增第三个体验时，在这里增加一项，并同步调整 styles.css 的网格。
+// 相对地址保证 /yuanbai/ 子目录部署可用；首次教学跳转由构建后的游戏页负责。
 const EXPERIENCES = [
   {
     id: "explore",
@@ -52,6 +58,7 @@ function PortalCard({ experience, onActivate }) {
 }
 
 export function SchoolPortal() {
+  // projectionRef 将 Three.js 模型的投影交给底部 canvas；复用原组件的清理逻辑。
   const portalRef = useRef(null);
   const projectionRef = useRef(null);
   const [active, setActive] = useState("explore");

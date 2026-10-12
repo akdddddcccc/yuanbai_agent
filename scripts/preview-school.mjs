@@ -6,9 +6,10 @@ import {buildSchool,root,output} from './build-school.mjs';
 import {createLeaderboardServer} from '../services/leaderboard/server.mjs';
 
 export async function startPreview({port=4321,rebuild=true}={}){
+  // 预览和真正部署分开：默认 4321，只监听本机；重建只刷新 dist-school/。
   if(rebuild)await buildSchool();
   const publicDir=path.join(output,'public'), trustedOrigin='https://school-preview.invalid';
-  // This in-memory leaderboard is intentionally isolated from all published scores.
+  // 内存排行榜退出即清空，不连接原站或学校的真实数据；仅用于本地接口验收。
   const {server:api,DB}=createLeaderboardServer({origin:trustedOrigin});
   await new Promise((resolve,reject)=>{api.once('error',reject);api.listen(0,'127.0.0.1',resolve);});
   const apiUrl='http://127.0.0.1:'+api.address().port;
@@ -19,6 +20,7 @@ export async function startPreview({port=4321,rebuild=true}={}){
       if(req.headers.host!==hostname){res.writeHead(403);return res.end('Invalid preview host');}
       const url=new URL(req.url,'http://'+hostname);
       if(url.pathname.startsWith('/api/yuanbai/game/')){
+        // 先校验本机请求的 Host/Origin，再转给临时后端；不把预览变成任意来源代理。
         if(req.headers.origin&&req.headers.origin!=='http://'+hostname){res.writeHead(403);return res.end('Invalid preview origin');}
         if(!['GET','POST','OPTIONS'].includes(req.method)){res.writeHead(405);return res.end();}
         const chunks=[];let length=0;
