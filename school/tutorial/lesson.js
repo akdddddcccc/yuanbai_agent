@@ -11,6 +11,27 @@ const lessons = [
 ];
 let lessonIndex=0;
 const lessonPanel=document.getElementById('lesson-panel');
+const rulesIntro=document.createElement('dialog');
+rulesIntro.id='rules-intro';rulesIntro.setAttribute('aria-labelledby','rules-intro-title');
+rulesIntro.innerHTML=`<span class="rules-intro-eyebrow">探索元白 / 初次感知</span><h2 id="rules-intro-title">先用几步，学会探索。</h2><p>一小片 4 × 4 的空间，带你认识移动、转向和三种工具。</p><ol><li><b>走过，才算发现</b><span>正式探索是 9 × 9 网格，走遍 66 个安全格，拼回元白楼。</span></li><li><b>让线索照亮下一步</b><span>同伴确认相邻四格，小灯探测前方，全景短暂展示地图。</span></li><li><b>留意感知压力</b><span>SAN 随时间增加，拾取道具可以降低；满值时转向寻找前路。</span></li></ol><p class="rules-intro-note">跟随呼吸的光，按下对应按键，或直接点击发光按钮。</p><div class="rules-intro-actions"><button id="begin-lesson" autofocus>开始互动教学 ↗</button><button id="skip-intro">直接进入游戏</button></div>`;
+document.body.append(rulesIntro);
+const focusRing=document.createElement('div');focusRing.id='lesson-focus';focusRing.setAttribute('aria-hidden','true');
+focusRing.innerHTML='<span></span>';document.body.append(focusRing);
+let focusTarget=null;
+function positionLessonFocus(){
+  focusRing.hidden=rulesIntro.open||!focusTarget;
+  if(focusRing.hidden)return;
+  const rect=focusTarget.getBoundingClientRect(),padding=8;
+  focusRing.style.left=`${rect.left-padding}px`;focusRing.style.top=`${rect.top-padding}px`;
+  focusRing.style.width=`${rect.width+padding*2}px`;focusRing.style.height=`${rect.height+padding*2}px`;
+  focusRing.classList.toggle('key-focus',focusTarget.hasAttribute('data-game-key'));
+}
+rulesIntro.addEventListener('close',()=>{focusTarget?.focus({preventScroll:true});positionLessonFocus();});
+rulesIntro.querySelector('#begin-lesson').addEventListener('click',()=>rulesIntro.close());
+rulesIntro.querySelector('#skip-intro').addEventListener('click',leaveLesson);
+addEventListener('resize',()=>requestAnimationFrame(positionLessonFocus));
+addEventListener('scroll',positionLessonFocus,{capture:true,passive:true});
+new ResizeObserver(()=>requestAnimationFrame(positionLessonFocus)).observe(document.querySelector('.movement-cluster'));
 try{localStorage.setItem('yuanbai-school-onboarding-v2','seen');}catch{}
 function syncLesson(){
   const lesson=lessons[lessonIndex];
@@ -22,10 +43,13 @@ function syncLesson(){
   document.getElementById('finish-lesson').hidden=lessonIndex!==7;
   document.querySelectorAll('.lesson-target').forEach(el=>el.classList.remove('lesson-target'));
   const toolId={1:'companion',2:'probe',3:'panorama'}[lesson.key];
-  const target=toolId?ui[toolId]:document.querySelector(`[data-game-key="${lesson.key}"]`);
+  const target=lessonIndex===7?document.getElementById('finish-lesson'):toolId?ui[toolId]:document.querySelector(`[data-game-key="${lesson.key}"]`);
   target?.classList.add('lesson-target');
+  focusTarget=target;
+  focusRing.firstElementChild.textContent=lesson.key?`按 ${lesson.key.toUpperCase()} · 或点击这里`:'准备好，开始探索';
+  document.body.classList.toggle('lesson-has-target',!!target);
   canvas.dataset.lessonStep=String(lessonIndex);
-  requestAnimationFrame(resize);
+  requestAnimationFrame(()=>{resize();positionLessonFocus();});
 }
 function allowLesson(action,value){
   const lesson=lessons[lessonIndex];
@@ -54,3 +78,5 @@ for(const [key,type] of Object.entries({1:'companion',2:'probe',3:'panorama'})){
 }
 window.addEventListener('blur',()=>document.querySelectorAll('.tool.is-active').forEach(el=>el.classList.remove('is-active')));
 syncLesson();
+rulesIntro.showModal();
+positionLessonFocus();

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight } from "@phosphor-icons/react/dist/csr/ArrowUpRight";
 import { Target } from "@phosphor-icons/react/dist/csr/Target";
-import { BookOpen } from "@phosphor-icons/react/dist/csr/BookOpen";
 import { PortalSculpture } from "../src/PortalSculpture";
 
 const YUANBAI_MARK_URL = `${import.meta.env.BASE_URL}brand/yuanbai-mark.svg`;
@@ -19,16 +18,7 @@ const EXPERIENCES = [
     // 开发服务器需要显式 index.html；游戏加载后会把地址栏整理成 /explore/。
     href: "explore/index.html",
   },
-  {
-    id: "rules",
-    number: "02",
-    eyebrow: "操作入门 / FIELD GUIDE",
-    title: "探索规则",
-    description: "WASD 移动 · Q / E 转向。拾取三种工具，在黑暗中走遍 66 个安全格。",
-    action: "重看互动教学",
-    icon: BookOpen,
-    href: "tutorial/",
-  },
+
 ];
 
 function PortalCard({ experience, onActivate }) {
@@ -51,11 +41,7 @@ function PortalCard({ experience, onActivate }) {
         <span className="portal-accent" aria-hidden="true" />
         <h2>{experience.title}</h2>
       </div>
-      {experience.id === "rules" ? <div className="school-rule-copy" id="rules">
-        <div><b>01 / 走过，才算发现</b><span>9 × 9 网格，走遍 66 个安全格，拼回元白楼。悬崖不计入进度。</span></div>
-        <div><b>02 / 借助三种线索</b><span>1 同伴：确认相邻四格<br/>2 探测：小灯寻找前方安全落点<br/>3 全景：地图显现 1.5 秒</span></div>
-        <div><b>03 / 留意感知压力</b><span>SAN 随时间增加，拾取道具可降低；满值时转向寻找前路。</span></div>
-      </div> : <div className="portal-card-icon" aria-hidden="true"><Icon size={72} weight="thin" /></div>}
+      <div className="portal-card-icon" aria-hidden="true"><Icon size={72} weight="thin" /></div>
       <p>{experience.description}</p>
       <span className="portal-card-action">
         <span>按 {experience.number} · {experience.action}</span>
@@ -71,7 +57,7 @@ export function SchoolPortal() {
   const [active, setActive] = useState("explore");
   const [now, setNow] = useState(() => new Date());
   const activeExperience = useMemo(
-    () => EXPERIENCES.find((item) => item.id === active) || EXPERIENCES[1],
+    () => EXPERIENCES.find((item) => item.id === active) || EXPERIENCES[0],
     [active],
   );
 
@@ -92,7 +78,7 @@ export function SchoolPortal() {
 
     // 数字键是桌面端快速入口；手机端仍使用整张大卡片点击。
     const onKeyDown = (event) => {
-      if (event.key !== "1" && event.key !== "2") return;
+      if (event.key !== "1") return;
       const target = EXPERIENCES[Number(event.key) - 1];
       if (event.repeat || event.ctrlKey || event.altKey || event.metaKey || ["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName)) return;
       window.location.assign(target.href);
@@ -173,7 +159,7 @@ export function SchoolPortal() {
 
       <footer className="portal-footer">
         <span>YUANBAI PERCEPTION LAB · ARCHITECTURE × PEOPLE × MEMORY</span>
-        <span>排行榜 · 坠落更少 → 用时更短 → 步数更少</span>
+        <a className="school-replay-link" href="tutorial/">探索规则 · 重看互动教学 ↗</a>
       </footer>
     </main>
   );
