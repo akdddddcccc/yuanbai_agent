@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.jsx";
 import { Portal } from "./Portal.jsx";
+import { PersonalPortal } from "./PersonalPortal.jsx";
+import { usePersonalPortal } from "./personalPortalDomain.js";
 import "./styles.css";
 import { preloadModel } from "./preloadModel.js";
 import { startIntroAudio, stopIntroAudio } from "./introAudio.js";
@@ -30,7 +32,9 @@ function Root() {
 
   return path.replace(/\/+$/, "").endsWith("/dialogue")
     ? <App />
-    : <Portal onEnterDialogue={enterDialogue} />;
+    : usePersonalPortal(globalThis.location.hostname, import.meta.env.DEV)
+      ? <PersonalPortal onEnterDialogue={enterDialogue} />
+      : <Portal onEnterDialogue={enterDialogue} />;
 }
 
 createRoot(document.getElementById("root")).render(

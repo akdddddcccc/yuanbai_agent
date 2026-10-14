@@ -1,0 +1,96 @@
+/* CloudAI oneskill 0.6.1 / aidbs dark, adapted to the existing CSS stack.
+   Scoped tokens deliberately do not change :root or the academy's Portal.
+   Primary controls remain neutral; Brand marks identity and focus. */
+.personal-portal {
+  --pp-background: hsl(0 0% 3.92%);
+  --pp-foreground: hsl(0 0% 98.04%);
+  --pp-card: hsl(0 0% 9.02%);
+  --pp-border: hsl(0 0% 14.9%);
+  --pp-secondary: hsl(216 12.2% 83.92%);
+  --pp-muted: hsl(240 .83% 52.55%);
+  --pp-primary: hsl(0 0% 89.8%);
+  --pp-primary-foreground: hsl(0 0% 9.02%);
+  --pp-brand: hsl(234.88 93.18% 82.75%);
+  background: var(--pp-background);
+  color: var(--pp-foreground);
+  height: 100dvh;
+  min-height: 0;
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  font-family: Inter, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  line-height: 1.5;
+  isolation: isolate;
+}
+.personal-portal *, .personal-portal *::before, .personal-portal *::after { box-sizing: border-box; }
+.personal-portal a { color: inherit; text-decoration: none; }
+.personal-portal a:focus-visible { outline: 2px solid var(--pp-brand); outline-offset: 6px; }
+.personal-portal .pp-shell { width: min(100% - 96px, 1280px); margin-inline: auto; }
+.personal-portal .pp-skip { position: absolute; left: 24px; top: -80px; padding: 12px 24px; background: var(--pp-primary); color: var(--pp-primary-foreground); z-index: 20; }
+.personal-portal .pp-skip:focus { top: 16px; }
+.personal-portal .pp-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-block: 32px; border-bottom: 1px solid var(--pp-border); }
+.personal-portal .pp-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.personal-portal .pp-brand img { object-fit: contain; }
+.personal-portal .pp-brand strong { display: block; font-size: 18px; font-weight: 600; letter-spacing: .04em; }
+.personal-portal .pp-brand small { display: block; margin-top: 4px; font-size: 10px; letter-spacing: .12em; color: var(--pp-secondary); }
+.personal-portal .pp-about-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; color: var(--pp-secondary); }
+.personal-portal .pp-about-link:hover { color: var(--pp-foreground); }
+.personal-portal .pp-hero { display: grid; grid-template-columns: 1fr 1fr; align-items: center; min-height: 560px; gap: 32px; }
+.personal-portal .pp-intro { padding-block: 64px; min-width: 0; z-index: 1; }
+.personal-portal .pp-eyebrow { margin: 0 0 24px; color: var(--pp-brand); font-size: 14px; letter-spacing: .08em; }
+.personal-portal h1 { max-width: none; margin: 0; color: var(--pp-foreground); font-family: inherit; font-size: clamp(36px, 4.4vw, 60px); font-weight: 500; line-height: 1.25; letter-spacing: -.04em; }
+.personal-portal h1 span { color: var(--pp-brand); }
+.personal-portal .pp-lead { margin: 32px 0; color: var(--pp-secondary); font-size: 18px; line-height: 1.8; }
+.personal-portal .pp-start { display: inline-flex; align-items: center; justify-content: center; gap: 24px; min-height: 48px; padding: 12px 24px; border-radius: 8px; background: var(--pp-primary); color: var(--pp-primary-foreground); font-size: 14px; font-weight: 600; }
+.personal-portal .pp-start:hover { background: var(--pp-foreground); }
+.personal-portal .pp-stage { position: relative; min-width: 0; margin: 0; height: 480px; }
+.personal-portal .pp-model-view { position: absolute; inset: 0 0 48px; }
+.personal-portal .portal-sculpture { inset: 0; }
+.personal-portal .pp-model-status { position: absolute; inset-inline: 16px; bottom: 64px; text-align: center; color: var(--pp-secondary); font-size: 14px; }
+.personal-portal .pp-stage figcaption { position: absolute; inset-inline: 0; bottom: 0; display: flex; justify-content: space-between; gap: 16px; padding-top: 16px; border-top: 1px solid var(--pp-border); color: var(--pp-secondary); font-size: 12px; }
+.personal-portal .pp-experiences { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; scroll-margin-top: 24px; }
+.personal-portal .pp-experience { display: flex; flex-direction: column; align-items: stretch; padding: 32px; border: 1px solid var(--pp-border); border-radius: 12px; background: var(--pp-card); transition: border-color .18s ease; }
+.personal-portal .pp-experience:hover, .personal-portal .pp-experience:focus-visible { border-color: var(--pp-brand); }
+.personal-portal .pp-experience-head { display: flex; justify-content: space-between; align-items: center; color: var(--pp-brand); }
+.personal-portal .pp-number { font-size: 14px; font-variant-numeric: tabular-nums; }
+.personal-portal .pp-experience h2 { margin: 24px 0 8px; font-size: 30px; font-weight: 500; line-height: 1.3; letter-spacing: -.02em; }
+.personal-portal .pp-subtitle { margin: 0; font-size: 16px; color: var(--pp-secondary); }
+.personal-portal .pp-description { margin: 16px 0 32px; font-size: 14px; line-height: 1.8; color: var(--pp-secondary); max-width: 36em; }
+.personal-portal .pp-action { margin-top: auto; padding-top: 24px; border-top: 1px solid var(--pp-border); display: flex; align-items: center; justify-content: space-between; font-size: 14px; font-weight: 500; }
+.personal-portal .pp-about { display: grid; grid-template-columns: 1fr 2fr; gap: 64px; padding-block: 64px; scroll-margin-top: 32px; }
+.personal-portal .pp-about h2 { margin: 0; font-size: 20px; font-weight: 500; }
+.personal-portal .pp-about p { margin: 0; color: var(--pp-secondary); font-size: 16px; line-height: 1.9; }
+.personal-portal .pp-footer { position: static; inset: auto; display: flex; justify-content: space-between; gap: 24px; border-top: 1px solid var(--pp-border); padding-block: 24px; color: var(--pp-secondary); font-size: 12px; letter-spacing: normal; }
+.personal-portal .pp-footer span:first-child { display: inline; }
+@media (max-width: 900px) {
+  .personal-portal .pp-shell { width: calc(100% - 48px); }
+  .personal-portal .pp-hero { gap: 16px; min-height: 480px; }
+  .personal-portal .pp-stage { height: 400px; }
+  .personal-portal .pp-stage figcaption { flex-direction: column; gap: 4px; }
+  .personal-portal .pp-experience { padding: 24px; }
+  .personal-portal .pp-about { gap: 32px; }
+}
+@media (max-width: 640px) {
+  .personal-portal .pp-shell { width: calc(100% - 40px); }
+  .personal-portal .pp-header { padding-block: 24px; gap: 16px; }
+  .personal-portal .pp-brand strong { font-size: 16px; }
+  .personal-portal .pp-brand small { font-size: 8px; }
+  .personal-portal .pp-brand img { width: 32px; }
+  .personal-portal .pp-about-link { font-size: 12px; gap: 4px; }
+  .personal-portal .pp-hero { grid-template-columns: 1fr; gap: 0; }
+  .personal-portal .pp-intro { padding-block: 48px 0; }
+  .personal-portal h1 { font-size: clamp(34px, 8.5vw, 48px); }
+  .personal-portal .pp-lead { font-size: 16px; margin-block: 24px; }
+  .personal-portal .pp-stage { height: 320px; margin-block: 16px 32px; }
+  .personal-portal .pp-stage figcaption { flex-direction: row; font-size: 11px; }
+  .personal-portal .pp-experiences { grid-template-columns: 1fr; gap: 16px; }
+  .personal-portal .pp-experience h2 { margin-top: 16px; font-size: 28px; }
+  .personal-portal .pp-description { margin-bottom: 24px; }
+  .personal-portal .pp-action { padding-top: 16px; }
+  .personal-portal .pp-about { grid-template-columns: 1fr; gap: 16px; padding-block: 40px; }
+  .personal-portal .pp-about p { font-size: 14px; }
+  .personal-portal .pp-footer { gap: 12px; font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .personal-portal .pp-experience { transition: none; }
+}
