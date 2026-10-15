@@ -3,7 +3,8 @@ import { ArrowLeft, ArrowUpRight, Microphone, Play, Stop } from "@phosphor-icons
 import { CursorLightTrail } from "./CursorLightTrail";
 import { YuanbaiScene } from "./YuanbaiScene";
 import { startAudioPlayback } from "./audioPlayback";
-import { startIntroAudio, stopIntroAudio } from "./introAudio";
+import { stopIntroAudio } from "./introAudio";
+import "./public-dialogue.css";
 
 const PHASE_COPY = {
   idle: ["在这里，慢慢说", "按住下方按钮，松开发送"],
@@ -13,7 +14,7 @@ const PHASE_COPY = {
   speaking: ["元白正在回答", "灯光会跟着语气明暗起伏"],
 };
 
-const INTRO = "我记得这座楼、学院和大家的故事。设计卡住了，也可以慢慢说给我听。";
+const INTRO = "你好，我是元白。可以聊元白楼、未来设计学院与教师的公开研究，也可以一起想想设计问题。";
 const YUANBAI_MARK_URL = `${import.meta.env.BASE_URL}brand/yuanbai-mark.svg`;
 const INTRO_AUDIO_URL = `${import.meta.env.BASE_URL}audio/yuanbai-intro.mp3`;
 const MAX_AUDIO_BASE64_LENGTH = 800_000;
@@ -44,6 +45,8 @@ function preferredMimeType() {
 
 export function App() {
   // 四个阶段同时控制文字、按钮、楼体动画：idle → listening → thinking → speaking。
+  const [textInput, setTextInput] = useState("");
+  const textBusyRef = useRef(false);
   const [phase, setPhase] = useState("idle");
   // level 是实时声音能量（0~1），会传给 Three.js，驱动灯光和体块爆发。
   const [level, setLevel] = useState(0);
@@ -57,7 +60,7 @@ export function App() {
 
   useEffect(() => {
     document.title = "对话元白 · YUANBAI";
-    startIntroAudio(INTRO_AUDIO_URL);
+    stopIntroAudio();
   }, []);
 
   const mediaRef = useRef(null);
@@ -286,22 +289,22 @@ export function App() {
     }).catch((error) => showPlaybackFallback(error, true));
   }, [meter, showPlaybackFallback]);
 
-  const submitRecording = useCallback(async (blob) => {
+  const submitRecording = useCallback(async (blob, typedText = "") => {
     const requestController = new AbortController();
     requestAbortRef.current = requestController;
     let queueTicket = "";
     try {
-      if (blob.size < 800) throw new Error("录音太短了，请多说一点。 ");
+      if (!typedText && blob.size < 800) throw new Error("录音太短了，请多说一点。 ");
       // MediaRecorder 已将麦克风音频压缩为 Opus/AAC；直接上传压缩流，
       // 避免转成 PCM WAV 后体积膨胀数十倍。识别只需要语音内容。
-      const audioBase64 = await blobToBase64(blob);
+      const audioBase64 = typedText ? "" : await blobToBase64(blob);
       if (audioBase64.length > MAX_AUDIO_BASE64_LENGTH) {
         throw new Error("这段话比较长，云端一次接收不了，请分成两段再说。");
       }
       if (requestController.signal.aborted || queueCancelledRef.current) return;
       queueTicket = await waitForQueueTurn(requestController.signal);
       if (requestController.signal.aborted || queueCancelledRef.current) return;
-      // 原文件留在浏览器，只把提取后的文字交给服务端做相关片段检索。
+      // 文字直接发送；语音发送压缩录音，由服务端识别后检索。
       // API 密钥始终留在服务端函数中。
       const response = await fetch(API_CHAT_URL, {
         method: "POST",
@@ -309,7 +312,8 @@ export function App() {
         signal: requestController.signal,
         body: JSON.stringify({
           audio_base64: audioBase64,
-          mime_type: blob.type || "audio/webm",
+          mime_type: blob?.type || "audio/webm",
+          text: typedText,
           session_id: sessionIdRef.current,
           voice_queue_ticket: queueTicket,
           history: historyRef.current,
@@ -350,6 +354,9 @@ export function App() {
         await playResponse(audioUrl, true);
       } else if (result.audio_url) {
         await playResponse(result.audio_url);
+      } else if (result.text_only) {
+        setPhase("idle");
+        releaseQueueTicket(queueTicket);
       } else {
         throw new Error("回答已经生成，但没有收到声音文件。");
       }
@@ -365,9 +372,23 @@ export function App() {
       setPhase("idle");
       releaseQueueTicket(queueTicket || queueTicketRef.current);
     } finally {
+      textBusyRef.current = false;
       if (requestAbortRef.current === requestController) requestAbortRef.current = null;
     }
   }, [playResponse, releaseQueueTicket, stopMeter, waitForQueueTurn]);
+
+  const submitText = (event) => {
+    event.preventDefault();
+    const question = textInput.trim();
+    if (!question || phase !== "idle" || textBusyRef.current) return;
+    textBusyRef.current = true;
+    queueCancelledRef.current = false;
+    stopIntroAudio();
+    setErrorMessage("");
+    setPhase("thinking");
+    setTextInput("");
+    submitRecording(null, question);
+  };
 
   const stopAnswer = useCallback(() => {
     queueCancelledRef.current = true;
@@ -400,7 +421,7 @@ export function App() {
 
   const startListening = useCallback(async (event) => {
     event.preventDefault();
-    if (phase !== "idle") return;
+    if (phase !== "idle" || textBusyRef.current) return;
     pressedRef.current = true;
     queueCancelledRef.current = false;
     setErrorMessage("");
@@ -505,8 +526,8 @@ export function App() {
   );
 
   return (
-    <main className={`experience phase-${phase}`}>
-      <CursorLightTrail />
+    <main className={`experience public-dialogue phase-${phase}`}>
+
       <header className="brand">
         <img src={YUANBAI_MARK_URL} alt="" />
         <span>YUANBAI / 元白</span>
@@ -533,6 +554,12 @@ export function App() {
         </div>
       </section>
 
+      <form className="public-text-form" onSubmit={submitText}>
+        <label htmlFor="yuanbai-question">输入问题</label>
+        <div><input id="yuanbai-question" value={textInput} maxLength={600} onChange={e=>setTextInput(e.target.value)} placeholder="问问元白、学院或设计…" disabled={phase!=="idle"} autoComplete="off"/>
+        <button type="submit" disabled={phase!=="idle"||!textInput.trim()}>发送</button></div>
+        <small>也可使用语音。学院事务以正式通知为准。</small>
+      </form>
       {playbackBlocked && (
         <button className="playback-button" type="button" onClick={playPendingResponse}>
           <Play size={16} weight="fill" aria-hidden="true" />

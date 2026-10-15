@@ -1,0 +1,25 @@
+# TEMPLATE: include inside the academy's existing HTTPS server {}.
+# Replace all __PLACEHOLDERS__; do not replace the whole nginx.conf.
+# Directory __RELEASE_PARENT__/yuanbai/ contains the unpacked web files.
+location = /yuanbai { return 302 /yuanbai/; }
+location /yuanbai/ {
+    root __RELEASE_PARENT__;
+    index index.html;
+    try_files $uri $uri/ =404;
+    add_header Cache-Control "no-cache" always;
+}
+# Existing EdgeOne API remains the backend; preserve the real browser Origin.
+# Requires the backend PR and YUANBAI_ALLOWED_ORIGINS BEFORE public use.
+location /api/yuanbai/ {
+    proxy_pass https://apps-demo.muyang23333.top;
+    proxy_set_header Host apps-demo.muyang23333.top;
+    proxy_set_header Origin $http_origin;
+    proxy_ssl_server_name on;
+    proxy_ssl_name apps-demo.muyang23333.top;
+    proxy_ssl_verify on;
+    proxy_ssl_trusted_certificate __CA_BUNDLE_PEM__;
+    proxy_connect_timeout 10s;
+    proxy_read_timeout 150s;
+    client_max_body_size 1m;
+    proxy_buffering off;
+}
