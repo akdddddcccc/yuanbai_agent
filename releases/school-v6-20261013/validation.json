@@ -1,0 +1,29 @@
+{
+  "checked_at": "2026-10-16T15:34:38.512334+00:00",
+  "baseline_commit": "6f83ace9f4fd7c58946cd1ba4f66f2b5dc90a4d9",
+  "checks": {
+    "npm_ci": "passed; fresh lockfile install, 67 packages",
+    "npm_run_build": "passed; Vite bundle size warning only",
+    "npm_run_school_test": {
+      "passed": 24,
+      "failed": 0
+    },
+    "node_school_verify_deployed": {
+      "files": 87,
+      "mismatches": 0
+    },
+    "live_static_hashes": {
+      "files": 87,
+      "mismatches": 0
+    },
+    "zip_crc": "passed",
+    "zip_static_hashes": "87 matched"
+  },
+  "not_performed": [
+    "server filesystem changes",
+    "production score submission",
+    "database migration",
+    "Windows installer execution",
+    "runtime nickname moderation verification"
+  ]
+}

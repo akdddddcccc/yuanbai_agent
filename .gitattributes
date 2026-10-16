@@ -1,0 +1,9 @@
+# Preserve deployed static-resource bytes on both Windows and macOS checkouts.
+/public/** -text
+/school/entry-gate.js -text
+/school/school-game.css -text
+/school/tutorial/immersive.css -text
+/school/tutorial/lesson.js -text
+/scripts/build-school.mjs -text
+/scripts/build-school-tutorial.mjs -text
+/releases/**/*.zip -text

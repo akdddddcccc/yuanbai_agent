@@ -28,7 +28,7 @@ focusRing.innerHTML='<span></span>';document.body.append(focusRing);
 let focusTarget=null;
 function positionLessonFocus(){
   // getBoundingClientRect 包含原键盘的等距变换；不能用未变换的 offsetWidth 定位。
-  focusRing.hidden=rulesIntro.open||!focusTarget;
+  focusRing.hidden=rulesIntro.open||!focusTarget||lessonIndex===7;
   if(focusRing.hidden)return;
   const rect=focusTarget.getBoundingClientRect(),padding=8;
   focusRing.style.left=`${rect.left-padding}px`;focusRing.style.top=`${rect.top-padding}px`;
@@ -44,10 +44,12 @@ new ResizeObserver(()=>requestAnimationFrame(positionLessonFocus)).observe(docum
 // seen 在进入教学时写入，complete 在完成/跳过时写入；两者都会阻止下次自动进入。
 // 此键只属于当前来源和浏览器。主动打开 tutorial/ 不受限制，便于随时重看。
 try{localStorage.setItem('yuanbai-school-onboarding-v2','seen');}catch{}
+try{sessionStorage.setItem('yuanbai-school-onboarding-v2','seen');}catch{}
 function syncLesson(){
   // 统一更新顶部文字、按钮高亮与就近提示，避免步骤切换后光圈指向上一项。
   const lesson=lessons[lessonIndex];
   lessonPanel.dataset.step=String(lessonIndex);
+  document.body.classList.toggle('lesson-complete',lessonIndex===7);
   document.getElementById('lesson-count').textContent=lessonIndex===7?'准备就绪':`${String(lessonIndex+1).padStart(2,'0')} / 07`;
   document.getElementById('lesson-title').textContent=lesson.title;
   document.getElementById('lesson-copy').textContent=lesson.copy;
@@ -61,7 +63,7 @@ function syncLesson(){
   focusRing.firstElementChild.textContent=lesson.key?`按 ${lesson.key.toUpperCase()} · 或点击这里`:'准备好，开始探索';
   document.body.classList.toggle('lesson-has-target',!!target);
   canvas.dataset.lessonStep=String(lessonIndex);
-  requestAnimationFrame(()=>{resize();positionLessonFocus();});
+  requestAnimationFrame(()=>{resize();positionLessonFocus();if(lessonIndex===7)document.getElementById('finish-lesson').focus({preventScroll:true});});
 }
 function allowLesson(action,value){
   // 教学限定安全路线。正式游戏不注入此门控，仍可自由移动和使用工具。
@@ -81,7 +83,8 @@ function completeLesson(action){
 function leaveLesson(){
   // 正式游戏另起页面和正常计分局；教学步数/道具库存不会带入正式成绩。
   try{localStorage.setItem('yuanbai-school-onboarding-v2','complete');}catch{}
-  location.assign('../explore/');
+  try{sessionStorage.setItem('yuanbai-school-onboarding-v2','complete');}catch{}
+  location.assign('../game/');
 }
 document.getElementById('skip-lesson').addEventListener('click',leaveLesson);
 document.getElementById('finish-lesson').addEventListener('click',leaveLesson);
