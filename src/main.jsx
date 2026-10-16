@@ -2,11 +2,11 @@ import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.jsx";
 import { Portal } from "./Portal.jsx";
-import { PersonalPortal } from "./PersonalPortal.jsx";
+import { PublicPortal } from "./PublicPortal.jsx";
 import { usePersonalPortal } from "./personalPortalDomain.js";
 import "./styles.css";
 import { preloadModel } from "./preloadModel.js";
-import { startIntroAudio, stopIntroAudio } from "./introAudio.js";
+import { stopIntroAudio } from "./introAudio.js";
 
 preloadModel().catch(() => {});
 
@@ -25,15 +25,15 @@ function Root() {
 
   const enterDialogue = useCallback(() => {
     // Begin inside the entry click/key press, then switch views without a reload.
-    startIntroAudio(`${import.meta.env.BASE_URL}audio/yuanbai-intro.mp3`);
+    stopIntroAudio();
     window.history.pushState(null, "", `${import.meta.env.BASE_URL}dialogue/`);
     setPath(window.location.pathname);
   }, []);
 
   return path.replace(/\/+$/, "").endsWith("/dialogue")
     ? <App />
-    : usePersonalPortal(globalThis.location.hostname, import.meta.env.DEV)
-      ? <PersonalPortal onEnterDialogue={enterDialogue} />
+    : (import.meta.env.VITE_YUANBAI_PUBLIC_EDITION === "true" || usePersonalPortal(globalThis.location.hostname, import.meta.env.DEV))
+      ? <PublicPortal onEnterDialogue={enterDialogue} />
       : <Portal onEnterDialogue={enterDialogue} />;
 }
 
