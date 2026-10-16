@@ -16,7 +16,7 @@ const PHASE_COPY = {
 
 const INTRO = "你好，我是元白。可以聊元白楼、未来设计学院与教师的公开研究，也可以一起想想设计问题。";
 const YUANBAI_MARK_URL = `${import.meta.env.BASE_URL}brand/yuanbai-mark.svg`;
-const INTRO_AUDIO_URL = `${import.meta.env.BASE_URL}audio/yuanbai-intro.mp3`;
+
 const MAX_AUDIO_BASE64_LENGTH = 800_000;
 // 本地 Python 服务使用 /api/chat；发布到共享域名的 /yuanbai/ 后自动切换到 EdgeOne 函数。
 const API_CHAT_URL = import.meta.env.VITE_YUANBAI_API_URL || (
@@ -45,6 +45,7 @@ function preferredMimeType() {
 
 export function App() {
   // 四个阶段同时控制文字、按钮、楼体动画：idle → listening → thinking → speaking。
+  const [evidence, setEvidence] = useState(null);
   const [textInput, setTextInput] = useState("");
   const textBusyRef = useRef(false);
   const [phase, setPhase] = useState("idle");
@@ -339,6 +340,7 @@ export function App() {
       if (requestController.signal.aborted || queueCancelledRef.current) return;
       setTranscript(result.transcript || "");
       setAnswer(result.answer || "");
+      setEvidence({attempted: Boolean(result.web_search_attempted), sources: (result.web_sources || []).filter(s=>/^https?:\/\//i.test(s.url || "")), voicePending: result.voice_status === "not_configured"});
       historyRef.current = [
         ...historyRef.current,
         { role: "user", content: result.transcript || "" },
@@ -543,6 +545,11 @@ export function App() {
         </div>
         <h1>一座会回应你的楼</h1>
         <p className="answer">{visibleAnswer}</p>
+        {evidence && <details className="answer-evidence"><summary>本次回答的检索与来源</summary>
+          <p>{evidence.attempted ? (evidence.sources.length ? "已检索，以下为本次返回的网页来源。" : "已尝试检索，未获得可引用来源；回答不代表最新官网信息。") : "本次未进行实时官网检索，回答基于已有资料与模型生成。"}</p>
+          {evidence.sources.length > 0 && <ul>{evidence.sources.map((s,i)=><li key={i}><a href={s.url} target="_blank" rel="noreferrer">{s.title || s.url}</a></li>)}</ul>}
+          {evidence.voicePending && <p>新声线尚未配置，本次先以文字回答。</p>}
+        </details>}
         <p className={`subline${errorMessage ? " is-error" : ""}`}>{subline}</p>
       </section>
 

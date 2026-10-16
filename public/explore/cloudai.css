@@ -5,7 +5,11 @@ body{background-color:#0a0a0a;color:#fafafa}
 dialog{background:#171717;color:#fafafa;border:1px solid #454545;border-radius:12px}
 .primary-btn{background:#fafafa!important;color:#171717!important;border:1px solid #fafafa!important;border-radius:8px}
 .text-btn{color:#d1d5db;border-color:#454545;border-radius:8px}
-.eyebrow,.end-label{color:#ff6a00}
-a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #ff6a00;outline-offset:4px}
+.eyebrow,.end-label{color:#fafafa}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #fafafa;outline-offset:4px}
 .back-to-portal{color:#d1d5db}
 @media(prefers-reduced-motion:reduce){.primary-btn,.text-btn{transition:none}}
+
+/* Keep game canvas colours and mechanics; neutralize surrounding controls. */
+.masthead,.control-head,dialog,.keyboard-key,.back-to-portal{filter:grayscale(1)}
+:root{--rust:#e5e5e5}
