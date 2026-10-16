@@ -800,7 +800,7 @@ async function api(path,data){
     const headers=data===undefined?{}:{'Content-Type':'application/json'};
     if(playerToken)headers.Authorization='Bearer '+playerToken;
     const response=await fetch(leaderboardBase+path.slice(4),{method:data===undefined?'GET':'POST',headers,body:data===undefined?undefined:JSON.stringify(data),signal:AbortSignal.timeout(12000)});
-    let result;try{result=await response.json();}catch{throw new Error('成绩服务暂时不可用，请稍后重试。');}if(!response.ok)throw new Error(result.error||'暂时无法连接，请重试。');
+    let result;try{result=await response.json();}catch{throw new Error('成绩服务暂时不可用，请稍后重试。');}if(!response.ok){const error=new Error(result.error||'暂时无法连接，请重试。');error.code=result.code;throw error;}
     if(path==='/api/runs'&&result.playerToken){
       if(!/^[a-f0-9]{64}$/.test(result.playerToken))throw new Error('服务器返回的身份信息无效。');
       playerToken=result.playerToken;
@@ -834,6 +834,7 @@ async function api(path,data){
     try{
       const result=await api('/api/scores',{runId,nickname});
       if(current!==generation)return null;
+      document.body.classList.remove('nickname-review');
       lockedName=result.nickname;try{localStorage.setItem(nameStorageKey,result.nickname);}catch{}
       ui['score-result'].textContent=result.personalBest?`已入榜，当前第 ${result.rank} 名。`:`已保留更好的历史成绩，当前第 ${result.rank} 名。`;
       ui['submit-score'].textContent='已提交';ui.nickname.readOnly=true;ui['score-form'].hidden=true;ui['score-note'].hidden=true;loadFinishers();
@@ -843,13 +844,22 @@ async function api(path,data){
       if(current!==generation)return null;
       ui['score-result'].textContent=error.message||'保存失败，昵称已保留，请再试。';
       ui['submit-score'].disabled=false;ui['submit-score'].textContent='重试提交';
+      if(error.code==='nickname_rejected'){
+        document.body.classList.add('nickname-review');
+        lockedName='';try{localStorage.removeItem(nameStorageKey);}catch{}
+        ui.nickname.readOnly=false;ui.nickname.setAttribute('aria-invalid','true');
+        ui['score-form'].hidden=false;ui['score-note'].hidden=false;
+        ui['submit-score'].textContent='修改后提交';ui.nickname.focus();ui.nickname.select();
+        requestAnimationFrame(()=>ui['score-result'].scrollIntoView({block:'nearest'}));
+      }
       return null;
     }
     finally{if(current===generation)submitting=false;}
   }
   async function submitScore(event){
     event.preventDefault();if(!verified||submitting)return;
-    const nickname=ui.nickname.value.normalize('NFC').trim();if(!nickname||Array.from(nickname).length>16||/[\u0000-\u001f\u007f<>]/.test(nickname)){ui['score-result'].textContent='昵称请输入1—16个字符，不含尖括号。';return;}
+    const nickname=ui.nickname.value.normalize('NFC').trim();if(!nickname||Array.from(nickname).length>10||/[\u0000-\u001f\u007f<>]/.test(nickname)){ui['score-result'].textContent='昵称请输入1—10个字符，不含尖括号。';return;}
+    ui.nickname.removeAttribute('aria-invalid');
     await saveScore(nickname);
   }
   function formatDate(value){return value?new Date(value).toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit'}):'—';}
@@ -895,7 +905,7 @@ async function api(path,data){
   function restart(){
     nearbyPosition=null;toastKind='';
     preloadedSeed=createSeed();game.reset(preloadedSeed);pickupFlashes=[];frameLights=[];resetViewOpacity();falling=walking=winning=sweep=echoCue=overview=boundary=toolFx=null;stopToolVoice();delete canvas.dataset.toolEffect;camera=plane(game.r,game.c);
-    starting=started=false;startTick=lastSanTick=lastSanUI=lastStrainTone=0;wasRestricted=false;endElapsed=null;document.body.classList.remove('won','is-falling');
+    starting=started=false;startTick=lastSanTick=lastSanUI=lastStrainTone=0;wasRestricted=false;endElapsed=null;document.body.classList.remove('won','is-falling','nickname-review');
     generation++;finishersRequest++;ui['finishers-refresh'].disabled=false;ui['finishers-body'].replaceChildren();ui['finishers-table'].hidden=true;practice=verifying=submitting=false;runId=null;actions=[];verified=null;
     ui['play-controls'].hidden=false;ui['win-controls'].hidden=true;ui['end-label'].hidden=true;ui['opening-hint'].hidden=false;ui['opening-hint'].style.opacity=1;
     ui['progress-note'].innerHTML='走过的安全格，留下建筑的片段。<br>悬崖不用踩踏，也不计入进度。';ui['stage-note'].lastElementChild.textContent='光所及之处，只有一步。';

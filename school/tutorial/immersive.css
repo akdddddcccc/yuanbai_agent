@@ -434,3 +434,59 @@
     box-shadow: 0 0 24px 7px #ec9e5360;
   }
 }
+
+/* 完成教学后以独立阅读面板展示完整文案，不再用操作气泡覆盖正文。 */
+.school-tutorial.lesson-complete main {
+  grid-template-columns: minmax(0,1fr);
+  grid-template-rows: minmax(0,1fr);
+}
+.school-tutorial.lesson-complete main > .panel,
+.school-tutorial.lesson-complete .tools-dock,
+.school-tutorial.lesson-complete .stage-top { display: none; }
+.school-tutorial.lesson-complete #world { opacity: .16; }
+.school-tutorial.lesson-complete .lesson-panel {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%,-50%);
+  width: min(560px,calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  pointer-events: auto;
+  padding: clamp(18px,3vw,32px);
+  border: 1px solid #937052;
+  border-radius: 8px;
+  background: linear-gradient(145deg,#25211ef5,#111213fa);
+  box-shadow: 0 0 70px #d48b3720;
+  text-shadow: none;
+}
+.school-tutorial.lesson-complete .lesson-panel h1 {
+  font-size: clamp(21px,2.5vw,29px);
+  line-height: 1.45;
+  margin: 18px 0 14px;
+  overflow-wrap: anywhere;
+}
+.school-tutorial.lesson-complete .lesson-panel p {
+  display: block;
+  max-height: none;
+  overflow: visible;
+  white-space: normal;
+  font-size: 14px;
+  line-height: 1.9;
+  margin: 0 auto;
+}
+.school-tutorial.lesson-complete #finish-lesson {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
+  margin: 24px 0 0;
+  padding: 12px 24px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+@media (max-height: 450px) {
+  .school-tutorial.lesson-complete .lesson-panel { padding: 16px 22px; }
+  .school-tutorial.lesson-complete .lesson-panel h1 { margin: 10px 0; font-size: 21px; }
+  .school-tutorial.lesson-complete #finish-lesson { margin-top: 14px; }
+}

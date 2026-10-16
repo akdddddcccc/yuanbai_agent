@@ -53,12 +53,12 @@ export async function buildTutorial(root,publicDir,gameHtml,gameJs){
   let html=gameHtml.replace('<title>元白 · 失重之间</title>','<title>探索元白 · 初次感知</title>');
   html=html.replace(/<body([^>]*)>/,'<body$1 class="school-tutorial">').replace('9 × 9 / 未知空间','4 × 4 / 初次感知').replace('位置 09 · 01','位置 04 · 01');
   html=html.replace(/<script data-school-entry>[\s\S]*?<\/script>/,'');
-  // 教学页不能保留首次访问重定向，否则会跳回自身；正式页保留该入口检查。
+  // 教学为可选入口；继续兼容去除旧版首页跳转脚本。
   html=html.replace('</head>','<link rel="stylesheet" href="immersive.css"></head>');
   html=html.replace('<nav aria-label="游戏菜单">','<div class="lesson-actions"><button id="restart-lesson">重新练习</button><button id="skip-lesson">跳过教学 ↗</button></div><nav aria-label="游戏菜单">');
   html=html.replace('<canvas id="world"','<section id="lesson-panel" class="lesson-panel" aria-live="polite"><div class="lesson-eyebrow"><span id="lesson-count"></span><span id="lesson-next-key"></span></div><h1 id="lesson-title"></h1><p id="lesson-copy"></p><button id="finish-lesson" hidden>进入正式探索 ↗</button></section><canvas id="world"');
   html=html.replace('aria-valuemax="66"','aria-valuemax="14"').replaceAll('/ 66','/ 14').replaceAll('/66','/14').replace('12 处道具','3 处道具').replace('>0</b> / 12','>0</b> / 3');
   await writeFile(path.join(dir,'index.html'),html);
-  for(const file of ['style.css','yuanbai-art.webp','assets','school-game.css'])await cp(path.join(publicDir,'explore',file),path.join(dir,file),{recursive:true});
+  for(const file of ['style.css','yuanbai-art.webp','assets','school-game.css'])await cp(path.join(publicDir,'game',file),path.join(dir,file),{recursive:true});
   await cp(path.join(root,'school/tutorial/immersive.css'),path.join(dir,'immersive.css'));
 }

@@ -1,3 +1,5 @@
+> 学院公众号已部署版本：见 [学校 v6 归档与下载](releases/school-v6-20261013/README.md)；开发说明见 [school/README.md](school/README.md)。本分支的学校版不应直接合入 main 发布。
+
 # 元白长者 · 语音建筑交互
 
 元白楼人格化 AI Demo 的网页端。长按麦克风说话后，页面会调用部署端的语音识别、DeepSeek 对话和 CosyVoice 语音合成服务，并用声音能量驱动楼体灯光与体块动画。

@@ -11,18 +11,17 @@ import { PortalSculpture } from "../src/PortalSculpture";
 
 const YUANBAI_MARK_URL = `${import.meta.env.BASE_URL}brand/yuanbai-mark.svg`;
 
-// 相对地址保证 /yuanbai/ 子目录部署可用；首次教学跳转由构建后的游戏页负责。
+// 相对地址支持 /yuanbai/ 子目录部署；首次从首页进入先弹出教学介绍，已看过的玩家直接进入游戏。
 const EXPERIENCES = [
   {
     id: "explore",
-    number: "01",
     eyebrow: "黑暗探索 / EXPLORE",
     title: "探索元白",
-    description: "走进九乘九的黑暗网格，让元白楼的轮廓在脚下逐格亮起。首次进入，先在一小片空间里学会探索。",
+    description: "走进九乘九的黑暗网格，让元白楼的轮廓在脚下逐格亮起。循着光与声音，拾起一座楼的记忆。",
     action: "进入探索模式",
     icon: Target,
-    // 开发服务器需要显式 index.html；游戏加载后会把地址栏整理成 /explore/。
-    href: "explore/index.html",
+    // 正式入口始终从首页点击进入 /game/。
+    href: "game/?from=home",
   },
 
 ];
@@ -40,7 +39,6 @@ function PortalCard({ experience, onActivate }) {
       aria-label={`${experience.title}：${experience.description}`}
     >
       <div className="portal-card-head">
-        <strong>{experience.number}</strong>
         <span>{experience.eyebrow}</span>
       </div>
       <div className="portal-card-title">
@@ -50,7 +48,7 @@ function PortalCard({ experience, onActivate }) {
       <div className="portal-card-icon" aria-hidden="true"><Icon size={72} weight="thin" /></div>
       <p>{experience.description}</p>
       <span className="portal-card-action">
-        <span>按 {experience.number} · {experience.action}</span>
+        <span>{experience.action}</span>
         <ArrowUpRight size={22} weight="bold" />
       </span>
     </a>
@@ -69,7 +67,7 @@ export function SchoolPortal() {
   );
 
   useEffect(() => {
-    document.title = "探索元白 · 未来设计学院";
+    document.title = "感知元白 · 元白感知实验室";
     const timer = window.setInterval(() => setNow(new Date()), 1000);
 
     const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
@@ -152,9 +150,9 @@ export function SchoolPortal() {
           </div>
         </div>
         <div className="portal-model-copy">
-          <span>探索元白</span>
+          <span>感知元白</span>
           <strong>{activeExperience.eyebrow}</strong>
-          <p>{activeExperience.id === "explore" ? "从空间出发，拾起一座楼的记忆。" : "让每一次按键，都成为空间的线索。"}</p>
+          <p>从空间出发，拾起一座楼的记忆。</p>
         </div>
       </section>
 
@@ -162,11 +160,15 @@ export function SchoolPortal() {
         {EXPERIENCES.map((experience) => (
           <PortalCard key={experience.id} experience={experience} onActivate={setActive}  />
         ))}
+        <a className="school-replay-link" href="tutorial/">
+          <span>探索规则 · 查看互动教学</span>
+          <ArrowUpRight size={18} weight="bold" aria-hidden="true" />
+        </a>
       </nav>
 
       <footer className="portal-footer">
         <span>YUANBAI PERCEPTION LAB · ARCHITECTURE × PEOPLE × MEMORY</span>
-        <a className="school-replay-link" href="tutorial/">探索规则 · 重看互动教学 ↗</a>
+
       </footer>
     </main>
   );

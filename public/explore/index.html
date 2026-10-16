@@ -150,8 +150,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
   </div></div><div class="new-game-row"><button class="new-game" id="new-game" aria-label="开始新一局"><span aria-hidden="true">↻</span><span>新一局</span></button></div></div>
 
 <div id="win-controls" hidden><p class="win-copy">黑暗里的每一次试探，<br>都成为认识这座楼的方式。</p><p id="verification-status" role="status">正在确认通关成绩…</p>
-  <form id="score-form"><label for="nickname">留下你的名字或昵称</label><div class="name-row"><input id="nickname" name="nickname" maxlength="32" placeholder="1—16个字符" autocomplete="nickname" required><button id="submit-score" class="primary-btn" type="submit" disabled>加入已通关名单</button></div></form>
-  <p class="small-note" id="score-note">名字和通关用时会公开展示，请使用愿意公开的昵称。</p>
+  <form id="score-form"><label for="nickname">留下你的名字或昵称</label><div class="name-row"><input id="nickname" aria-describedby="score-note score-result" name="nickname" maxlength="20" placeholder="1—10个字符" autocomplete="nickname" required><button id="submit-score" class="primary-btn" type="submit" disabled>加入已通关名单</button></div></form>
+  <p class="small-note" id="score-note">昵称限1—10个字符，需通过规范审核后才能入榜；名字和通关用时将公开展示。</p>
   <p id="score-result" role="status"></p>
   <div class="win-actions"><button id="win-ranking" class="text-btn">查看排行榜 ↗</button><button id="restart" class="primary-btn" type="button">再次挑战 ↗</button></div>
   <section class="finishers" aria-labelledby="finishers-title"><div class="finishers-heading"><h2 id="finishers-title">已通关</h2><button id="finishers-refresh" type="button" class="text-btn">刷新 ↻</button></div>
