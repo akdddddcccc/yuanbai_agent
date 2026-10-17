@@ -24,7 +24,7 @@ export async function buildSchool(){
   await mkdir(publicDir,{recursive:true});
   await build({configFile:false,root:path.join(root,'school'),base:'/yuanbai/',publicDir:false,plugins:[react()],build:{outDir:publicDir,emptyOutDir:false}});
   await cp(path.join(root,'public/brand'),path.join(publicDir,'brand'),{recursive:true});
-  await mkdir(path.join(publicDir,'models'));
+  await mkdir(path.join(publicDir,'models'),{recursive:true});
   await cp(path.join(root,'public/models/yuanbai-perception-sculpture.glb'),path.join(publicDir,'models/yuanbai-perception-sculpture.glb'));
   await cp(path.join(root,'public/explore'),path.join(publicDir,'game'),{recursive:true});
   let gameHtml=await readFile(path.join(publicDir,'game/index.html'),'utf8');
@@ -81,7 +81,7 @@ export async function buildSchool(){
   await cp(path.join(root,'school/deploy/start-school.cmd'),path.join(output,'启动学院排行榜.cmd'));
   await cp(path.join(root,'school/README.md'),path.join(output,'部署说明.md'));
   await writeFile(path.join(output,'package.json'),JSON.stringify({name:'yuanbai-school',private:true,type:'module',engines:{node:'>=24'}},null,2));
-  for(const dir of ['data','backups','runtime'])await mkdir(path.join(output,dir));
+  for(const dir of ['data','backups','runtime'])await mkdir(path.join(output,dir),{recursive:true});
   const files={};
   async function inventory(dir){for(const entry of await readdir(dir,{withFileTypes:true})){const p=path.join(dir,entry.name);if(entry.isDirectory())await inventory(p);else files[path.relative(output,p).replaceAll('\\','/')]=createHash('sha256').update(await readFile(p)).digest('hex');}}
   await inventory(output);

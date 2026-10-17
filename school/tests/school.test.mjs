@@ -12,6 +12,21 @@ import vm from 'node:vm';
 let preview,sourceGame,sourceHtml;
 before(async()=>{sourceGame=await readFile(path.join(root,'public/explore/game.js'));sourceHtml=await readFile(path.join(root,'public/explore/index.html'));await buildSchool();preview=await startPreview({port:0,rebuild:false});});
 after(async()=>preview?.close());
+test('教学提示与道具切换不改变投影，窗口缩放仍能重新适配',async()=>{
+  const js=await readFile(path.join(output,'public/tutorial/game.js'),'utf8');
+  const start=js.indexOf("  let tutorialViewport='';"),end=js.indexOf('  new ResizeObserver(resize)',start);
+  assert.ok(start>=0&&end>start);
+  const state={w:800,h:700,top:180,bottom:620};
+  const context=vm.createContext({state,window:{devicePixelRatio:1},canvas:{getBoundingClientRect:()=>({width:state.w,height:state.h,top:0})},ctx:{setTransform(){}},document:{getElementById:()=>({getBoundingClientRect:()=>({bottom:state.top})}),querySelector:()=>({getBoundingClientRect:()=>({top:state.bottom})})}});
+  vm.runInContext('let width=0,height=0,tile=0,viewY=0,overviewSize=0,overviewY=0;'+js.slice(start,end)+';globalThis.measure=()=>{resize();return [tile,viewY,overviewSize,overviewY]};',context);
+  const initial=Array.from(context.measure());
+  state.top=260;state.bottom=580;
+  assert.deepEqual(Array.from(context.measure()),initial);
+  state.w=390;state.h=600;
+  assert.notDeepEqual(Array.from(context.measure()),initial);
+  const resized=Array.from(context.measure());
+  assert.equal(resized[0],resized[2]);assert.equal(resized[1],resized[3]);
+});
 test('学校构建不修改原站源码，独立身份与入口完整',async()=>{
   assert.deepEqual(await readFile(path.join(root,'public/explore/game.js')),sourceGame);
   assert.deepEqual(await readFile(path.join(root,'public/explore/index.html')),sourceHtml);

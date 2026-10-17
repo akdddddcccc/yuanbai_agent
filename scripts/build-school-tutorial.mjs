@@ -22,6 +22,11 @@ export async function buildTutorial(root,publicDir,gameHtml,gameJs){
   core=core.replaceAll('length:81','length:SIZE*SIZE').replaceAll('Math.floor(i/9)','Math.floor(i/SIZE)').replaceAll('c:i%9','c:i%SIZE');
   await writeFile(path.join(dir,'core.js'),core);
   let js=gameJs;
+  // Teaching text and tool hints change between steps, but must not reframe
+  // the board. Recalculate projection only when the actual viewport changes.
+  js=once(js,'  function resize() {',"  let tutorialViewport='';\n  function resize() {");
+  js=once(js,'const rect = canvas.getBoundingClientRect(); width = rect.width; height = rect.height;',
+    "const rect = canvas.getBoundingClientRect();\n    const viewport=[rect.width,rect.height,window.devicePixelRatio||1].join(':');\n    if(rect.width>0&&rect.height>0&&tutorialViewport===viewport)return;\n    tutorialViewport=viewport; width = rect.width; height = rect.height;");
   // 双重隔离计分：beginRun 仅本地启动，api 入口拒绝请求，教学不会创建/提交正式成绩。
   js=once(js,'async function api(path,data){',"async function api(path,data){throw new Error('教学不连接计分接口');");
   const beginStart=js.indexOf('  async function beginRun(){'),beginEnd=js.indexOf('  async function step(direction){',beginStart);

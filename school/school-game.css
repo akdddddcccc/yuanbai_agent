@@ -25,5 +25,4 @@
 }
 
 /* Unified neutral interface; preserve the game’s semantic hazard graphics. */
-.masthead,.panel,.tools-dock,dialog,.stage-top,.san-block,.lesson-panel,.lesson-actions{filter:grayscale(1)}
 .replay-tutorial{color:#ddd}
