@@ -1,0 +1,24 @@
+  function material(index, revealed) {
+    const key=index+':'+(revealed&&artReady?1:0);
+    if(textures.has(key))return textures.get(key);
+    const t=document.createElement('canvas');t.width=t.height=180;
+    const c=t.getContext('2d'),base=c.createLinearGradient(0,0,180,180);
+    base.addColorStop(0,'#57595c');base.addColorStop(1,'#3c3e41');c.fillStyle=base;c.fillRect(0,0,180,180);
+    if(revealed&&artReady){const ux=art.naturalWidth/9,uy=art.naturalHeight/9;c.drawImage(art,index%9*ux,Math.floor(index/9)*uy,ux,uy,0,0,180,180);}
+    c.globalAlpha=revealed&&artReady?.25:1;
+    // Original concrete grain and hairline seams; oxide removed for the school edition.
+    for(let i=0;i<2800;i++){
+      const seed=index*947+i*17,x=random(seed)*180,y=random(seed+5)*180;
+      c.fillStyle=i%3?'#d2d2d216':'#0c0c0c60';
+      const grain=.25+random(seed+8)*.8;c.fillRect(x,y,grain,grain);
+    }
+    for(let vein=0;vein<19;vein++){
+      const seed=index*1493+vein*61,x0=random(seed)*180,y0=random(seed+3)*180;
+      const angle=random(seed+4)*Math.PI*2,length=13+random(seed+7)*48;
+      c.strokeStyle='#1b1b1b50';c.lineWidth=.45;c.beginPath();
+      for(let k=0;k<7;k++){const u=k/6,jitter=(random(seed+k*11)-.5)*2.6;
+        const x=x0+Math.cos(angle)*length*u-Math.sin(angle)*jitter,y=y0+Math.sin(angle)*length*u+Math.cos(angle)*jitter;k?c.lineTo(x,y):c.moveTo(x,y);}
+      c.stroke();
+    }
+    c.globalAlpha=1;textures.set(key,t);return t;
+  }

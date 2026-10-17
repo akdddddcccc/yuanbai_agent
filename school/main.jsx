@@ -5,7 +5,6 @@ import {App} from '../src/App.jsx';
 import {stopIntroAudio} from '../src/introAudio.js';
 import '../src/styles.css';
 import './integrated.css';
-document.documentElement.dataset.schoolTheme='spectrum';
 function SchoolApp(){
  const [path,setPath]=useState(location.pathname);
  useEffect(()=>{const update=()=>{stopIntroAudio();setPath(location.pathname)};window.addEventListener('popstate',update);return()=>window.removeEventListener('popstate',update)},[]);

@@ -719,9 +719,8 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
     const mount = mountRef.current;
     if (!mount) return undefined;
 
-    const schoolTheme=document.documentElement.dataset.schoolTheme==='spectrum';
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(schoolTheme?0xf5f8fc:0x0b0203, .034);
+    scene.fog = new THREE.FogExp2(0x0b0203, .034);
     const camera = new THREE.PerspectiveCamera(31, 1, .1, 100);
     const cameraHome = variant === "portal"
       ? new THREE.Vector3(10.8, 9.6, 16.8)
@@ -741,9 +740,9 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
     renderer.toneMappingExposure = 1.08;
     mount.appendChild(renderer.domElement);
 
-    const ambient = new THREE.HemisphereLight(schoolTheme?0xffffff:0xffddc7, schoolTheme?0x536b80:0x120304, 1.55);
+    const ambient = new THREE.HemisphereLight(0xffddc7, 0x120304, 1.55);
     scene.add(ambient);
-    const key = new THREE.DirectionalLight(schoolTheme?0xffffff:0xffd3b9, 3.1);
+    const key = new THREE.DirectionalLight(0xffd3b9, 3.1);
     key.position.set(8, 13, 10);
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
@@ -752,10 +751,10 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
     key.shadow.camera.top = 8;
     key.shadow.camera.bottom = -8;
     scene.add(key);
-    const rim = new THREE.PointLight(schoolTheme?0x72c9c7:0xc73d2a, schoolTheme?5:17, 32, 1.55);
+    const rim = new THREE.PointLight(0xc73d2a, 17, 32, 1.55);
     rim.position.set(-6, 3, 5);
     scene.add(rim);
-    const fill = new THREE.PointLight(schoolTheme?0xcfe6ff:0xffa76c, 9, 28, 1.45);
+    const fill = new THREE.PointLight(0xffa76c, 9, 28, 1.45);
     fill.position.set(6, 5, 8);
     scene.add(fill);
 
