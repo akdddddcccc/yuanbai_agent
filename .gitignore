@@ -1,4 +1,5 @@
 node_modules/
+node_modules
 dist/
 dist-school/
 .school-preview/
@@ -15,3 +16,15 @@ backups/
 qa-*.png
 design-qa-comparison*.png
 *.blend1
+
+# Local deployment secrets and generated integrated package
+services/agent/agent-config.json
+dist-integrated/
+
+# School runtime and private snapshots
+dist-backend/
+**/agent-config.json
+*.db
+*.db-wal
+*.db-shm
+snapshot/

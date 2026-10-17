@@ -11,41 +11,71 @@
   right: 6%;
 }
 
-.portal-card-explore {
+/* 两个入口独立可点击，共用同一列，教学紧跟探索入口。 */
+.portal-navigation {
+  position: absolute;
+  z-index: 4;
+  top: 19%;
   left: 6%;
   width: 29vw;
   max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
-
-/* 页脚主动重看入口，与首次进入的自动跳转相互独立。 */
-
+.portal-card-explore {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  max-width: none;
+  height: clamp(390px,59vh,530px);
+  min-height: 390px;
+  animation: none;
+  translate: none;
+}
 .school-replay-link {
-  color: #d0b49a;
-  text-decoration: none;
-  padding: 12px 0;
-  min-height: 44px;
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  padding: 14px 18px;
+  border: 1px solid #947256;
+  border-radius: 3px;
+  background: linear-gradient(120deg,#30261f,#191715);
+  color: #efd4b8;
+  font-size: 13px;
+  line-height: 1.6;
+  letter-spacing: .04em;
+  text-decoration: none;
+  transition: background .2s ease,border-color .2s ease;
 }
-
-.school-replay-link:hover {
-  color: #fff;
-}
-
-.school-replay-link:focus-visible {
-  outline: 1px solid #edb887;
-  outline-offset: 5px;
-}
+.school-replay-link svg { flex: none; }
+.school-replay-link:hover { color: #fff0dc; border-color: #e2b287; background: #3a2c22; }
+.school-replay-link:focus-visible { outline: 2px solid #edb887; outline-offset: 4px; }
 
 @media (max-width:820px) {
   .portal {
     min-height: 100dvh;
   }
+  .portal-top-light,
+  .portal-sculpture {
+    left: 0;
+    right: 0;
+  }
   .portal-stage {
     left: auto;
     right: auto;
   }
+  .portal-navigation {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    max-width: none;
+    gap: 12px;
+  }
   .portal-card-explore {
+    height: auto;
     left: auto;
     width: 100%;
     max-width: none;
@@ -54,8 +84,10 @@
     align-items: center;
   }
   .school-replay-link {
-    font-size: 10px;
-    letter-spacing: 0;
-    flex-shrink: 0;
+    font-size: 13px;
+    letter-spacing: .02em;
   }
 }
+
+/* 单一探索入口不再显示序号，保留右侧类别说明。 */
+.portal-card-head { justify-content: flex-end; }

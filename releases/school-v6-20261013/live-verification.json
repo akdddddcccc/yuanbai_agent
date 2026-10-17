@@ -1,0 +1,616 @@
+{
+  "checked_at": "2026-10-16T15:23:23.160747+00:00",
+  "base_url": "http://oa.design.bnuzh.edu.cn/yuanbai/",
+  "scope": "v6 manifest static files only; no backend, database, server configuration or browser interaction verification",
+  "files": [
+    {
+      "path": "assets/index-Ca2zXAKl.js",
+      "status": 200,
+      "bytes": 820091,
+      "sha256": "ccfcbb38864519475a31c07a55044e82a075464b95c15268673d0e88a4b3d95d",
+      "matches_manifest": true
+    },
+    {
+      "path": "assets/index-DOjwCLyc.css",
+      "status": 200,
+      "bytes": 24818,
+      "sha256": "78035680d8e3bff6fd7f7c3a397dedee79b701427eb9016b6b150461db5fdd58",
+      "matches_manifest": true
+    },
+    {
+      "path": "brand/yuanbai-mark.svg",
+      "status": 200,
+      "bytes": 2118,
+      "sha256": "4b77e051df399b7ad1ca99d08cc7acdc8f24b5c4ebb1403a95f5eb8c15c739f1",
+      "matches_manifest": true
+    },
+    {
+      "path": "explore/index.html",
+      "status": 200,
+      "bytes": 682,
+      "sha256": "67efe8ec7e36dbce0438b3bac08fd07815405f5bdb8e721df943df93ad395706",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/README.md",
+      "status": 200,
+      "bytes": 1262,
+      "sha256": "5d6fa58b83cb0cdc00bea6c009d65a3d4f2b3e2e48fb91ae2e43dc9b89deac7f",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/audio/companion-call.mp3",
+      "status": 200,
+      "bytes": 9135,
+      "sha256": "16995bc83a32e20cacd95155af3f8b91de1155baf7d1ac029c0840899a672674",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/audio/explore.mp3",
+      "status": 200,
+      "bytes": 1835008,
+      "sha256": "31028b0c3b54dfd65622eb4b3ef170effa5680a9347ecea92d172b1883366101",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/audio/fall.mp3",
+      "status": 200,
+      "bytes": 46855,
+      "sha256": "cac3d7a5cb34fa93d876a0e9c0d55bd6774defaecebde2f503f1814bd4793933",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/audio/pressure.mp3",
+      "status": 200,
+      "bytes": 1572864,
+      "sha256": "6e629d72aaeec715898b7771c833e8e107d0d4ca06f78ac68a7a37c39aab70dd",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/audio/win.mp3",
+      "status": 200,
+      "bytes": 1660177,
+      "sha256": "a3590f737bd6e4d6bfd5c62d1c10b6fa6603222ed5ddf96534ceea4e1619ca1e",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/OFL.txt",
+      "status": 200,
+      "bytes": 4546,
+      "sha256": "adc9a2753678c8989bf1ab2be26121263905efa3adee47ea23a981c56cb12516",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-01.woff2",
+      "status": 200,
+      "bytes": 10904,
+      "sha256": "c875a169469fae4dfab49cb63ae1e5ceab706ea083b44a27ae89da93bb021c1d",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-02.woff2",
+      "status": 200,
+      "bytes": 6240,
+      "sha256": "bcfdf8cf98bd6309f105f8355329db988ab89c9342bf7011468b7880d4d96cd8",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-03.woff2",
+      "status": 200,
+      "bytes": 5324,
+      "sha256": "29e5f26e91a5bef53dec181db1ba48b7fbc930a3a447250c480b15f2d8b80aa2",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-04.woff2",
+      "status": 200,
+      "bytes": 33840,
+      "sha256": "de0d9bc6e0e5d3b337ca93b5189a2a235b0f74dcfa58c94f9d9a8e1ccdf2483a",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-05.woff2",
+      "status": 200,
+      "bytes": 32552,
+      "sha256": "ef41ce86145108505d0c6f229229791ca8771d088a4d1c5a37840031adb5f0c7",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-06.woff2",
+      "status": 200,
+      "bytes": 32760,
+      "sha256": "0404d02207b7b072a32d9becab37de3420a8f31266978d756d0e1225301f6888",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-07.woff2",
+      "status": 200,
+      "bytes": 32380,
+      "sha256": "6d4a79aff3792b5dd83aad78768e050c9e5cad336c6db1a6932b33db15a06664",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-08.woff2",
+      "status": 200,
+      "bytes": 34144,
+      "sha256": "b1a0d456ebff097f0ef909ea1d0680a993ee018e0c8a319c77576abacdccc22c",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-09.woff2",
+      "status": 200,
+      "bytes": 32056,
+      "sha256": "7a7980f80559bb36dfff4ea64e9b03d926c98566fb7326181569ac1e8334b717",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-10.woff2",
+      "status": 200,
+      "bytes": 32676,
+      "sha256": "e4d24ba921e93102c2b198187e4e0ed507aafd07e5cd6de032d5df7b76ee044b",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-11.woff2",
+      "status": 200,
+      "bytes": 33164,
+      "sha256": "f20ccaeab7d4244e651e6cac4296c2a26403108e70e8db5ac105b474670f1c28",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-12.woff2",
+      "status": 200,
+      "bytes": 30472,
+      "sha256": "6624c02437475caaf043f015208ef74c74e8fe8633d54ae1d5fc3a9ed38e7ea0",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-13.woff2",
+      "status": 200,
+      "bytes": 30996,
+      "sha256": "f2fd94429f722da169fb4b0a3a132ef5bf92d0b0aa3ae3426006446d50994c36",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-14.woff2",
+      "status": 200,
+      "bytes": 30712,
+      "sha256": "d58ca6082d43993a894bcee72181b98527d3ef003099ba61146e3df4883a7be2",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-15.woff2",
+      "status": 200,
+      "bytes": 29968,
+      "sha256": "d83b8291340e0024c8a573afe48b60ce22ed00d87619a7f3950b2193d19af6c9",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-16.woff2",
+      "status": 200,
+      "bytes": 28120,
+      "sha256": "5744f8001a3e231990bd1fe87b080bdd4b4d0e658c84a3bcdb5555e57e32661a",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-17.woff2",
+      "status": 200,
+      "bytes": 27864,
+      "sha256": "bf7c1b4b8b0d1110c761720b977d237d350130d29db48aea0bc5189f572dad3d",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-18.woff2",
+      "status": 200,
+      "bytes": 24720,
+      "sha256": "b6be37866f0d950777a6ce2ab417aba11acc3c52786072b0d760da2a277cd248",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-19.woff2",
+      "status": 200,
+      "bytes": 41288,
+      "sha256": "190237c828b2ea0f076bd1a4a1e6bbd7365e56a5ef837042e35763585250b3ac",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/fonts/yuanbai-sans-20.woff2",
+      "status": 200,
+      "bytes": 13304,
+      "sha256": "2a75408e073f2d7e03e14c24f25fb093571b73a030f2f483ae256d6975e930d0",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/key-turn-left.svg",
+      "status": 200,
+      "bytes": 444,
+      "sha256": "e638ad4029f5095817c061ec2c572d52ad8579a8286157fd6874d31a3191fdf6",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/key-turn-right.svg",
+      "status": 200,
+      "bytes": 444,
+      "sha256": "c2120a27e5a7d882e9e01dbb0f53f701e7dc1d2aab973aa400321397fbb94a87",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/tool-companion.svg",
+      "status": 200,
+      "bytes": 451,
+      "sha256": "20218a4a6428f88f1ab4480c1ac1b74ec0ae6a575666dba15c8e205336c70f0c",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/tool-panorama.svg",
+      "status": 200,
+      "bytes": 715,
+      "sha256": "b314398a141cd9773b667523bf4cecf6be0fa88653dc30fcfa37b98c5c484524",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/tool-probe.svg",
+      "status": 200,
+      "bytes": 1749,
+      "sha256": "a3b4dff288252ebb4cb5bb78c6883103bd67bf70068c086955feefb578c27cff",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/xiaodeng-atlas.png",
+      "status": 200,
+      "bytes": 1318116,
+      "sha256": "49427be7c68b2e8e72911c95e564d7f5336e4191cce7aeb70c2c333902eca65f",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/assets/yuanbai-floor.jpg",
+      "status": 200,
+      "bytes": 518183,
+      "sha256": "6daa794d1155fad32db6338749258c3f90faf06d45a87f220aefb2ff50cbbb4d",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/core.js",
+      "status": 200,
+      "bytes": 11108,
+      "sha256": "b219d81905212ae48a05180cce959cb598f2121914c9b43661fabb727b18e1b3",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/game.js",
+      "status": 200,
+      "bytes": 82850,
+      "sha256": "894d260f79b30b556a7bcef62c1cd7aae3c405c046398dd15d1f949fe14bc84a",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/index.html",
+      "status": 200,
+      "bytes": 41257,
+      "sha256": "0c1194fd2b6079613684cc98eff20ea564acb4832e94bdaa98ebc34b16d11cdc",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/school-game.css",
+      "status": 200,
+      "bytes": 791,
+      "sha256": "6f62f052233c2e875a49718b810ef3fda751856e49e166039af93ab6fbc08f7b",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/style.css",
+      "status": 200,
+      "bytes": 75765,
+      "sha256": "895af327e15aec4bdbae8c9a896a0269108708c88cf58de1f67d0dbe65a7a653",
+      "matches_manifest": true
+    },
+    {
+      "path": "game/yuanbai-art.webp",
+      "status": 200,
+      "bytes": 753222,
+      "sha256": "f6817d8adc4273f3abd4e92056900ea4552f057ace07c4732cf57fbc132e6934",
+      "matches_manifest": true
+    },
+    {
+      "path": "index.html",
+      "status": 200,
+      "bytes": 665,
+      "sha256": "1dbcf72f65cc5d397baa01190149838b96146dce689f6e9a088db2e6e65ededc",
+      "matches_manifest": true
+    },
+    {
+      "path": "models/yuanbai-perception-sculpture.glb",
+      "status": 200,
+      "bytes": 1331344,
+      "sha256": "e45928b1b882b30a1e80f0408f65bff0cb76ed28bcae034d2fc372a1edfd0b27",
+      "matches_manifest": true
+    },
+    {
+      "path": "portal-navigation.css",
+      "status": 200,
+      "bytes": 769,
+      "sha256": "24e92ddcec6df84e4f4eb580d0009dc973c824cacbbbc7715d8aaf5b6af7b94d",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/audio/companion-call.mp3",
+      "status": 200,
+      "bytes": 9135,
+      "sha256": "16995bc83a32e20cacd95155af3f8b91de1155baf7d1ac029c0840899a672674",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/audio/explore.mp3",
+      "status": 200,
+      "bytes": 1835008,
+      "sha256": "31028b0c3b54dfd65622eb4b3ef170effa5680a9347ecea92d172b1883366101",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/audio/fall.mp3",
+      "status": 200,
+      "bytes": 46855,
+      "sha256": "cac3d7a5cb34fa93d876a0e9c0d55bd6774defaecebde2f503f1814bd4793933",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/audio/pressure.mp3",
+      "status": 200,
+      "bytes": 1572864,
+      "sha256": "6e629d72aaeec715898b7771c833e8e107d0d4ca06f78ac68a7a37c39aab70dd",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/audio/win.mp3",
+      "status": 200,
+      "bytes": 1660177,
+      "sha256": "a3590f737bd6e4d6bfd5c62d1c10b6fa6603222ed5ddf96534ceea4e1619ca1e",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/OFL.txt",
+      "status": 200,
+      "bytes": 4546,
+      "sha256": "adc9a2753678c8989bf1ab2be26121263905efa3adee47ea23a981c56cb12516",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-01.woff2",
+      "status": 200,
+      "bytes": 10904,
+      "sha256": "c875a169469fae4dfab49cb63ae1e5ceab706ea083b44a27ae89da93bb021c1d",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-02.woff2",
+      "status": 200,
+      "bytes": 6240,
+      "sha256": "bcfdf8cf98bd6309f105f8355329db988ab89c9342bf7011468b7880d4d96cd8",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-03.woff2",
+      "status": 200,
+      "bytes": 5324,
+      "sha256": "29e5f26e91a5bef53dec181db1ba48b7fbc930a3a447250c480b15f2d8b80aa2",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-04.woff2",
+      "status": 200,
+      "bytes": 33840,
+      "sha256": "de0d9bc6e0e5d3b337ca93b5189a2a235b0f74dcfa58c94f9d9a8e1ccdf2483a",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-05.woff2",
+      "status": 200,
+      "bytes": 32552,
+      "sha256": "ef41ce86145108505d0c6f229229791ca8771d088a4d1c5a37840031adb5f0c7",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-06.woff2",
+      "status": 200,
+      "bytes": 32760,
+      "sha256": "0404d02207b7b072a32d9becab37de3420a8f31266978d756d0e1225301f6888",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-07.woff2",
+      "status": 200,
+      "bytes": 32380,
+      "sha256": "6d4a79aff3792b5dd83aad78768e050c9e5cad336c6db1a6932b33db15a06664",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-08.woff2",
+      "status": 200,
+      "bytes": 34144,
+      "sha256": "b1a0d456ebff097f0ef909ea1d0680a993ee018e0c8a319c77576abacdccc22c",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-09.woff2",
+      "status": 200,
+      "bytes": 32056,
+      "sha256": "7a7980f80559bb36dfff4ea64e9b03d926c98566fb7326181569ac1e8334b717",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-10.woff2",
+      "status": 200,
+      "bytes": 32676,
+      "sha256": "e4d24ba921e93102c2b198187e4e0ed507aafd07e5cd6de032d5df7b76ee044b",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-11.woff2",
+      "status": 200,
+      "bytes": 33164,
+      "sha256": "f20ccaeab7d4244e651e6cac4296c2a26403108e70e8db5ac105b474670f1c28",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-12.woff2",
+      "status": 200,
+      "bytes": 30472,
+      "sha256": "6624c02437475caaf043f015208ef74c74e8fe8633d54ae1d5fc3a9ed38e7ea0",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-13.woff2",
+      "status": 200,
+      "bytes": 30996,
+      "sha256": "f2fd94429f722da169fb4b0a3a132ef5bf92d0b0aa3ae3426006446d50994c36",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-14.woff2",
+      "status": 200,
+      "bytes": 30712,
+      "sha256": "d58ca6082d43993a894bcee72181b98527d3ef003099ba61146e3df4883a7be2",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-15.woff2",
+      "status": 200,
+      "bytes": 29968,
+      "sha256": "d83b8291340e0024c8a573afe48b60ce22ed00d87619a7f3950b2193d19af6c9",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-16.woff2",
+      "status": 200,
+      "bytes": 28120,
+      "sha256": "5744f8001a3e231990bd1fe87b080bdd4b4d0e658c84a3bcdb5555e57e32661a",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-17.woff2",
+      "status": 200,
+      "bytes": 27864,
+      "sha256": "bf7c1b4b8b0d1110c761720b977d237d350130d29db48aea0bc5189f572dad3d",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-18.woff2",
+      "status": 200,
+      "bytes": 24720,
+      "sha256": "b6be37866f0d950777a6ce2ab417aba11acc3c52786072b0d760da2a277cd248",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-19.woff2",
+      "status": 200,
+      "bytes": 41288,
+      "sha256": "190237c828b2ea0f076bd1a4a1e6bbd7365e56a5ef837042e35763585250b3ac",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/fonts/yuanbai-sans-20.woff2",
+      "status": 200,
+      "bytes": 13304,
+      "sha256": "2a75408e073f2d7e03e14c24f25fb093571b73a030f2f483ae256d6975e930d0",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/key-turn-left.svg",
+      "status": 200,
+      "bytes": 444,
+      "sha256": "e638ad4029f5095817c061ec2c572d52ad8579a8286157fd6874d31a3191fdf6",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/key-turn-right.svg",
+      "status": 200,
+      "bytes": 444,
+      "sha256": "c2120a27e5a7d882e9e01dbb0f53f701e7dc1d2aab973aa400321397fbb94a87",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/tool-companion.svg",
+      "status": 200,
+      "bytes": 451,
+      "sha256": "20218a4a6428f88f1ab4480c1ac1b74ec0ae6a575666dba15c8e205336c70f0c",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/tool-panorama.svg",
+      "status": 200,
+      "bytes": 715,
+      "sha256": "b314398a141cd9773b667523bf4cecf6be0fa88653dc30fcfa37b98c5c484524",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/tool-probe.svg",
+      "status": 200,
+      "bytes": 1749,
+      "sha256": "a3b4dff288252ebb4cb5bb78c6883103bd67bf70068c086955feefb578c27cff",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/xiaodeng-atlas.png",
+      "status": 200,
+      "bytes": 1318116,
+      "sha256": "49427be7c68b2e8e72911c95e564d7f5336e4191cce7aeb70c2c333902eca65f",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/assets/yuanbai-floor.jpg",
+      "status": 200,
+      "bytes": 518183,
+      "sha256": "6daa794d1155fad32db6338749258c3f90faf06d45a87f220aefb2ff50cbbb4d",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/core.js",
+      "status": 200,
+      "bytes": 10753,
+      "sha256": "fbdd0faf286a0a3310e207eebf9990aba3ca1ee89c91ee8cc4ac5e8aacc7828f",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/game.js",
+      "status": 200,
+      "bytes": 91048,
+      "sha256": "d0d47a8aa6ad817a2ee6c5d63f61527c2a9a4c3422b42a0303f75c8274e0eb82",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/immersive.css",
+      "status": 200,
+      "bytes": 9728,
+      "sha256": "e3d9288c30e59a6b88772a7d350d380f8ecfc2546ca6e9fdcec59e4ce59f7e5d",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/index.html",
+      "status": 200,
+      "bytes": 41187,
+      "sha256": "5f393812faf056d0ecb26105fb64a48c0724e8a480b84f713e227a05ff8bc633",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/school-game.css",
+      "status": 200,
+      "bytes": 791,
+      "sha256": "6f62f052233c2e875a49718b810ef3fda751856e49e166039af93ab6fbc08f7b",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/style.css",
+      "status": 200,
+      "bytes": 75765,
+      "sha256": "895af327e15aec4bdbae8c9a896a0269108708c88cf58de1f67d0dbe65a7a653",
+      "matches_manifest": true
+    },
+    {
+      "path": "tutorial/yuanbai-art.webp",
+      "status": 200,
+      "bytes": 753222,
+      "sha256": "f6817d8adc4273f3abd4e92056900ea4552f057ace07c4732cf57fbc132e6934",
+      "matches_manifest": true
+    }
+  ]
+}

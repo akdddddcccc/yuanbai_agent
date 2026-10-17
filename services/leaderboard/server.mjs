@@ -27,11 +27,11 @@ function createQuota(limit,windowMs){
   };
 }
 
-export function createLeaderboardServer({database=':memory:',origin='https://apps-demo.muyang23333.top',origins=[origin],readOnly=false}={}){
+export function createLeaderboardServer({database=':memory:',origin='https://apps-demo.muyang23333.top',origins=[origin],readOnly=false,allowHttp=false}={}){
   if(!Array.isArray(origins)||!origins.length)throw new Error('APP_ORIGINS 须包含至少一个 HTTPS 来源');
   for(const value of origins){
     let url;try{url=new URL(value);}catch{}
-    if(!url||url.protocol!=='https:'||url.origin!==value||url.username||url.password)throw new Error('APP_ORIGIN 须为完整 HTTPS 来源（不带路径或结尾斜杠）');
+    if(!url||!(url.protocol==='https:'||(allowHttp&&url.protocol==='http:'))||url.origin!==value||url.username||url.password)throw new Error('APP_ORIGIN 须为完整 HTTPS 来源（不带路径或结尾斜杠）');
   }
   const allowedOrigins=new Set(origins);
   const DB=localDB(database);

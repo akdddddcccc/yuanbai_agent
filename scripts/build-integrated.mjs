@@ -1,0 +1,18 @@
+import {buildSchool,root} from './build-school.mjs';
+import {build} from 'esbuild';
+import {cp,mkdir,readFile,writeFile,readdir,rm} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import path from 'node:path';
+await buildSchool();
+const out=path.join(root,'dist-integrated');await rm(out,{recursive:true,force:true});await mkdir(out,{recursive:true});
+await cp(path.join(root,'dist-school/public'),path.join(out,'public'),{recursive:true});
+await mkdir(path.join(out,'agent'));
+await build({entryPoints:[path.join(root,'services/agent/server.mjs')],outfile:path.join(out,'agent/server.mjs'),bundle:true,platform:'node',format:'esm',target:'node24',legalComments:'external'});
+await cp(path.join(root,'services/agent/agent-config.example.json'),path.join(out,'agent/agent-config.example.json'));
+await cp(path.join(root,'school/deploy-integrated'),path.join(out,'deploy'),{recursive:true});
+await cp(path.join(root,'school/DEPLOY-V7.md'),path.join(out,'部署说明.md'));
+await cp(path.join(root,'school/RELEASE-V7.md'),path.join(out,'版本与验证.md'));
+await cp(path.join(root,'knowledge/faculty/README.md'),path.join(out,'知识库说明.md'));
+const files={};async function walk(dir){for(const e of await readdir(dir,{withFileTypes:true})){const f=path.join(dir,e.name);if(e.isDirectory())await walk(f);else files[path.relative(out,f).replaceAll('\\','/')]=createHash('sha256').update(await readFile(f)).digest('hex')}}await walk(out);
+await writeFile(path.join(out,'SHA256-MANIFEST.json'),JSON.stringify({edition:'school-v7',files},null,2)+'\n');
+console.log('Integrated package ready: '+out);
