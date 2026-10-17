@@ -12,7 +12,7 @@ const lessons = [
   {key:'e', title:'转身，不必移动', copy:'按 E 向右转。朝向改变，位置不变；小灯会沿你面朝的方向探路。', action:'turn'},
   {key:'2', title:'让小灯先去看看', copy:'按 2，观察小灯出发、跳跃和落地。它标出前方最近的安全格，不会把你传送过去，也不保证途中安全。', action:'probe'},
   {key:'w', title:'拾起最后一种工具', copy:'按 W，向东北移动，拾起「瞬间全景」。移动键决定方向，与朝向无关。', action:'move'},
-  {key:'3', title:'记住这 1.5 秒', copy:'按 3，让整张地图显现。图片是走过的路，混凝土是未知的路，× 是悬崖。', action:'panorama'},
+  {key:'3', title:'记住这 1.5 秒', copy:'按 3，让整张地图显现。图片是走过的路，彩色色块是未知的路，× 是悬崖。', action:'panorama'},
   {key:'', title:'现在，去认识完整的元白', copy:'你已经学会移动、转向和三种工具。正式探索有 66 个安全格；注意 SAN 压力，慢慢找回建筑的轮廓。', action:'done'},
 ];
 let lessonIndex=0;

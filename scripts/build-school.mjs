@@ -41,6 +41,13 @@ export async function buildSchool(){
   gameHtml=gameHtml.replace('>玩法</button>','>探索规则</button>');
   gameHtml=replaceOnce(gameHtml,'<div class="guide-footer">','<div class="guide-footer"><a class="replay-tutorial" href="../tutorial/">重看互动教学 ↗</a>');
   let gameJs=await readFile(path.join(publicDir,'game/game.js'),'utf8');
+  const materialStart=gameJs.indexOf('  function material(index, revealed) {');
+  const materialEnd=gameJs.indexOf('  function warmFloorTextures()',materialStart);
+  if(materialStart<0||materialEnd<0)throw Error('Map material anchor missing');
+  gameJs=gameJs.slice(0,materialStart)+await readFile(path.join(root,'school/spectrum-material.txt'),'utf8')+gameJs.slice(materialEnd);
+  gameJs=gameJs.replace("ctx.fillStyle='#000';ctx.fillRect(0,0,width,height);","ctx.fillStyle='#f5f8fc';ctx.fillRect(0,0,width,height);");
+  for(const [from,to] of [['#343538','#6795b2'],['#232427','#47728f'],['#484a4d','#c7e3f7'],['#f0d4b3','#285e91'],['#ad8d6e','#3678b8']])gameJs=gameJs.replaceAll(from,to);
+
   for(const [a,b] of [['yuanbai-player-v1','yuanbai-school-player-v1'],['yuanbai-player-name-v1','yuanbai-school-player-name-v1'],['yuanbai-cleared-v1','yuanbai-school-cleared-v1']])gameJs=replaceOnce(gameJs,a,b);
   // 学校首次引导由 tutorial/ 接管，移除原游戏重复的首次规则弹窗；手动“探索规则”仍保留。
   gameJs=replaceOnce(gameJs,'applyLockedName();firstRunGuide();ensureMusic();','applyLockedName();ensureMusic();');

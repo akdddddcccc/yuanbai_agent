@@ -59,7 +59,7 @@ export async function buildTutorial(root,publicDir,gameHtml,gameJs){
   html=html.replace(/<body([^>]*)>/,'<body$1 class="school-tutorial">').replace('9 × 9 / 未知空间','4 × 4 / 初次感知').replace('位置 09 · 01','位置 04 · 01');
   html=html.replace(/<script data-school-entry>[\s\S]*?<\/script>/,'');
   // 教学为可选入口；继续兼容去除旧版首页跳转脚本。
-  html=html.replace('</head>','<link rel="stylesheet" href="immersive.css"></head>');
+  html=html.replace('</head>','<link rel="stylesheet" href="immersive.css"><link rel="stylesheet" href="school-game.css"></head>');
   html=html.replace('<nav aria-label="游戏菜单">','<div class="lesson-actions"><button id="restart-lesson">重新练习</button><button id="skip-lesson">跳过教学 ↗</button></div><nav aria-label="游戏菜单">');
   html=html.replace('<canvas id="world"','<section id="lesson-panel" class="lesson-panel" aria-live="polite"><div class="lesson-eyebrow"><span id="lesson-count"></span><span id="lesson-next-key"></span></div><h1 id="lesson-title"></h1><p id="lesson-copy"></p><button id="finish-lesson" hidden>进入正式探索 ↗</button></section><canvas id="world"');
   html=html.replace('aria-valuemax="66"','aria-valuemax="14"').replaceAll('/ 66','/ 14').replaceAll('/66','/14').replace('12 处道具','3 处道具').replace('>0</b> / 12','>0</b> / 3');

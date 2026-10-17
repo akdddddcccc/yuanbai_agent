@@ -1,0 +1,24 @@
+  function material(index, revealed) {
+    const key=index+':'+(revealed&&artReady?1:0);
+    if(textures.has(key))return textures.get(key);
+    const t=document.createElement('canvas');t.width=t.height=180;
+    const c=t.getContext('2d');
+    if(revealed&&artReady){
+      const ux=art.naturalWidth/9,uy=art.naturalHeight/9;
+      c.drawImage(art,index%9*ux,Math.floor(index/9)*uy,ux,uy,0,0,180,180);
+    }else{
+      // Approved B: blue/teal spectrum with sparse coral, independent of hazards.
+      const palette=['#5a90cc','#72c9c7','#c7e3f7','#92d7d4','#699fd3','#cfe6ff','#ff9e86','#b9dfed'];
+      c.fillStyle=palette[(index*5+Math.floor(index/9)*3)%palette.length];c.fillRect(0,0,180,180);
+      const sheen=c.createLinearGradient(0,0,180,180);
+      sheen.addColorStop(0,'#ffffff38');sheen.addColorStop(.55,'#ffffff05');sheen.addColorStop(1,'#21456816');
+      c.fillStyle=sheen;c.fillRect(0,0,180,180);
+      for(let i=0;i<900;i++){
+        const seed=index*947+i*17;
+        c.fillStyle=i%2?'#ffffff16':'#29496808';
+        c.fillRect(random(seed)*180,random(seed+5)*180,.6,.6);
+      }
+      c.strokeStyle='#ffffff70';c.lineWidth=2;c.strokeRect(1,1,178,178);
+    }
+    textures.set(key,t);return t;
+  }
