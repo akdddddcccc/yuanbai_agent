@@ -7,12 +7,15 @@
     "school:build": "node scripts/build-school.mjs",
     "school:dev": "node scripts/preview-school.mjs",
     "school:test": "node --test school/tests/*.test.mjs services/leaderboard/test/server.test.mjs services/leaderboard/test/layout.test.mjs services/leaderboard/test/college-migration.test.mjs",
-    "dev": "vite",
+    "dev": "node scripts/preview-integrated.mjs",
     "build": "vite build && node scripts/prepare-portal-build.mjs && node scripts/prepare-sites-build.mjs",
     "model:glb": "node scripts/generate-yuanbai-glb.mjs",
     "preview": "vite preview",
     "test:leaderboard": "node --test services/leaderboard/test/server.test.mjs services/leaderboard/test/voice-queue.test.mjs services/leaderboard/test/layout.test.mjs",
-    "test:sites": "node --test tests/sites-worker.test.mjs"
+    "test:sites": "node --test tests/sites-worker.test.mjs",
+    "school:release": "node scripts/build-integrated.mjs",
+    "school:agent-test": "node --test services/agent/test/*.test.mjs",
+    "dev:original": "vite"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
@@ -20,6 +23,10 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "three": "^0.185.1",
-    "vite": "6.4.2"
+    "vite": "6.4.2",
+    "pinyin-pro": "3.29.5"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
   }
 }

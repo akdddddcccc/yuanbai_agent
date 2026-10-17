@@ -1,0 +1,4 @@
+/* Keep the September presentation layout, use one neutral UI palette. */
+.portal{filter:grayscale(1)}
+.portal-card{--accent:#eee}
+.portal-card:focus-visible{outline:2px solid white;outline-offset:6px}

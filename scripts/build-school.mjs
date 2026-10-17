@@ -22,7 +22,7 @@ export async function buildSchool(){
   await rm(output,{recursive:true,force:true});
   const publicDir=path.join(output,'public');
   await mkdir(publicDir,{recursive:true});
-  await build({configFile:false,root:path.join(root,'school'),base:'./',publicDir:false,plugins:[react()],build:{outDir:publicDir,emptyOutDir:false}});
+  await build({configFile:false,root:path.join(root,'school'),base:'/yuanbai/',publicDir:false,plugins:[react()],build:{outDir:publicDir,emptyOutDir:false}});
   await cp(path.join(root,'public/brand'),path.join(publicDir,'brand'),{recursive:true});
   await mkdir(path.join(publicDir,'models'));
   await cp(path.join(root,'public/models/yuanbai-perception-sculpture.glb'),path.join(publicDir,'models/yuanbai-perception-sculpture.glb'));
@@ -52,7 +52,7 @@ export async function buildSchool(){
     const filename=path.join(publicDir,relative);
     let html=provided||await readFile(filename,'utf8');
     for(const match of [...html.matchAll(/(?:src|href)="([^"?#]+\.(?:js|css))(?:\?[^"#]*)?"/g)]){
-      const asset=path.resolve(path.dirname(filename),match[1]);
+      const asset=match[1].startsWith('/yuanbai/')?path.join(publicDir,match[1].slice('/yuanbai/'.length)):path.resolve(path.dirname(filename),match[1]);
       if(!asset.startsWith(publicDir+path.sep))throw new Error('资源路径越界');
       html=html.replace(match[0],match[0].split('=')[0]+'="'+match[1]+'?v='+hash(await readFile(asset))+'"');
     }
@@ -63,6 +63,11 @@ export async function buildSchool(){
   await mkdir(path.join(publicDir,'explore'),{recursive:true});
   const portalHtml=await readFile(path.join(publicDir,'index.html'),'utf8');
   await writeFile(path.join(publicDir,'explore/index.html'),replaceOnce(portalHtml,'<head>','<head><base href="../">'));
+  await mkdir(path.join(publicDir,'dialogue'),{recursive:true});
+  await writeFile(path.join(publicDir,'dialogue/index.html'),portalHtml);
+  await cp(path.join(root,'public/model-preload.js'),path.join(publicDir,'model-preload.js'));
+  // Dialogue model requires its original GLB and related static resources.
+  await cp(path.join(root,'public/models'),path.join(publicDir,'models'),{recursive:true});
   const serviceDir=path.join(output,'services/leaderboard');await mkdir(serviceDir,{recursive:true});
   // 后端按许可列表打包，只带代码和 SQL；不会读入真实库、身份令牌或现场配置。
   for(const name of await readdir(path.join(root,'services/leaderboard'))){

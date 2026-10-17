@@ -15,14 +15,14 @@ const EXPERIENCES = [
     action: "进入探索模式",
     icon: Target,
     // 开发服务器需要显式 index.html；游戏加载后会把地址栏整理成 /explore/。
-    href: "explore/index.html",
+    href: "game/?from=home",
   },
   {
     id: "dialogue",
     number: "02",
     eyebrow: "建筑对话 / DIALOGUE",
     title: "对话元白",
-    description: "按住说话，让建筑记住你的声音，并用灯光和体块回应。",
+    description: "用文字或语音，聊聊元白、学院与设计。让灯光和体块回应。",
     action: "进入对话模式",
     icon: Waveform,
     href: "dialogue/",

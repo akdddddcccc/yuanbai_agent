@@ -19,7 +19,7 @@ test('学校构建不修改原站源码，独立身份与入口完整',async()=>
   assert(!home.includes('dialogue/'));assert(home.includes('id="root"'));assert(home.includes('感知元白'));
   const entries=await readdir(path.join(output,'public/assets'));
   const app=await readFile(path.join(output,'public/assets',entries.find(name=>name.endsWith('.js'))),'utf8');
-  assert(!app.includes('对话元白'));assert(!app.includes('/api/yuanbai/chat'));assert(!app.includes('dialogue/'));assert(app.includes('game/?from=home'));
+  assert(app.includes('对话元白'));assert(app.includes('/api/yuanbai/chat'));assert(app.includes('dialogue/'));assert(app.includes('game/?from=home'));
   assert.deepEqual(await readFile(path.join(output,'public/models/yuanbai-perception-sculpture.glb')),await readFile(path.join(root,'public/models/yuanbai-perception-sculpture.glb')));
   const html=await readFile(path.join(output,'public/game/index.html'),'utf8');
   const js=await readFile(path.join(output,'public/game/game.js'),'utf8');
@@ -31,7 +31,7 @@ test('学校构建不修改原站源码，独立身份与入口完整',async()=>
     const text=await readFile(path.join(output,'public',entry),'utf8');
     for(const match of text.matchAll(/(?:src|href)="([^"?#]+\.(?:css|js|svg|png|jpg))(?:\?[^"#]*)?"/g)){
       const base=path.dirname(path.join(output,'public',entry));
-      const resource=path.resolve(base,text.includes('<base href="../">')?'..':'.',match[1]);
+      const resource=match[1].startsWith('/yuanbai/')?path.join(output,'public',match[1].slice(9)):path.resolve(base,text.includes('<base href="../">')?'..':'.',match[1]);
       await readFile(resource);
       if(/\.(css|js)$/.test(match[1]))assert(match[0].includes('?v='),match[0]);
     }

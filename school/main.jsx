@@ -1,7 +1,14 @@
-import React from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {createRoot} from 'react-dom/client';
-import {SchoolPortal} from './SchoolPortal.jsx';
-// 顺序有意义：先载入原站视觉，再用学校样式覆盖布局；不修改共享样式文件。
+import {Portal} from '../src/Portal.jsx';
+import {App} from '../src/App.jsx';
+import {stopIntroAudio} from '../src/introAudio.js';
 import '../src/styles.css';
-import './school.css';
-createRoot(document.getElementById('root')).render(<SchoolPortal/>);
+import './integrated.css';
+function SchoolApp(){
+ const [path,setPath]=useState(location.pathname);
+ useEffect(()=>{const update=()=>{stopIntroAudio();setPath(location.pathname)};window.addEventListener('popstate',update);return()=>window.removeEventListener('popstate',update)},[]);
+ const enter=useCallback(()=>{stopIntroAudio();history.pushState(null,'','/yuanbai/dialogue/');setPath(location.pathname)},[]);
+ return /\/dialogue\/?$/.test(path)?<App/>:<Portal onEnterDialogue={enter}/>;
+}
+createRoot(document.getElementById('root')).render(<SchoolApp/>);
