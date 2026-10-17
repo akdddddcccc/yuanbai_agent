@@ -10,3 +10,9 @@
 .public-dialogue .answer-evidence{font-size:12px;color:var(--color-muted);line-height:1.8;margin-top:16px}
 .answer-evidence summary{cursor:pointer}.answer-evidence a{color:inherit;text-decoration:underline;overflow-wrap:anywhere}
 .answer-evidence ul{padding-left:20px}.answer-evidence p{margin:8px 0}
+
+/* Keep responses and failures visible on mobile as well as desktop. */
+.public-dialogue .subline{display:block;white-space:pre-wrap;overflow-wrap:anywhere}
+.public-dialogue .answer{display:block;height:auto;min-height:4em;max-height:none;overflow:visible;-webkit-line-clamp:unset;white-space:pre-wrap;overflow-wrap:anywhere}
+.public-dialogue .submitted-question{font-size:14px;line-height:1.7;color:var(--color-muted);white-space:pre-wrap;overflow-wrap:anywhere}
+.public-text-form .request-error{padding:12px;border:1px solid currentColor;border-radius:8px;color:var(--color-text);font-size:14px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}

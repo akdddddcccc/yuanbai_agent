@@ -20,3 +20,11 @@ design-qa-comparison*.png
 # Local deployment secrets and generated integrated package
 services/agent/agent-config.json
 dist-integrated/
+
+# School runtime and private snapshots
+dist-backend/
+**/agent-config.json
+*.db
+*.db-wal
+*.db-shm
+snapshot/

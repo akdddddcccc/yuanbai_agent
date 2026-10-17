@@ -18,7 +18,7 @@ try{
   if(!existsSync(database))throw new Error('尚未迁入数据库，拒绝创建空排行榜：'+database);
   inspectDatabase(database);
   const origins=[config.siteOrigin,...(config.additionalOrigins||[])];
-  const {server}=createLeaderboardServer({database,origins,readOnly:config.readOnly!==false});
+  const {server}=createLeaderboardServer({database,origins,readOnly:config.readOnly!==false,allowHttp:config.allowHttp===true});
   server.on('error',error=>{console.error(error.code==='EADDRINUSE'?'端口已占用；未终止任何进程，请先检查配置。':error.message);process.exit(1);});
   server.listen(port,'127.0.0.1',()=>console.log('排行榜已启动，仅监听本机 127.0.0.1:'+port+'；'+(config.readOnly!==false?'只读验收模式':'允许记录成绩')));
   for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>server.close(()=>process.exit(0)));

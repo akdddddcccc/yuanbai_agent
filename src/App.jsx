@@ -43,7 +43,7 @@ function preferredMimeType() {
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
 }
 
-export function App() {
+export function App({textOnly = false}) {
   // 四个阶段同时控制文字、按钮、楼体动画：idle → listening → thinking → speaking。
   const [evidence, setEvidence] = useState(null);
   const [textInput, setTextInput] = useState("");
@@ -294,6 +294,8 @@ export function App() {
     const requestController = new AbortController();
     requestAbortRef.current = requestController;
     let queueTicket = "";
+    let timedOut = false;
+    const deadline = window.setTimeout(() => { timedOut = true; requestController.abort(); }, 90000);
     try {
       if (!typedText && blob.size < 800) throw new Error("录音太短了，请多说一点。 ");
       // MediaRecorder 已将麦克风音频压缩为 Opus/AAC；直接上传压缩流，
@@ -338,7 +340,8 @@ export function App() {
         throw new Error(result.error || "这次没有回答成功，请再试一次。");
       }
       if (requestController.signal.aborted || queueCancelledRef.current) return;
-      setTranscript(result.transcript || "");
+      if (typeof result.answer !== "string" || !result.answer.trim()) throw new Error("服务未返回文字回答，请重新发送。");
+      setTranscript(result.transcript || typedText || "");
       setAnswer(result.answer || "");
       setEvidence({attempted: Boolean(result.web_search_attempted), sources: (result.web_sources || []).filter(s=>/^https?:\/\//i.test(s.url || "")), localSources: result.knowledge_sources || [], voicePending: result.voice_status === "not_configured", voiceUnavailable: result.voice_status === "unavailable"});
       historyRef.current = [
@@ -349,7 +352,10 @@ export function App() {
 
       // 公网函数返回 base64，生成同源 Blob 后 WebAudio 才能稳定读取音量。
       // 本地 Python 仍可返回 audio_url，两种方式共用同一套前端。
-      if (result.audio_base64) {
+      if (textOnly) {
+        setPhase("idle");
+        releaseQueueTicket(queueTicket);
+      } else if (result.audio_base64) {
         const binary = atob(result.audio_base64);
         const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
         const audioUrl = URL.createObjectURL(new Blob([bytes], { type: result.audio_mime_type || "audio/mpeg" }));
@@ -363,6 +369,11 @@ export function App() {
         throw new Error("回答已经生成，但没有收到声音文件。");
       }
     } catch (error) {
+      if (timedOut) {
+        setErrorMessage("等待超过90秒，已停止请求。问题已保留，请稍后重试。");
+        stopMeter(); setPhase("idle"); releaseQueueTicket(queueTicket || queueTicketRef.current);
+        return;
+      }
       if (error?.name === "AbortError" || queueCancelledRef.current) {
         stopMeter();
         setPhase("idle");
@@ -374,10 +385,11 @@ export function App() {
       setPhase("idle");
       releaseQueueTicket(queueTicket || queueTicketRef.current);
     } finally {
+      window.clearTimeout(deadline);
       textBusyRef.current = false;
       if (requestAbortRef.current === requestController) requestAbortRef.current = null;
     }
-  }, [playResponse, releaseQueueTicket, stopMeter, waitForQueueTurn]);
+  }, [playResponse, releaseQueueTicket, stopMeter, waitForQueueTurn, textOnly]);
 
   const submitText = (event) => {
     event.preventDefault();
@@ -388,7 +400,9 @@ export function App() {
     stopIntroAudio();
     setErrorMessage("");
     setPhase("thinking");
-    setTextInput("");
+    setTranscript(question);
+    setAnswer("");
+    setEvidence(null);
     submitRecording(null, question);
   };
 
@@ -403,7 +417,7 @@ export function App() {
       responseObjectUrlRef.current = "";
     }
     setPlaybackBlocked(false);
-    setErrorMessage("");
+    setErrorMessage("已停止本次回答，问题已保留。");
     stopMeter();
     setPhase("idle");
     releaseQueueTicket();
@@ -521,7 +535,7 @@ export function App() {
     height: `${8 + (14 - Math.abs(14 - index)) * 1.5}px`,
   })), []);
   const [headline, defaultSubline] = PHASE_COPY[phase];
-  const visibleAnswer = answer || INTRO;
+  const visibleAnswer = answer || (phase === "thinking" ? "正在生成回答，请稍候…" : phase === "queued" ? "正在排队，轮到你后会自动生成回答。" : errorMessage ? "本次未获得回答，请查看下方提示。" : INTRO);
   const subline = errorMessage || (phase === "queued" ? `你排在第 ${Math.max(1, queuePosition)} 位，名额一空出来就到你。` : transcript ? `你刚才说：${transcript}` : defaultSubline);
   const buttonTitle = phase === "listening" ? `正在聆听 ${elapsed.toFixed(1)}s` : (
     phase === "thinking" ? "正在生成回答" : phase === "queued" ? "正在等候" : phase === "speaking" ? "元白正在说话" : "按住说话"
@@ -535,15 +549,16 @@ export function App() {
         <span>YUANBAI / 元白</span>
       </header>
       <a className="back-to-portal" href={import.meta.env.BASE_URL}>
-        <ArrowLeft size={14} weight="bold" />
-        <span>返回元白感知实验室</span>
+        <ArrowLeft size={14} weight="regular" aria-hidden="true" />
+        <span>返回主页</span>
       </a>
       <section className="copy-panel" aria-live="polite">
         <div className="status-row">
           <span className="status-dot" />
-          <span>{headline}</span>
+          <span>{textOnly && phase === "idle" ? (answer ? "回答已生成" : "文字对话") : headline}</span>
         </div>
         <h1>一座会回应你的楼</h1>
+        {transcript && <p className="submitted-question">你的问题：{transcript}</p>}
         <p className="answer">{visibleAnswer}</p>
         {evidence && <details className="answer-evidence"><summary>本次回答的检索与来源</summary>
           <p>{evidence.attempted ? (evidence.sources.length ? "已检索，以下为本次返回的网页来源。" : "已尝试检索，未获得可引用来源；回答不代表最新官网信息。") : "本次未进行实时官网检索，回答基于已有资料与模型生成。"}</p>
@@ -552,7 +567,7 @@ export function App() {
           {evidence.voiceUnavailable && <p>声音服务暂时不可用，本次回答已保留为文字。</p>}
           {evidence.voicePending && <p>新声线尚未配置，本次先以文字回答。</p>}
         </details>}
-        <p className={`subline${errorMessage ? " is-error" : ""}`}>{subline}</p>
+        <p role={errorMessage ? "alert" : "status"} className={`subline${errorMessage ? " is-error" : ""}`}>{errorMessage || (textOnly ? (phase === "thinking" ? "正在等待服务返回，最长等待90秒。" : phase === "queued" ? subline : "输入文字与元白交流。") : subline)}</p>
       </section>
 
       <section className="scene-panel" aria-label="元白楼语音交互形象">
@@ -567,7 +582,8 @@ export function App() {
         <label htmlFor="yuanbai-question">输入问题</label>
         <div><input id="yuanbai-question" value={textInput} maxLength={600} onChange={e=>setTextInput(e.target.value)} placeholder="问问元白、学院或设计…" disabled={phase!=="idle"} autoComplete="off"/>
         <button type="submit" disabled={phase!=="idle"||!textInput.trim()}>发送</button></div>
-        <small>也可使用语音。学院事务以正式通知为准。</small>
+        <small>{textOnly ? "文字问答 · 学院事务以正式通知为准。" : "也可使用语音。学院事务以正式通知为准。"}</small>
+        {errorMessage && <p className="request-error" role="alert">{errorMessage}</p>}
       </form>
       {playbackBlocked && (
         <button className="playback-button" type="button" onClick={playPendingResponse}>
@@ -576,7 +592,7 @@ export function App() {
         </button>
       )}
 
-      <button
+      {!textOnly && <button
         className="hold-button"
         type="button"
         onPointerDown={startListening}
@@ -598,7 +614,7 @@ export function App() {
             <i key={index} style={{ "--i": index, "--h": height, "--level": level }} />
           ))}
         </span>
-      </button>
+      </button>}
       {(phase === "thinking" || phase === "speaking") && (
         <button className="answer-stop" type="button" onClick={stopAnswer} aria-label="停止元白回答并释放排队名额">
           <Stop size={13} weight="fill" aria-hidden="true" />
