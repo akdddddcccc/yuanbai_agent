@@ -1,0 +1,8 @@
+.scene-fallback { position:relative; z-index:2; display:flex; min-height:180px; height:100%; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:24px; color:#d5c7bd; text-align:center; font:14px/1.6 sans-serif; }
+.scene-fallback img { width:96px; height:96px; object-fit:contain; opacity:.65; }
+.scene-fallback p { margin:0; }
+.scene-fallback a,.page-fallback a { color:#ffd1b5; text-decoration:underline; pointer-events:auto; }
+.scene-fallback details { max-width:100%; pointer-events:auto; }
+.scene-fallback pre,.page-fallback pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; }
+.page-fallback { min-height:100dvh; padding:48px 24px; background:#180d0e; color:#f3e9e1; font:16px/1.7 sans-serif; }
+.page-fallback a { display:block; margin:16px 0; }

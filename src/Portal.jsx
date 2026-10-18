@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import { SceneBoundary } from "./SceneBoundary.jsx";
+import { useEffect, useMemo, useRef, useState, lazy } from "react";
 import { ArrowUpRight, Target, Waveform } from "@phosphor-icons/react";
 const PortalSculpture = lazy(() => import("./PortalSculpture").then(m => ({default:m.PortalSculpture})));
 
@@ -142,7 +143,7 @@ export function Portal({ onEnterDialogue }) {
       <section className="portal-stage" aria-label="元白感知实验装置">
         {/* 顶光由纯 CSS 绘制：锥形亮度、噪点尘埃和缓慢呼吸互相独立，便于后续调色。 */}
         <span className="portal-top-light" aria-hidden="true" />
-        <Suspense fallback={<div role="status" className="portal-model-loading">正在加载建筑…</div>}><PortalSculpture projectionRef={projectionRef} /></Suspense>
+        <SceneBoundary><PortalSculpture projectionRef={projectionRef} /></SceneBoundary>
         {/* 使用同一标志制作远处投影；压扁和模糊后只保留形态，不与实体模型重叠。 */}
         <span className="portal-floor-projection" aria-hidden="true">
           <canvas ref={projectionRef} width="256" height="160" />

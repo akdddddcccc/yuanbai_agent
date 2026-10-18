@@ -712,6 +712,7 @@ function makeBuilding(scene) {
 export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
   const mountRef = useRef(null);
   const [attempt, setAttempt] = useState(0);
+  const [failure, setFailure] = useState(null);
   const stateRef = useRef({ phase, level });
   stateRef.current = { phase, level };
 
@@ -730,8 +731,17 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
     camera.position.copy(cameraHome);
     camera.lookAt(lookAt);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+    const mobile = window.matchMedia('(max-width: 820px), (pointer: coarse)').matches;
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: !mobile, alpha: true, powerPreference: mobile ? 'low-power' : 'high-performance' });
+    } catch (error) { setFailure(error); return undefined; }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1 : 1.75));
+    const onContextLost = (event) => {
+      event.preventDefault();
+      setFailure(new Error('建筑动画已暂停，可以继续文字问答。'));
+    };
+    renderer.domElement.addEventListener('webglcontextlost', onContextLost);
     renderer.setClearColor(0x180506, 0);
     renderer.shadowMap.enabled = false;
     renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -869,7 +879,8 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
 
     const animate = (now) => {
       frame = requestAnimationFrame(animate);
-      if (!model) { renderer.render(scene, camera); return; }
+      if (document.hidden) return;
+      if (!model) { try { renderer.render(scene, camera); } catch (error) { setFailure(error); } return; }
       const t = (now - startedAt) / 1000;
       const { phase: currentPhase, level: rawLevel } = stateRef.current;
       const voiceLevel = currentPhase === "speaking" ? rawLevel : 0;
@@ -983,7 +994,7 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
       camera.position.x += ((cameraHome.x * cameraScale + pointer.x * .62 * cameraScale) - camera.position.x) * .024;
       camera.position.y += ((cameraHome.y * cameraScale - pointer.y * .38 * cameraScale) - camera.position.y) * .024;
       camera.lookAt(lookAt);
-      renderer.render(scene, camera);
+      try { renderer.render(scene, camera); } catch (error) { setFailure(error); return; }
       metricsFrames += 1;
       if (now - metricsStartedAt >= 500) {
         mount.dataset.drawCalls = String(renderer.info.render.calls);
@@ -1010,11 +1021,13 @@ export function YuanbaiScene({ phase, level, variant = "dialogue" }) {
         if (Array.isArray(object.material)) object.material.forEach((material) => material.dispose());
         else object.material?.dispose?.();
       });
+      renderer.domElement.removeEventListener("webglcontextlost", onContextLost);
       renderer.dispose();
       renderer.domElement.remove();
     };
   }, [variant, attempt]);
 
+  if (failure) throw failure;
   return createElement("div", { ref: mountRef, className: `scene-mount scene-mount-${variant}` },
     createElement("div", { className: "model-loading", role: "status" },
       createElement("span", { className: "model-loading-copy" }, "正在加载元白楼…"),

@@ -1,4 +1,4 @@
-import { createElement, useEffect, useRef } from "react";
+import { createElement, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
@@ -49,6 +49,7 @@ function disposeModel(root) {
 
 export function PortalSculpture({ projectionRef }) {
   const mountRef = useRef(null);
+  const [failure, setFailure] = useState(null);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -64,8 +65,9 @@ export function PortalSculpture({ projectionRef }) {
 
     let renderer;
     try {
-      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "low-power" });
-    } catch {
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: !compactMedia.matches, powerPreference: "low-power" });
+    } catch (error) {
+      setFailure(error);
       mount.dataset.state = "fallback";
       return undefined;
     }
@@ -77,13 +79,27 @@ export function PortalSculpture({ projectionRef }) {
     mount.dataset.state = "loading";
 
     // 金属需要可反射的环境：只给材质提供柔光，不把房间画到黑色背景里。
-    const room = new RoomEnvironment();
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    const environment = pmrem.fromScene(room, .04);
-    scene.environment = environment.texture;
-    scene.environmentIntensity = LIGHTING.environment;
-    room.dispose();
-    pmrem.dispose();
+    // Mobile avoids the extra environment render targets during startup.
+    let environment;
+    if (!compactMedia.matches) {
+      const room = new RoomEnvironment();
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      try {
+        environment = pmrem.fromScene(room, .04);
+        scene.environment = environment.texture;
+        scene.environmentIntensity = LIGHTING.environment;
+      } catch (error) {
+        renderer.dispose();
+        renderer.domElement.remove();
+        setFailure(error);
+        return undefined;
+      } finally { room.dispose(); pmrem.dispose(); }
+    }
+    const onContextLost = (event) => {
+      event.preventDefault();
+      setFailure(new Error('建筑动画已暂停，文字与入口仍可使用。'));
+    };
+    renderer.domElement.addEventListener('webglcontextlost', onContextLost);
 
     // 实际照明只负责模型明暗；可见光束在 CSS，避免叠出硬边三角形。
     scene.add(new THREE.HemisphereLight("#dfdfda", "#201c19", LIGHTING.hemisphere));
@@ -119,7 +135,7 @@ export function PortalSculpture({ projectionRef }) {
       camera.top = vertical;
       camera.bottom = -vertical;
       camera.updateProjectionMatrix();
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, compactMedia.matches ? 1.5 : 2));
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, compactMedia.matches ? 1 : 2));
       renderer.setSize(width, height, false);
       // 投影只用 256px 低分辨率画布，维持主画面的比例，不额外创建 WebGL 上下文。
       if (projection) {
@@ -185,7 +201,8 @@ export function PortalSculpture({ projectionRef }) {
     window.addEventListener("pointermove", onPointerMove, { passive: true });
     window.addEventListener("blur", resetPointer);
     document.documentElement.addEventListener("pointerleave", resetPointer);
-    reducedMedia.addEventListener("change", onMotionChange);
+    if (reducedMedia.addEventListener) reducedMedia.addEventListener("change", onMotionChange);
+    else reducedMedia.addListener(onMotionChange);
 
     const render = (timestamp) => {
       frame = requestAnimationFrame(render);
@@ -198,7 +215,7 @@ export function PortalSculpture({ projectionRef }) {
       group.rotation.y += (pointer.x * .08 * motion - group.rotation.y) * .06;
       group.rotation.x += (-pointer.y * .035 * motion - group.rotation.x) * .06;
       key.intensity = LIGHTING.key + Math.sin(time * Math.PI / 4) * LIGHTING.breath * motion;
-      renderer.render(scene, camera);
+      try { renderer.render(scene, camera); } catch (error) { setFailure(error); return; }
       // 主渲染后立即复制同一帧；压扁、模糊与漂移交给 CSS，每秒只更新 6 次。
       if (context && model && timestamp - lastProjection > (motion ? 160 : 1000)) {
         context.clearRect(0, 0, projection.width, projection.height);
@@ -214,14 +231,17 @@ export function PortalSculpture({ projectionRef }) {
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("blur", resetPointer);
       document.documentElement.removeEventListener("pointerleave", resetPointer);
-      reducedMedia.removeEventListener("change", onMotionChange);
+      if (reducedMedia.removeEventListener) reducedMedia.removeEventListener("change", onMotionChange);
+      else reducedMedia.removeListener(onMotionChange);
       if (model) disposeModel(model);
-      environment.dispose();
+      environment?.dispose();
+      renderer.domElement.removeEventListener("webglcontextlost", onContextLost);
       context?.clearRect(0, 0, projection.width, projection.height);
       renderer.dispose();
       renderer.domElement.remove();
     };
   }, [projectionRef]);
 
+  if (failure) throw failure;
   return createElement("div", { ref: mountRef, className: "portal-sculpture", "aria-hidden": "true" });
 }

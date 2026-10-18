@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import { SceneBoundary } from "./SceneBoundary.jsx";
+import { useCallback, useEffect, useMemo, useRef, useState, lazy } from "react";
 import { ArrowLeft, ArrowUpRight, Microphone, Play, Stop } from "@phosphor-icons/react";
 import { CursorLightTrail } from "./CursorLightTrail";
 const YuanbaiScene = lazy(() => import("./YuanbaiScene").then(m => ({default:m.YuanbaiScene})));
@@ -609,7 +610,7 @@ export function App({textOnly = false, voiceOutput = false}) {
       </section>
 
       <section className="scene-panel" aria-label="元白楼语音交互形象">
-        <Suspense fallback={<div role="status" className="school-loading">正在加载建筑，可先输入问题。</div>}><YuanbaiScene phase={phase} level={level} /></Suspense>
+        <SceneBoundary><YuanbaiScene phase={phase} level={level} /></SceneBoundary>
         <div className="scene-caption">
           <span>VOICE ARCHITECTURE · 01</span>
           <span>{phase === "thinking" ? "PARTICLE MEMORY" : "VOICE-REACTIVE ARCHITECTURE"}</span>
