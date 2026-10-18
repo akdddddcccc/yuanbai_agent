@@ -58,6 +58,10 @@ export async function buildSchool(){
     const filename=path.join(publicDir,relative);
     let html=provided||await readFile(filename,'utf8');
     for(const match of [...html.matchAll(/(?:src|href)="([^"?#]+\.(?:js|css))(?:\?[^"#]*)?"/g)]){
+      // Vite filenames already contain content hashes. An HTML-only query on
+      // the entry creates a second ES module when lazy chunks import it back,
+      // duplicating React and createRoot (invalid hook call / React #321).
+      if(match[1].startsWith('/yuanbai/assets/'))continue;
       const asset=match[1].startsWith('/yuanbai/')?path.join(publicDir,match[1].slice('/yuanbai/'.length)):path.resolve(path.dirname(filename),match[1]);
       if(!asset.startsWith(publicDir+path.sep))throw new Error('资源路径越界');
       html=html.replace(match[0],match[0].split('=')[0]+'="'+match[1]+'?v='+hash(await readFile(asset))+'"');

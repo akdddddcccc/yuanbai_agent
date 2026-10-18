@@ -48,7 +48,7 @@ test('学校构建不修改原站源码，独立身份与入口完整',async()=>
       const base=path.dirname(path.join(output,'public',entry));
       const resource=match[1].startsWith('/yuanbai/')?path.join(output,'public',match[1].slice(9)):path.resolve(base,text.includes('<base href="../">')?'..':'.',match[1]);
       await readFile(resource);
-      if(/\.(css|js)$/.test(match[1]))assert(match[0].includes('?v='),match[0]);
+      if(/\.(css|js)$/.test(match[1]))assert.equal(match[0].includes('?v='),!match[1].startsWith('/yuanbai/assets/'),match[0]);
     }
   }
 });
