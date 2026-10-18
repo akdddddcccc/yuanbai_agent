@@ -1,18 +1,39 @@
 import http from 'node:http';
+import {randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {createVoiceQueue} from './voice-queue.mjs';
-import {onRequestPost,onRequestOptions} from './edge-functions/api/yuanbai/chat.js';
+import {onRequestPost,publicVoiceConfig,synthesize} from './edge-functions/api/yuanbai/chat.js';
 export function createAgentServer(config={}){
  const origins=String(config.YUANBAI_ALLOWED_ORIGINS||'').split(',').map(s=>s.trim()).filter(Boolean);
  const queue=createVoiceQueue({capacity:Math.max(1,Math.min(4,Number(config.YUANBAI_QUEUE_CAPACITY)||4))});
  const env={...config,YUANBAI_QUEUE:queue};
  const buckets=new Map();
+ // Only server-generated answers may be synthesized. Tokens expire, and TTS
+ // has its own cap so text answers never wait behind audio generation.
+ const speechJobs=new Map();
+ let speechInFlight=0;
+ function startSpeech(answer,origin){
+  const now=Date.now();
+  for(const [key,job] of speechJobs)if(job.expires<now)speechJobs.delete(key);
+  const voice=publicVoiceConfig(env);
+  if(!voice)return {voice_status:'not_configured'};
+  if(speechInFlight>=4 || speechJobs.size>=24)return {voice_status:'busy'};
+  const ticket=randomUUID();
+  const job={origin,expires:now+180000,state:'pending'};
+  speechJobs.set(ticket,job); speechInFlight++;
+  Promise.resolve().then(()=>synthesize(answer,env.DASHSCOPE_API_KEY,voice.model,voice.voice,env))
+   .then(audio=>{job.state='ready';job.audio_base64=audio;})
+   .catch(()=>{job.state='unavailable';})
+   .finally(()=>{speechInFlight--;});
+  return {speech_ticket:ticket,voice_status:'pending'};
+ }
+
  const send=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data))};
  const server=http.createServer(async(req,res)=>{
   const route=new URL(req.url,'http://localhost').pathname;
-  if(route==='/health' && req.method==='GET')return send(res,200,{ok:true,edition:'school-v7',configured:Boolean(config.DASHSCOPE_API_KEY&&config.DEEPSEEK_API_KEY),voice:config.YUANBAI_PUBLIC_TTS_VOICE_ID||null});
+  if(route==='/health' && req.method==='GET')return send(res,200,{ok:true,edition:'school-v8',speech_async:true,configured:Boolean(config.DASHSCOPE_API_KEY&&config.DEEPSEEK_API_KEY),voice:config.YUANBAI_PUBLIC_TTS_VOICE_ID||null});
   const origin=req.headers.origin;
   if(!origin||!origins.includes(origin))return send(res,403,{ok:false,error:'请从学院网页进入。'});
   if(req.method==='OPTIONS'){
@@ -33,6 +54,11 @@ export function createAgentServer(config={}){
    const raw=Buffer.concat(chunks).toString('utf8');let body;
    try{body=JSON.parse(raw);}catch{return send(res,400,{ok:false,error:'请求格式错误'});}
    if(!body||Array.isArray(body)||typeof body!=='object')return send(res,400,{ok:false,error:'请求格式错误'});
+   if(route==='/api/yuanbai/chat' && body.action==='speech'){
+    const job=speechJobs.get(body.speech_ticket);
+    if(!job || job.origin!==origin || job.expires<Date.now())return send(res,404,{ok:false,error:'语音已过期，请重新提问。'});
+    return send(res,200,{ok:true,voice_status:job.state,audio_base64:job.audio_base64||'',audio_mime_type:'audio/wav'});
+   }
    if(route.startsWith('/api/yuanbai/voice-queue/')){
     const action=route.split('/').at(-1);
     if(action!=='join'&&!/^[a-f0-9-]{36}$/i.test(body.ticket||''))return send(res,400,{ok:false,error:'无效票据'});
@@ -40,6 +66,11 @@ export function createAgentServer(config={}){
     return send(res,result.ok?200:429,result);
    }
    const response=await onRequestPost({request:new Request(origin+route,{method:'POST',headers:{'Content-Type':'application/json',Origin:origin},body:raw}),env});
+   if(response.ok && body.want_audio===true && typeof body.text==='string'){
+    const result=await response.json();
+    if(result.ok && result.answer)Object.assign(result,startSpeech(result.answer,origin));
+    return send(res,response.status,result);
+   }
    res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));
   }catch(error){if(!res.headersSent)send(res,500,{ok:false,error:'服务暂时不可用，请稍后再试。'});else res.end();}
  });

@@ -5,6 +5,7 @@ import path from 'node:path';
 import {build} from 'vite';
 import react from '@vitejs/plugin-react';
 import {buildTutorial} from './build-school-tutorial.mjs';
+import {gunzipSync} from 'node:zlib';
 
 /** 学校版构建总入口。只写 dist-school/，不覆盖 public/、src/ 或任何线上目录。
  * 1. 构建原首页的学校入口；2. 复制并覆盖正式游戏的学校差异；
@@ -22,11 +23,11 @@ export async function buildSchool(){
   await rm(output,{recursive:true,force:true});
   const publicDir=path.join(output,'public');
   await mkdir(publicDir,{recursive:true});
-  await build({configFile:false,root:path.join(root,'school'),base:'/yuanbai/',publicDir:false,plugins:[react()],build:{outDir:publicDir,emptyOutDir:false}});
+  await build({configFile:false,root:path.join(root,'school'),base:'/yuanbai/',define:{'import.meta.env.VITE_SCHOOL_LIGHT_MODEL':'true'},publicDir:false,plugins:[react()],build:{outDir:publicDir,emptyOutDir:false}});
   await cp(path.join(root,'public/brand'),path.join(publicDir,'brand'),{recursive:true});
   await mkdir(path.join(publicDir,'models'),{recursive:true});
   await cp(path.join(root,'public/models/yuanbai-perception-sculpture.glb'),path.join(publicDir,'models/yuanbai-perception-sculpture.glb'));
-  await cp(path.join(root,'public/explore'),path.join(publicDir,'game'),{recursive:true});
+  await cp(path.join(root,'public/explore'),path.join(publicDir,'game'),{recursive:true,filter:p=>!path.basename(p).startsWith('.')});
   let gameHtml=await readFile(path.join(publicDir,'game/index.html'),'utf8');
   gameHtml=replaceOnce(gameHtml,'<script type="module" src="../model-preload.js"></script>','');
   gameHtml=replaceOnce(gameHtml,'<link rel="stylesheet" href="../portal-navigation.css">','<link rel="stylesheet" href="../portal-navigation.css"><link rel="stylesheet" href="school-game.css">');
@@ -70,9 +71,12 @@ export async function buildSchool(){
   await writeFile(path.join(publicDir,'explore/index.html'),replaceOnce(portalHtml,'<head>','<head><base href="../">'));
   await mkdir(path.join(publicDir,'dialogue'),{recursive:true});
   await writeFile(path.join(publicDir,'dialogue/index.html'),portalHtml);
-  await cp(path.join(root,'public/model-preload.js'),path.join(publicDir,'model-preload.js'));
-  // Dialogue model requires its original GLB and related static resources.
-  await cp(path.join(root,'public/models'),path.join(publicDir,'models'),{recursive:true});
+  // Decode the reviewed model source. Never copy old model variants/temp files.
+  const modelMeta=JSON.parse(await readFile(path.join(root,'school/model/manifest.json'),'utf8'));
+  const packed=Buffer.from(await readFile(path.join(root,'school/model/dialogue-light.glb.gz.b64'),'utf8'),'base64');
+  const decoded=gunzipSync(packed);
+  if(createHash('sha256').update(packed).digest('hex')!==modelMeta.compressedSHA256 || createHash('sha256').update(decoded).digest('hex')!==modelMeta.sha256)throw Error('Light model checksum mismatch');
+  await writeFile(path.join(publicDir,'models',`dialogue-light-${modelMeta.compressedSHA256.slice(0,12)}.glb.gz`),packed);
   const serviceDir=path.join(output,'services/leaderboard');await mkdir(serviceDir,{recursive:true});
   // 后端按许可列表打包，只带代码和 SQL；不会读入真实库、身份令牌或现场配置。
   for(const name of await readdir(path.join(root,'services/leaderboard'))){

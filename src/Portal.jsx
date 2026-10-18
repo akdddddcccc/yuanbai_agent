@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { ArrowUpRight, Target, Waveform } from "@phosphor-icons/react";
-import { PortalSculpture } from "./PortalSculpture";
+const PortalSculpture = lazy(() => import("./PortalSculpture").then(m => ({default:m.PortalSculpture})));
 
 const YUANBAI_MARK_URL = `${import.meta.env.BASE_URL}brand/yuanbai-mark.svg`;
 
@@ -22,7 +22,7 @@ const EXPERIENCES = [
     number: "02",
     eyebrow: "建筑对话 / DIALOGUE",
     title: "对话元白",
-    description: "用文字或语音，聊聊元白、学院与设计。让灯光和体块回应。",
+    description: "聊聊元白、学院与设计，让灯光和体块回应。",
     action: "进入对话模式",
     icon: Waveform,
     href: "dialogue/",
@@ -142,7 +142,7 @@ export function Portal({ onEnterDialogue }) {
       <section className="portal-stage" aria-label="元白感知实验装置">
         {/* 顶光由纯 CSS 绘制：锥形亮度、噪点尘埃和缓慢呼吸互相独立，便于后续调色。 */}
         <span className="portal-top-light" aria-hidden="true" />
-        <PortalSculpture projectionRef={projectionRef} />
+        <Suspense fallback={<div role="status" className="portal-model-loading">正在加载建筑…</div>}><PortalSculpture projectionRef={projectionRef} /></Suspense>
         {/* 使用同一标志制作远处投影；压扁和模糊后只保留形态，不与实体模型重叠。 */}
         <span className="portal-floor-projection" aria-hidden="true">
           <canvas ref={projectionRef} width="256" height="160" />

@@ -59,7 +59,18 @@ function tuneMaterial(material) {
 
 export async function loadPreciseModel(makeParticles) {
   const base = `${import.meta.env.BASE_URL}models/yuanbai-precise-v3/`;
-  const bytes = await preloadModel();
+  let bytes;
+  if (import.meta.env.VITE_SCHOOL_LIGHT_MODEL) {
+    const meta = await import('../school/model/manifest.json');
+    const response = await fetch(`${import.meta.env.BASE_URL}models/dialogue-light-${meta.default.compressedSHA256.slice(0,12)}.glb.gz`, {signal:AbortSignal.timeout(45000)});
+    if (!response.ok) throw new Error(`Model HTTP ${response.status}`);
+    const packed = new Uint8Array(await response.arrayBuffer());
+    // Some servers automatically decode .gz; accept the resulting GLB as well.
+    if (packed[0] === 0x67 && packed[1] === 0x6c) bytes=packed;
+    else if (typeof DecompressionStream !== 'undefined') bytes=new Uint8Array(await new Response(new Blob([packed]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+    else { const {gunzipSync}=await import('three/addons/libs/fflate.module.js'); bytes=gunzipSync(packed); }
+    if(bytes.byteLength!==meta.default.decodedBytes)throw new Error('Incomplete light model');
+  } else bytes = await preloadModel();
   const { scene: source } = await new GLTFLoader().parseAsync(bytes.buffer, base);
   return preparePreciseModel(source, makeParticles);
 }

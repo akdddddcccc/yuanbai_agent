@@ -33,7 +33,7 @@ test('学校构建不修改原站源码，独立身份与入口完整',async()=>
   const home=await readFile(path.join(output,'public/index.html'),'utf8');
   assert(!home.includes('dialogue/'));assert(home.includes('id="root"'));assert(home.includes('感知元白'));
   const entries=await readdir(path.join(output,'public/assets'));
-  const app=await readFile(path.join(output,'public/assets',entries.find(name=>name.endsWith('.js'))),'utf8');
+  const app=(await Promise.all(entries.filter(name=>name.endsWith('.js')).map(name=>readFile(path.join(output,'public/assets',name),'utf8')))).join('\n');
   assert(app.includes('对话元白'));assert(app.includes('/api/yuanbai/chat'));assert(app.includes('dialogue/'));assert(app.includes('game/?from=home'));
   assert.deepEqual(await readFile(path.join(output,'public/models/yuanbai-perception-sculpture.glb')),await readFile(path.join(root,'public/models/yuanbai-perception-sculpture.glb')));
   const html=await readFile(path.join(output,'public/game/index.html'),'utf8');

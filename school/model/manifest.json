@@ -1,0 +1,12 @@
+{
+  "source": "public/models/yuanbai-precise-v2.glb",
+  "sourceSHA256": "6e20cf4b4bfe9d8ce306559ca8c836b720df78731a14ef991f6eaa8eadf1b466",
+  "sourceBytes": 18647460,
+  "sourceTriangles": 491822,
+  "triangles": 119608,
+  "decodedBytes": 7421336,
+  "transferBytes": 1633721,
+  "sha256": "981a9404b2e5fb2d1d5b0590aa734457ea139dd7c0c87ca01a4987b14336098d",
+  "compressedSHA256": "794e55a3f1451184b4be49192f45d96f44bd508b923167038313d1abc3d9510e",
+  "method": "Simplify MAT_METAL_WHITE only; other materials retain exact source positions, normals and triangles. All 15 animated mass groups retained. No texture baking in this revision."
+}
