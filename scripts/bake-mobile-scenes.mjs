@@ -36,4 +36,29 @@ try {
  const report={sourceBytes:18647460,sizes,visibleWindowPixels,width:info.width,height:info.height};
  await writeFile('public/mobile/manifest.json',JSON.stringify(report,null,2)+'\n');
  console.log(JSON.stringify(report));
+ // Exercise the actual React props, then check that light changes stay inside the glass mask.
+ await mkdir('artifacts/mobile-scenes',{recursive:true});
+ await page.setViewportSize({width:1024,height:768});
+ await page.goto('http://127.0.0.1:4179/tools/mobile-light-check.html');
+ await page.locator('.mobile-building[data-state="ready"]').waitFor();
+ await page.waitForFunction(()=>[...document.images].every(i=>i.complete&&i.naturalWidth>0));
+ await page.waitForFunction(()=>Number(getComputedStyle(document.querySelector('.mobile-window-light')).opacity)===.3);
+ const dim=await page.screenshot({path:'artifacts/mobile-scenes/light-dim.png'});
+ await page.evaluate(()=>window.setEnergy(1));
+ await page.waitForFunction(()=>Number(getComputedStyle(document.querySelector('.mobile-window-light')).opacity)===1);
+ const bright=await page.screenshot({path:'artifacts/mobile-scenes/light-bright.png'});
+ const dimPixels=await sharp(dim).ensureAlpha().raw().toBuffer();
+ const brightPixels=await sharp(bright).ensureAlpha().raw().toBuffer();
+ let changed=0,leaked=0;
+ for(let i=0;i<dimPixels.length;i+=4){
+   if(Math.abs(dimPixels[i]-brightPixels[i])+Math.abs(dimPixels[i+1]-brightPixels[i+1])+Math.abs(dimPixels[i+2]-brightPixels[i+2])<15)continue;
+   changed++;
+   if(lights[i+3]<16)leaked++;
+ }
+ assert(changed>100,'Voice level did not visibly illuminate the windows');
+ assert(leaked/changed<.05,'Window light spills onto opaque walls');
+ await page.emulateMedia({reducedMotion:'reduce'});
+ await page.waitForFunction(()=>Number(getComputedStyle(document.querySelector('.mobile-window-light')).opacity)===.35);
+ console.log(JSON.stringify({lightChangedPixels:changed,lightOutsideWindowPixels:leaked,reducedMotion:true}));
+
 } finally {await browser.close();await server.close();}
