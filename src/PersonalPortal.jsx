@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Target, Waveform } from '@phosphor-icons/react';
-import { PortalSculpture } from './PortalSculpture';
+import { PortalSculpture } from "./ResponsiveScenes.jsx";
 import './personal-portal.css';
 
 const base = import.meta.env.BASE_URL;
@@ -23,11 +23,10 @@ export function PersonalPortal({ onEnterDialogue }) {
       if (event.key === '2') onEnterDialogue();
     };
     window.addEventListener('keydown', onKeyDown);
-    const sculpture = stageRef.current?.querySelector('.portal-sculpture');
-    const updateModelState = () => setModelState(sculpture?.dataset.state || 'loading');
+    const updateModelState = () => setModelState(stageRef.current?.querySelector('.portal-sculpture')?.dataset.state || 'loading');
     updateModelState();
     const observer = new MutationObserver(updateModelState);
-    if (sculpture) observer.observe(sculpture, { attributes: true, attributeFilter: ['data-state'] });
+    if (stageRef.current) observer.observe(stageRef.current, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-state'] });
     return () => { window.removeEventListener('keydown', onKeyDown); observer.disconnect(); };
   }, [onEnterDialogue]);
 
