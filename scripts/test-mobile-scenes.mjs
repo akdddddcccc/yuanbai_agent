@@ -19,7 +19,7 @@ try {
    await page.locator('a[href$="dialogue/"]').first().click();
    await page.locator('.mobile-building[data-state="ready"]').waitFor();
    assert.equal(await page.locator('.scene-mount canvas').count(),0,'Mobile must not create WebGL canvas');
-   const bad=requested.filter(u=>/\.glb|model-preload|precise-v3|YuanbaiScene-|PortalSculpture-|preciseModel-/.test(u));
+   const bad=requested.filter(u=>/\.glb|model-preload|precise-v3|YuanbaiScene-|PortalSculpture-|preciseModel-|GLTFLoader-/.test(u));
    assert.deepEqual(bad,[],'Mobile requested desktop resources');
    assert.deepEqual(errors,[]);
    // Verify all image resources actually decoded.

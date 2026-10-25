@@ -10,3 +10,8 @@
 @media (prefers-reduced-motion: reduce) {
   .mobile-window-light { opacity: .35; transition: none; }
 }
+
+@media (pointer: coarse), (max-width: 820px) {
+  .portal .portal-card { animation: none; translate: 0 0; }
+  .portal .portal-card:hover { transform: none; }
+}
