@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, Target, Waveform } from "@phosphor-icons/react";
-import { PortalSculpture } from "./PortalSculpture";
+import { PortalSculpture } from "./ResponsiveScenes.jsx";
 
 const YUANBAI_MARK_URL = `${import.meta.env.BASE_URL}brand/yuanbai-mark.svg`;
 

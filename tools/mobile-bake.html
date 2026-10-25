@@ -1,0 +1,52 @@
+<!doctype html><html><body><script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { preparePreciseModel } from '/src/preciseModel.js';
+window.bake = async () => {
+ const {scene: source} = await new GLTFLoader().loadAsync('/models/yuanbai-precise-v2.glb');
+ const model = preparePreciseModel(source, () => ({}));
+ model.coreLight.beam.visible = false;
+ const scene = new THREE.Scene();
+ scene.add(model.building);
+ scene.add(new THREE.HemisphereLight(0xffddc7, 0x120304, 1.55));
+ const key = new THREE.DirectionalLight(0xffd3b9, 3.1); key.position.set(8,13,10); scene.add(key);
+ const rim = new THREE.PointLight(0xc73d2a,17,32,1.55); rim.position.set(-6,3,5); scene.add(rim);
+ const fill = new THREE.PointLight(0xffa76c,9,28,1.45); fill.position.set(6,5,8); scene.add(fill);
+ const camera = new THREE.PerspectiveCamera(31, 4/3, .1, 100);
+ const target = model.viewBounds.getCenter(new THREE.Vector3());
+ const dir = new THREE.Vector3(11.8,8.7,17.5).normalize();
+ camera.position.copy(target).add(dir); camera.lookAt(target); camera.updateMatrixWorld();
+ const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0);
+ const up = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,1);
+ const tan = Math.tan(THREE.MathUtils.degToRad(31/2));
+ let distance = 0;
+ for(const x of [model.viewBounds.min.x,model.viewBounds.max.x])
+ for(const y of [model.viewBounds.min.y,model.viewBounds.max.y])
+ for(const z of [model.viewBounds.min.z,model.viewBounds.max.z]) {
+   const p = new THREE.Vector3(x,y,z).sub(target);
+   distance = Math.max(distance,p.dot(dir)+Math.abs(p.dot(right))/(tan*4/3*.88),p.dot(dir)+Math.abs(p.dot(up))/(tan*.88));
+ }
+ camera.position.copy(target).addScaledVector(dir,distance); camera.lookAt(target);
+ const renderer = new THREE.WebGLRenderer({alpha:true,antialias:true,preserveDrawingBuffer:true});
+ renderer.setSize(1024,768); renderer.setPixelRatio(1);
+ renderer.setClearColor(0,0); renderer.outputColorSpace=THREE.SRGBColorSpace;
+ renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.08;
+ document.body.appendChild(renderer.domElement);
+ renderer.render(scene,camera);
+ const body = renderer.domElement.toDataURL('image/png');
+ let windows = 0;
+ model.building.traverse(o => {
+   if(!o.isMesh || !o.visible) return;
+   const replace = m => {
+     const glass = /GLASS/i.test(m.name);
+     if(glass) windows++;
+     return new THREE.MeshBasicMaterial({color:glass?0xffffff:0x000000,side:m.side});
+   };
+   o.material=Array.isArray(o.material)?o.material.map(replace):replace(o.material);
+ });
+ renderer.toneMapping=THREE.NoToneMapping;
+ renderer.render(scene,camera);
+ const mask=renderer.domElement.toDataURL('image/png');
+ return {body,mask,windows};
+};
+</script></body></html>

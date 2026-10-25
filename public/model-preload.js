@@ -36,4 +36,4 @@ export function createModelPreloader({ base, fetcher = fetch, storage = globalTh
 }
 
 export const preloadPreciseModel = createModelPreloader({ base: new URL('models/yuanbai-precise-v3/', import.meta.url) });
-if (typeof document !== 'undefined') preloadPreciseModel().catch(() => {});
+

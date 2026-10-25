@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Target, Waveform } from '@phosphor-icons/react';
-import { PortalSculpture } from './PortalSculpture';
+import { PortalSculpture } from "./ResponsiveScenes.jsx";
 import './personal-portal.css';
 
 const base = import.meta.env.BASE_URL;
