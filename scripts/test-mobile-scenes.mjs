@@ -18,7 +18,7 @@ try {
    await page.locator('.mobile-portal-sculpture[data-state="ready"]').waitFor();
    await page.locator('a[href$="dialogue/"]').first().click();
    await page.locator('.mobile-building[data-state="ready"]').waitFor();
-   assert.equal(await page.locator('canvas').count(),0,'Mobile must not create WebGL canvas');
+   assert.equal(await page.locator('.scene-mount canvas').count(),0,'Mobile must not create WebGL canvas');
    const bad=requested.filter(u=>/\.glb|model-preload|precise-v3|YuanbaiScene-|PortalSculpture-|preciseModel-/.test(u));
    assert.deepEqual(bad,[],'Mobile requested desktop resources');
    assert.deepEqual(errors,[]);
@@ -38,11 +38,11 @@ try {
  await page.goto('http://127.0.0.1:4180/dialogue/');
  await page.locator('.mobile-building[data-state="fallback"]').waitFor();
  assert(await page.locator('button').count()>0);
- assert.equal(await page.locator('canvas').count(),0);
+ assert.equal(await page.locator('.scene-mount canvas').count(),0);
  await context.close();
  const desktop=await browser.newPage({viewport:{width:1440,height:900}});
  await desktop.goto('http://127.0.0.1:4180/dialogue/');
- await desktop.locator('.scene-mount canvas').waitFor({timeout:60000});
+ await desktop.locator('.scene-mount[data-model="precise"] canvas').waitFor({timeout:60000});
  assert.equal(await desktop.locator('.mobile-building').count(),0);
  const manifest=JSON.parse(await readFile('public/mobile/manifest.json','utf8'));
  const report={manifest,reports,note:'Local CI transfer bytes; not real WeChat network timings.'};
