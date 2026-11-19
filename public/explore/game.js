@@ -523,7 +523,7 @@
   function signalForDisplay(index){return toolFx&&!toolFx.revealed?toolFx.beforeSignals.has(index):game.safeSignals.has(index);}
   function prepareToolAudio(){
     if(!audio||toolCallBuffer||toolCallLoading)return;toolCallLoading=true;
-    fetch('assets/audio/companion-call.mp3').then(r=>{if(!r.ok)throw Error(r.status);return r.arrayBuffer();})
+    fetch('assets/audio/companion-call.mp3?v=longanhuan1').then(r=>{if(!r.ok)throw Error(r.status);return r.arrayBuffer();})
       .then(b=>audio.decodeAudioData(b)).then(b=>{toolCallBuffer=b;}).catch(()=>{}).finally(()=>{toolCallLoading=false;});
   }
   function stopToolVoice(){if(!toolVoice)return;try{toolVoice.stop();}catch{}toolVoice=null;}
