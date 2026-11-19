@@ -1,3 +1,4 @@
+import { readVoiceStream } from "./streamPlayback.js";
 import { SceneBoundary } from "./SceneBoundary.jsx";
 import { useCallback, useEffect, useMemo, useRef, useState, lazy } from "react";
 import { ArrowLeft, ArrowUpRight, Microphone, Play, Stop } from "@phosphor-icons/react";
@@ -52,7 +53,7 @@ function preferredMimeType() {
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
 }
 
-export function App({textOnly = false, voiceOutput = false}) {
+export function App({textOnly = false, voiceOutput = true}) {
   // 四个阶段同时控制文字、按钮、楼体动画：idle → listening → thinking → speaking。
   const [evidence, setEvidence] = useState(null);
   const [textInput, setTextInput] = useState("");
@@ -314,7 +315,7 @@ export function App({textOnly = false, voiceOutput = false}) {
       // API 密钥始终留在服务端函数中。
       const response = await fetch(API_CHAT_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Accept: voiceOutput ? "application/x-ndjson" : "application/json" },
         signal: requestController.signal,
         body: JSON.stringify({
           audio_base64: audioBase64,
@@ -326,6 +327,33 @@ export function App({textOnly = false, voiceOutput = false}) {
           history: historyRef.current,
         }),
       });
+      const recordAnswer = result => {
+        setTranscript(result.transcript || typedText || "");
+        setAnswer(result.answer || "");
+        setEvidence({attempted: Boolean(result.web_search_attempted), sources: (result.web_sources || []).filter(s=>/^https?:\/\//i.test(s.url || "")), localSources: result.knowledge_sources || [], voicePending: result.voice_status === "not_configured", voiceUnavailable: result.voice_status === "unavailable"});
+        historyRef.current = [
+          ...historyRef.current,
+          { role: "user", content: result.transcript || "" },
+          { role: "assistant", content: result.answer || "" },
+        ].filter((message) => message.content).slice(-8);
+      };
+      if (response.ok && response.headers.get("content-type")?.includes("application/x-ndjson")) {
+        const context = audioContextRef.current || (audioContextRef.current = new AudioContext());
+        const played = await readVoiceStream(response, context, {
+          signal:requestController.signal, onText:setAnswer, onAnswer:result => { recordAnswer(result); setSpeechLoading(true); },
+          onAudio:(source, context) => { setSpeechLoading(false); connectMeter(source, context, true); setPhase("speaking"); }
+        });
+        window.clearTimeout(deadline);
+        stopMeter();
+        setPhase("idle");
+        releaseQueueTicket(queueTicket);
+        if (responseObjectUrlRef.current) URL.revokeObjectURL(responseObjectUrlRef.current);
+        const replay = URL.createObjectURL(played.blob);
+        responseObjectUrlRef.current = replay;
+        setReplayUrl(replay);
+        if (played.blocked) await playResponse(replay, true);
+        return;
+      }
       // 先读取文本再解析，避免网关返回空响应时只看到“Unexpected end of JSON input”。
       const rawResponse = await response.text();
       let result;
@@ -345,63 +373,10 @@ export function App({textOnly = false, voiceOutput = false}) {
       }
       if (requestController.signal.aborted || queueCancelledRef.current) return;
       if (typeof result.answer !== "string" || !result.answer.trim()) throw new Error("服务未返回文字回答，请重新发送。");
-      setTranscript(result.transcript || typedText || "");
-      setAnswer(result.answer || "");
-      setEvidence({attempted: Boolean(result.web_search_attempted), sources: (result.web_sources || []).filter(s=>/^https?:\/\//i.test(s.url || "")), localSources: result.knowledge_sources || [], voicePending: result.voice_status === "not_configured", voiceUnavailable: result.voice_status === "unavailable"});
-      historyRef.current = [
-        ...historyRef.current,
-        { role: "user", content: result.transcript || "" },
-        { role: "assistant", content: result.answer || "" },
-      ].filter((message) => message.content).slice(-8);
-
-      // 公网函数返回 base64，生成同源 Blob 后 WebAudio 才能稳定读取音量。
-      // 本地 Python 仍可返回 audio_url，两种方式共用同一套前端。
-      if (voiceOutput && result.speech_ticket) {
-        // Text is already rendered above; audio is a separate, bounded request.
-        releaseQueueTicket(queueTicket);
-        window.clearTimeout(deadline);
-        setSpeechLoading(true);
-        const voiceDeadline = window.setTimeout(() => requestController.abort(), 45000);
-        try {
-          while (!requestController.signal.aborted) {
-            const speechResponse = await fetch(API_CHAT_URL, {
-              method: "POST", headers: {"Content-Type":"application/json"},
-              signal: requestController.signal,
-              body: JSON.stringify({action:"speech", speech_ticket:result.speech_ticket}),
-            });
-            const speech = await readApiResponse(speechResponse);
-            if (speech.voice_status === "ready" && speech.audio_base64) {
-              const bytes = Uint8Array.from(atob(speech.audio_base64), c => c.charCodeAt(0));
-              const url = URL.createObjectURL(new Blob([bytes], {type:speech.audio_mime_type || "audio/wav"}));
-              setSpeechLoading(false);
-              await playResponse(url, true);
-              break;
-            }
-            if (speech.voice_status !== "pending") throw new Error("声音暂时不可用，文字回答已保留。");
-            await new Promise(resolve => window.setTimeout(resolve, 1000));
-          }
-          if (requestController.signal.aborted) throw new DOMException("声音请求已停止", "AbortError");
-        } catch (error) {
-          if (!queueCancelledRef.current) setErrorMessage(error.name === "AbortError" ? "声音加载超时，文字回答已保留。" : "声音暂时不可用，文字回答已保留。");
-          setPhase("idle");
-        } finally { window.clearTimeout(voiceDeadline); setSpeechLoading(false); }
-      } else if (textOnly) {
-        if (voiceOutput) setErrorMessage(result.voice_status === "not_configured" ? "女声尚未配置，文字回答已保留。" : "声音暂时不可用，文字回答已保留。");
-        setPhase("idle");
-        releaseQueueTicket(queueTicket);
-      } else if (result.audio_base64) {
-        const binary = atob(result.audio_base64);
-        const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-        const audioUrl = URL.createObjectURL(new Blob([bytes], { type: result.audio_mime_type || "audio/mpeg" }));
-        await playResponse(audioUrl, true);
-      } else if (result.audio_url) {
-        await playResponse(result.audio_url);
-      } else if (result.text_only) {
-        setPhase("idle");
-        releaseQueueTicket(queueTicket);
-      } else {
-        throw new Error("回答已经生成，但没有收到声音文件。");
-      }
+      recordAnswer(result);
+      setPhase("idle");
+      releaseQueueTicket(queueTicket);
+      if (voiceOutput) setErrorMessage("此服务尚未提供新版语音，已显示文字回答。");
     } catch (error) {
       if (timedOut) {
         setErrorMessage("等待超过90秒，已停止请求。问题已保留，请稍后重试。");
@@ -420,10 +395,11 @@ export function App({textOnly = false, voiceOutput = false}) {
       releaseQueueTicket(queueTicket || queueTicketRef.current);
     } finally {
       window.clearTimeout(deadline);
+      setSpeechLoading(false);
       textBusyRef.current = false;
       if (requestAbortRef.current === requestController) requestAbortRef.current = null;
     }
-  }, [playResponse, releaseQueueTicket, stopMeter, waitForQueueTurn, textOnly, voiceOutput]);
+  }, [connectMeter, playResponse, releaseQueueTicket, stopMeter, waitForQueueTurn, textOnly, voiceOutput]);
 
   const submitText = (event) => {
     event.preventDefault();
@@ -440,6 +416,7 @@ export function App({textOnly = false, voiceOutput = false}) {
     setSpeechLoading(false);
     responseRef.current?.pause();
     setEvidence(null);
+    if (voiceOutput) ensureAudioContext().catch(() => {});
     submitRecording(null, question);
   };
 
@@ -606,7 +583,7 @@ export function App({textOnly = false, voiceOutput = false}) {
           {evidence.voiceUnavailable && <p>声音服务暂时不可用，本次回答已保留为文字。</p>}
           {evidence.voicePending && <p>新声线尚未配置，本次先以文字回答。</p>}
         </details>}
-        <p role={errorMessage ? "alert" : "status"} className={`subline${errorMessage ? " is-error" : ""}`}>{errorMessage || (speechLoading ? "女声加载中，可以先阅读回答。" : textOnly ? (phase === "thinking" ? "正在等待服务返回，最长等待90秒。" : phase === "queued" ? subline : "输入文字与元白交流。") : subline)}</p>
+        <p role={errorMessage ? "alert" : "status"} className={`subline${errorMessage ? " is-error" : ""}`}>{errorMessage || (speechLoading ? "语音加载中，可以先阅读回答。" : textOnly ? (phase === "thinking" ? "正在等待服务返回，最长等待90秒。" : phase === "queued" ? subline : "输入文字与元白交流。") : subline)}</p>
       </section>
 
       <section className="scene-panel" aria-label="元白楼语音交互形象">
@@ -621,7 +598,7 @@ export function App({textOnly = false, voiceOutput = false}) {
         <label htmlFor="yuanbai-question">输入问题</label>
         <div><input id="yuanbai-question" value={textInput} maxLength={600} onChange={e=>setTextInput(e.target.value)} placeholder="问问元白、学院或设计…" disabled={phase!=="idle"} autoComplete="off"/>
         <button type="submit" disabled={phase!=="idle"||!textInput.trim()}>发送</button></div>
-        <small>{textOnly ? (voiceOutput ? "文字输入 · 女声回答 · 学院事务以正式通知为准。" : "文字问答 · 学院事务以正式通知为准。") : "也可使用语音。学院事务以正式通知为准。"}</small>
+        <small>{textOnly ? (voiceOutput ? "文字输入 · 龙安欢语音回答 · 学院事务以正式通知为准。" : "文字问答 · 学院事务以正式通知为准。") : "也可使用语音。学院事务以正式通知为准。"}</small>
         {errorMessage && <p className="request-error" role="alert">{errorMessage}</p>}
       </form>
       {(playbackBlocked || (replayUrl && phase === "idle")) && (

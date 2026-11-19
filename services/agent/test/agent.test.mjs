@@ -3,20 +3,21 @@ import assert from 'node:assert/strict';
 import {createAgentServer} from '../server.mjs';
 import {synthesize,transcribe,chat,publicVoiceConfig} from '../edge-functions/api/yuanbai/chat.js';
 const origin='https://academy.example.test';
-test('new female voice uses Qwen TTS API and original voice remains blocked',async t=>{
+test('Pins the catalogue voice even for existing installations',async t=>{
  const calls=[];
  t.mock.method(globalThis,'fetch',async(url,options)=>{
   calls.push({url:String(url),body:options?.body&&JSON.parse(options.body)});
   return calls.length===1?Response.json({output:{audio:{url:'https://audio.example.test/result.wav'}}}):new Response(new Uint8Array([82,73,70,70]));
  });
- assert.equal(await synthesize('你好','test','qwen3-tts-flash','Serena'),'UklGRg==');
- assert.match(calls[0].url,/multimodal-generation\/generation$/);
- assert.deepEqual(calls[0].body.input,{text:'你好',voice:'Serena',language_type:'Chinese'});
- assert.equal(publicVoiceConfig({YUANBAI_PUBLIC_TTS_MODEL:'old',YUANBAI_PUBLIC_TTS_VOICE_ID:'qwen-audio-3.1-tts-flash-bailian-99b47d2c8e7a459d9e49d67ab2d9033d'}),null);
+ assert.equal(await synthesize('你好','test'),'UklGRg==');
+ assert.match(calls[0].url,/tts\/SpeechSynthesizer$/);
+ assert.equal(calls[0].body.input.voice,'longanhuan_v3.1');
+ assert.equal(calls[0].body.input.format,'wav');
+ assert.equal(publicVoiceConfig({YUANBAI_PUBLIC_TTS_MODEL:'old',YUANBAI_PUBLIC_TTS_VOICE_ID:'old-custom-voice'}).voice,'longanhuan_v3.1');
 });
 test('recorded speech uses supported ASR model and reads nested transcript',async t=>{
  t.mock.method(globalThis,'fetch',async(url,options)=>{
-  const data=JSON.parse(options.body);assert.equal(data.model,'qwen3-asr-flash');assert.match(data.input.messages[0].content[0].audio,/data:audio\/mp4;base64,/);
+  const data=JSON.parse(options.body);assert.equal(data.model,'fun-asr-realtime');assert.match(data.input.messages[0].content[0].audio,/data:audio\/mp4;base64,/);
   return Response.json({output:{choices:[{message:{content:[{text:'胡清清研究什么'}]}}]}});
  });
  assert.equal(await transcribe('AA==','audio/mp4','test'),'胡清清研究什么');
@@ -59,7 +60,7 @@ test('text returns before speech, polling is bounded to generated answer tokens'
  const base='http://127.0.0.1:'+server.address().port;
  t.mock.method(globalThis,'fetch',async(url,options)=>{
   if(String(url).startsWith(base))return nativeFetch(url,options);
-  if(String(url).includes('multimodal-generation')){await waitVoice;return Response.json({output:{audio:{url:'https://audio.example.test/voice.wav'}}});}
+  if(String(url).includes('SpeechSynthesizer')){await waitVoice;return Response.json({output:{audio:{url:'https://audio.example.test/voice.wav'}}});}
   if(String(url).includes('audio.example.test'))return new Response(new Uint8Array([82,73,70,70]));
   return Response.json({choices:[{message:{content:'这是用于异步语音测试的回答。'}}]});
  });

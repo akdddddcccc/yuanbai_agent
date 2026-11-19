@@ -1,3 +1,5 @@
+import {Readable} from 'node:stream';
+import {pipeline} from 'node:stream/promises';
 import http from 'node:http';
 import {randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
@@ -23,7 +25,7 @@ export function createAgentServer(config={}){
   const ticket=randomUUID();
   const job={origin,expires:now+180000,state:'pending'};
   speechJobs.set(ticket,job); speechInFlight++;
-  Promise.resolve().then(()=>synthesize(answer,env.DASHSCOPE_API_KEY,voice.model,voice.voice,env))
+  Promise.resolve().then(()=>synthesize(answer,env.DASHSCOPE_API_KEY,env))
    .then(audio=>{job.state='ready';job.audio_base64=audio;})
    .catch(()=>{job.state='unavailable';})
    .finally(()=>{speechInFlight--;});
@@ -33,7 +35,7 @@ export function createAgentServer(config={}){
  const send=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data))};
  const server=http.createServer(async(req,res)=>{
   const route=new URL(req.url,'http://localhost').pathname;
-  if(route==='/health' && req.method==='GET')return send(res,200,{ok:true,edition:'school-v8',speech_async:true,configured:Boolean(config.DASHSCOPE_API_KEY&&config.DEEPSEEK_API_KEY),voice:config.YUANBAI_PUBLIC_TTS_VOICE_ID||null});
+  if(route==='/health' && req.method==='GET')return send(res,200,{ok:true,edition:'school-v8',speech_async:true,configured:Boolean(config.DASHSCOPE_API_KEY&&config.DEEPSEEK_API_KEY),voice:publicVoiceConfig().voice});
   const origin=req.headers.origin;
   if(!origin||!origins.includes(origin))return send(res,403,{ok:false,error:'请从学院网页进入。'});
   if(req.method==='OPTIONS'){
@@ -65,7 +67,13 @@ export function createAgentServer(config={}){
     const result=action==='join'?queue.join():queue[action](body.ticket);
     return send(res,result.ok?200:429,result);
    }
-   const response=await onRequestPost({request:new Request(origin+route,{method:'POST',headers:{'Content-Type':'application/json',Origin:origin},body:raw}),env});
+   const abort=new AbortController();
+   res.once('close',()=>{if(!res.writableEnded)abort.abort();});
+   const response=await onRequestPost({request:new Request(origin+route,{method:'POST',headers:{'Content-Type':'application/json',Origin:origin,Accept:req.headers.accept||'application/json'},signal:abort.signal,body:raw}),env});
+   if(response.headers.get('content-type')?.includes('application/x-ndjson')){
+    res.writeHead(response.status,Object.fromEntries(response.headers));
+    await pipeline(Readable.fromWeb(response.body),res);return;
+   }
    if(response.ok && body.want_audio===true && typeof body.text==='string'){
     const result=await response.json();
     if(result.ok && result.answer)Object.assign(result,startSpeech(result.answer,origin));

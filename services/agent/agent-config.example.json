@@ -5,10 +5,7 @@
   "DASHSCOPE_BASE_URL": "https://dashscope.aliyuncs.com",
   "DEEPSEEK_API_KEY": "",
   "DEEPSEEK_API_BASE": "https://api.deepseek.com",
-  "DEEPSEEK_MODEL": "deepseek-chat",
-  "YUANBAI_ASR_MODEL": "qwen3-asr-flash",
-  "YUANBAI_PUBLIC_TTS_MODEL": "qwen3-tts-flash",
-  "YUANBAI_PUBLIC_TTS_VOICE_ID": "Serena",
+  "DEEPSEEK_MODEL": "deepseek-flash",
   "YUANBAI_QUEUE_CAPACITY": 4,
   "DEEPSEEK_WEB_SEARCH_ENABLED": true
 }

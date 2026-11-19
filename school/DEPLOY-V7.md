@@ -2,7 +2,7 @@
 
 > 当前目录和Nginx片段是建议方案，不是已核实的现场配置。请先提供目标Windows上的元白目录、现有Nginx server配置及游戏/Agent启动方式，再确定最终安装步骤。此版先用于验收，勿直接覆盖线上目录。
 
-本包在朋友上传的 v6 上整合9月28日汇报版双入口、互动教学、新知识库和女声Agent。堡垒机是远程入口，以下操作都在其中打开的目标Windows服务器进行。无需在服务器安装Git或运行前端构建；需要Node.js 24+。现有游戏排行榜继续使用现场服务，不迁库、不启动包外的排行榜示例。
+本包在朋友上传的 v6 上整合9月28日汇报版双入口、互动教学、新知识库和流式语音 Agent。堡垒机是远程入口，以下操作都在其中打开的目标Windows服务器进行。无需在服务器安装Git或运行前端构建；需要Node.js 24+。现有游戏排行榜继续使用现场服务，不迁库、不启动包外的排行榜示例。
 
 ## 1. 把包送到服务器
 
@@ -35,12 +35,10 @@ node --version
 | DASHSCOPE_API_KEY | 阿里云百炼北京地域可调用模型的密钥 |
 | DEEPSEEK_API_KEY | 现有DeepSeek密钥 |
 | YUANBAI_ALLOWED_ORIGINS | 保留学院实际HTTP/HTTPS来源；域名必须准确，不带路径或末尾斜杠 |
-| YUANBAI_PUBLIC_TTS_MODEL | 默认 `qwen3-tts-flash` |
-| YUANBAI_PUBLIC_TTS_VOICE_ID | 默认 `Serena`，官方系统女声“苏瑶” |
-| YUANBAI_ASR_MODEL | 默认 `qwen3-asr-flash` |
+| DEEPSEEK_MODEL | 文字模式默认 `deepseek-flash`；流式语音路径使用同一模型 |
 | PORT | 默认 `4175`；若冲突，同时修改Nginx配置中的4175 |
 
-如果百炼账号要求工作空间专属域名，将 `DASHSCOPE_BASE_URL` 改为控制台给出的北京地域完整HTTPS主机地址（不带 `/api/v1`）。新加坡密钥不能混用北京地址。当前适配器仅核对了Qwen3录音识别与Qwen3非实时TTS协议，不能随意改成旧CosyVoice或其他模型。旧院长音色ID被明确拦截，旧开场录音不随包发布。
+如果百炼账号要求工作空间专属域名，将 `DASHSCOPE_BASE_URL` 改为控制台给出的北京地域完整HTTPS主机地址（不带 `/api/v1`）。新加坡密钥不能混用北京地址。识别使用 fun-asr-realtime。回复按句交给 qwen-audio-3.1-tts-flash，浏览器逐块播放 24 kHz PCM。音色在服务代码中固定为龙安欢（longanhuan_v3.1）。
 
 配置文件在 `public` 之外，Nginx只映射public。请将其NTFS读取权限限制给管理员与实际运行Agent的账户；不要提交Git或发到聊天。启动：
 
@@ -54,7 +52,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File D:\yuanbai\releases\v7\deplo
 Invoke-RestMethod http://127.0.0.1:4175/health
 ```
 
-应显示 `ok: true`、`configured: true`、`voice: Serena`。这只证明服务启动和配置字段存在，不证明密钥有效；实际模型调用在第5步验收。
+应显示 `ok: true`、`configured: true`、`voice: longanhuan_v3.1`。这只证明服务启动和配置字段存在，不证明密钥有效；实际模型调用在第5步验收。
 
 前台窗口关闭会停止服务。确认成功后Ctrl+C结束前台服务，然后在**管理员PowerShell**运行以下脚本，注册开机启动的独立计划任务：
 
@@ -113,7 +111,7 @@ $configPath = 'conf/nginx.conf' # 按现有-c参数修改
 2. 首次从首页点探索：先规则介绍，再4×4教学，完成或跳过进入9×9正式游戏。旧玩家可在“探索规则”中重看教学；教学不提交成绩。
 3. 文字问“胡清清研究什么”“刘亚明的AI人格反馈论文有哪些限制”，展开来源。应识别教师，明确证据边界。
 4. 问“查一下胡清清老师的官网介绍”：应显示实际官网读取结果；若官网连接失败，状态应如实提示。未收录人物或开放网络搜索仍依赖模型提供商的联网接口能力，未返回来源时不能宣称检索成功。
-5. HTTPS手机真机允许麦克风，短句询问，核对识别文字、Serena女声、模型动画、停止回答、排队取消。iOS和Android微信各测一次。女声未试听验收；如不合适，可在同模型支持的系统音色中更换voice参数。
+5. HTTPS手机真机允许麦克风，短句询问，核对识别文字、龙安欢语音、模型动画、停止回答、排队取消。iOS和Android微信各测一次。核对首段播放、停止和再次提问。
 6. 正式游戏开局、存取现有排行榜。该服务继续沿用现场后端，本包不迁移或覆盖历史成绩。
 7. 模拟拒绝麦克风时仍能文字提问；声音服务故障时已生成的文字回答仍保留；并发或快速连续请求不会永久占用队列。
 
