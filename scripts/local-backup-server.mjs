@@ -1,4 +1,6 @@
 import http from 'node:http';
+import {Readable} from 'node:stream';
+import {pipeline} from 'node:stream/promises';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,11 +21,11 @@ const server = http.createServer(async (req, res) => {
       const chunks=[]; let bytes=0;
       for await (const chunk of req) { bytes+=chunk.length; if(bytes>25*1024*1024) {res.writeHead(413).end();return;} chunks.push(chunk); }
       const upstream=await fetch('https://apps-demo.muyang23333.top/api/yuanbai/chat',{
-        method:'POST',headers:{'content-type':req.headers['content-type'] || 'application/json'},
+        method:'POST',headers:{accept:req.headers.accept || 'application/json','content-type':req.headers['content-type'] || 'application/json'},
         body:Buffer.concat(chunks),signal:AbortSignal.timeout(120000),
       });
       res.writeHead(upstream.status,{'content-type':upstream.headers.get('content-type') || 'application/json'});
-      res.end(Buffer.from(await upstream.arrayBuffer()));return;
+      if (upstream.body) await pipeline(Readable.fromWeb(upstream.body),res); else res.end();return;
     }
     if(!['GET','HEAD'].includes(req.method)) {res.writeHead(405).end();return;}
     let file=path.resolve(root, '.' + decodeURIComponent(url.pathname));

@@ -1,3 +1,4 @@
+import { readVoiceStream } from "./streamPlayback.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowUpRight, Microphone, Play, Stop } from "@phosphor-icons/react";
 import { CursorLightTrail } from "./CursorLightTrail";
@@ -15,7 +16,7 @@ const PHASE_COPY = {
 
 const INTRO = "我记得这座楼、学院和大家的故事。设计卡住了，也可以慢慢说给我听。";
 const YUANBAI_MARK_URL = `${import.meta.env.BASE_URL}brand/yuanbai-mark.svg`;
-const INTRO_AUDIO_URL = `${import.meta.env.BASE_URL}audio/yuanbai-intro.mp3`;
+const INTRO_AUDIO_URL = `${import.meta.env.BASE_URL}audio/longanhuan-intro.mp3`;
 const MAX_AUDIO_BASE64_LENGTH = 800_000;
 // 本地 Python 服务使用 /api/chat；发布到共享域名的 /yuanbai/ 后自动切换到 EdgeOne 函数。
 const API_CHAT_URL = import.meta.env.VITE_YUANBAI_API_URL || (
@@ -305,7 +306,7 @@ export function App() {
       // API 密钥始终留在服务端函数中。
       const response = await fetch(API_CHAT_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
         signal: requestController.signal,
         body: JSON.stringify({
           audio_base64: audioBase64,
@@ -315,6 +316,28 @@ export function App() {
           history: historyRef.current,
         }),
       });
+      const recordAnswer = result => {
+        setTranscript(result.transcript || "");
+        setAnswer(result.answer || "");
+        historyRef.current = [
+          ...historyRef.current,
+          { role: "user", content: result.transcript || "" },
+          { role: "assistant", content: result.answer || "" },
+        ].filter((message) => message.content).slice(-8);
+      };
+      if (response.ok && response.headers.get("content-type")?.includes("application/x-ndjson")) {
+        const context = audioContextRef.current || (audioContextRef.current = new AudioContext());
+        const played = await readVoiceStream(response, context, {
+          signal:requestController.signal, onText:setAnswer, onAnswer:recordAnswer,
+          onAudio:(source, context) => { connectMeter(source, context, true); setPhase("speaking"); }
+        });
+        stopMeter();
+        setPhase("idle");
+        releaseQueueTicket(queueTicket);
+
+        if (played.blocked) await playResponse(URL.createObjectURL(played.blob), true);
+        return;
+      }
       // 先读取文本再解析，避免网关返回空响应时只看到“Unexpected end of JSON input”。
       const rawResponse = await response.text();
       let result;
@@ -333,26 +356,10 @@ export function App() {
         throw new Error(result.error || "这次没有回答成功，请再试一次。");
       }
       if (requestController.signal.aborted || queueCancelledRef.current) return;
-      setTranscript(result.transcript || "");
-      setAnswer(result.answer || "");
-      historyRef.current = [
-        ...historyRef.current,
-        { role: "user", content: result.transcript || "" },
-        { role: "assistant", content: result.answer || "" },
-      ].filter((message) => message.content).slice(-8);
-
-      // 公网函数返回 base64，生成同源 Blob 后 WebAudio 才能稳定读取音量。
-      // 本地 Python 仍可返回 audio_url，两种方式共用同一套前端。
-      if (result.audio_base64) {
-        const binary = atob(result.audio_base64);
-        const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-        const audioUrl = URL.createObjectURL(new Blob([bytes], { type: result.audio_mime_type || "audio/mpeg" }));
-        await playResponse(audioUrl, true);
-      } else if (result.audio_url) {
-        await playResponse(result.audio_url);
-      } else {
-        throw new Error("回答已经生成，但没有收到声音文件。");
-      }
+      recordAnswer(result);
+      setPhase("idle");
+      releaseQueueTicket(queueTicket);
+      setErrorMessage("此服务尚未提供新版语音，已显示文字回答。");
     } catch (error) {
       if (error?.name === "AbortError" || queueCancelledRef.current) {
         stopMeter();
@@ -367,7 +374,7 @@ export function App() {
     } finally {
       if (requestAbortRef.current === requestController) requestAbortRef.current = null;
     }
-  }, [playResponse, releaseQueueTicket, stopMeter, waitForQueueTurn]);
+  }, [connectMeter, playResponse, releaseQueueTicket, stopMeter, waitForQueueTurn]);
 
   const stopAnswer = useCallback(() => {
     queueCancelledRef.current = true;
