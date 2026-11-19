@@ -25,7 +25,7 @@ function Root() {
 
   const enterDialogue = useCallback(() => {
     // Begin inside the entry click/key press, then switch views without a reload.
-    startIntroAudio(`${import.meta.env.BASE_URL}audio/yuanbai-intro.mp3`);
+    startIntroAudio(`${import.meta.env.BASE_URL}audio/longanhuan-intro.mp3`);
     window.history.pushState(null, "", `${import.meta.env.BASE_URL}dialogue/`);
     setPath(window.location.pathname);
   }, []);
