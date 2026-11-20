@@ -5,10 +5,8 @@ import { Portal } from "./Portal.jsx";
 import { PersonalPortal } from "./PersonalPortal.jsx";
 import { usePersonalPortal } from "./personalPortalDomain.js";
 import "./styles.css";
-import { preloadModel } from "./preloadModel.js";
 import { startIntroAudio, stopIntroAudio } from "./introAudio.js";
 
-preloadModel().catch(() => {});
 
 // 同一份前端按路径切换：根路径是工作台，/dialogue/ 是原有语音体验。
 // 这样部署到子目录时仍共用一套 Three.js 模型和样式资源。

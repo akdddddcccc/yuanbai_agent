@@ -2,7 +2,7 @@ import { readVoiceStream } from "./streamPlayback.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowUpRight, Microphone, Play, Stop } from "@phosphor-icons/react";
 import { CursorLightTrail } from "./CursorLightTrail";
-import { YuanbaiScene } from "./YuanbaiScene";
+import { YuanbaiScene } from "./ResponsiveScenes.jsx";
 import { startAudioPlayback } from "./audioPlayback";
 import { startIntroAudio, stopIntroAudio } from "./introAudio";
 

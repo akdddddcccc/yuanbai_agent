@@ -1,0 +1,8 @@
+<!doctype html><html><head><style>html,body{margin:0;background:#130706} .mobile-building{width:1024px;height:768px} .mobile-building-frame{max-width:none!important}</style></head><body><div id="root"></div><script type="module">
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {MobileBuilding} from '/src/ResponsiveScenes.jsx';
+const root=createRoot(document.getElementById('root'));
+window.setEnergy=level=>root.render(React.createElement(MobileBuilding,{phase:'speaking',level}));
+window.setEnergy(0);
+</script></body></html>
